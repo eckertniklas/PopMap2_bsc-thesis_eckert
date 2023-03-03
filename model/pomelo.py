@@ -73,18 +73,20 @@ class JacobsUNet(nn.Module):
                 nn.Conv2d(32, feature_dim, kernel_size=3, padding='same'),  nn.Softplus()),
         )
 
-        self.head = nn.Sequential(nn.Conv2d(feature_dim, 2, kernel_size=3, padding=1), nn.Softplus())
 
         self.unetmodel = nn.Sequential(
             smp.Unet( encoder_name="resnet18", encoder_weights="imagenet", decoder_channels=(64, 32, 16),
-                encoder_depth=3, in_channels=input_channels,  classes=feature_dim ),
+            # smp.Unet( encoder_name="resnet18", encoder_weights="imagenet", decoder_channels=(64, 32, 16),
+                encoder_depth=3, in_channels=input_channels,  classes=feature_dim, decoder_use_batchnorm=False ),
             nn.Softplus()
         )
 
+        self.head = nn.Conv2d(feature_dim, 3, kernel_size=3, padding=1)
 
+                                  
     def forward(self, inputs, train=False):
 
-        deactivated = False
+        deactivated = True
 
         if deactivated:
             p2d = (2, 2, 2, 2)
@@ -112,15 +114,21 @@ class JacobsUNet(nn.Module):
                 x = layer(decodermap)
 
         x = self.head(x)
-        Popmap = x[:,0]
-        # Popmap = torch.exp(x[:,0])
-        Popcount = Popmap.sum((1,2))
 
-        builtmap = x[:,0]
-        builtcount = builtmap.sum((1,2))
+        # Population map
+        popdensemap = nn.functional.softplus(x[:,0])
+        popcount = popdensemap.sum((1,2))
 
-        return {"Popcount": Popcount, "Popmap": Popmap, "builtmap": builtmap, "builtcount": builtcount}
+        # Building map
+        builtdensemap = nn.functional.softplus(x[:,1])
+        builtcount = builtdensemap.sum((1,2))
 
+        # Builtup mask
+        builtupmap = torch.sigmoid(x[:,2]) 
+
+        return {"popcount": popcount, "popdensemap": popdensemap,
+                "builtdensemap": builtdensemap, "builtcount": builtcount,
+                "builtupmap": builtupmap}
 
 
 
@@ -128,19 +136,19 @@ class PomeloUNet(nn.Module):
     '''
     PomeloUNet
     '''
-    def __init__(self, input_channels, num_classes):
+    def __init__(self, input_channels, feature_dim):
         super(PomeloUNet, self).__init__()
         
         self.PomeloEncoder = nn.Sequential(
             nn.Conv2d(input_channels, 32, kernel_size=3, padding='same'),  nn.SELU(),
             nn.Conv2d(32, 32, kernel_size=3, padding='same'), nn.SELU(),
             nn.Conv2d(32, 32, kernel_size=3, padding='same'), nn.SELU(),
-            nn.Conv2d(32, 32, kernel_size=3, padding='same'), nn.SELU(),
-            nn.Conv2d(32, 32, kernel_size=3, padding='same'), nn.SELU(),
+            nn.Conv2d(32, 32, kernel_size=1, padding='same'), nn.SELU(),
+            nn.Conv2d(32, feature_dim, kernel_size=1, padding='same'), nn.SELU(),
         )
 
         self.PomeloDecoder = nn.Sequential(
-            nn.Conv2d(32+1, 128, kernel_size=3, padding='same'), nn.SELU(),
+            nn.Conv2d(feature_dim+1, 128, kernel_size=3, padding='same'), nn.SELU(),
             nn.Conv2d(128, 128, kernel_size=1, padding='same'), nn.SELU(),
             nn.Conv2d(128, 128, kernel_size=1, padding='same'), nn.SELU(),
             nn.Conv2d(128, 128, kernel_size=1, padding='same'), nn.SELU(), 
@@ -149,7 +157,7 @@ class PomeloUNet(nn.Module):
 
         ## set model features
         self.unetmodel = smp.Unet( encoder_name="resnet18", encoder_weights="imagenet",
-                                  encoder_depth=3, in_channels=input_channels,  classes=num_classes )
+                                  encoder_depth=3, in_channels=input_channels,  classes=2 )
         
         self.gumbeltau = torch.nn.Parameter(torch.tensor([2/3]), requires_grad=True)
         
@@ -160,22 +168,41 @@ class PomeloUNet(nn.Module):
         encoding = self.PomeloEncoder(inputs)
 
         #Decode Buildings
-        unetout = self.unetmodel(encoding)
-        built_hard = torch.nn.functional.gumbel_softmax(unetout[0], tau=self.gumbeltau, hard=True, eps=1e-10, dim=1)[:,0]
-        count = unetout[1]
+        x = self.unetmodel(encoding)
         
-        sparse_buildings = built_hard*count 
+        # # Builtup mask
+        # builtupmap = nn.functional.sigmoid(x[:,2]) 
+        builtupmap = torch.nn.functional.gumbel_softmax(x[:,0], tau=self.gumbeltau, hard=True, eps=1e-10, dim=1)[:,0]
+
+        # Building map
+        builtdensemap = nn.functional.softplus(x[:,0]) * builtupmap
+        builtcount = builtdensemap.sum((1,2))
+        
 
         with torch.no_grad():
-            no_grad_sparse_buildings = sparse_buildings*1.0
-            no_grad_count = count*1.0
+            no_grad_sparse_buildings = builtdensemap*1.0
+            no_grad_count = builtcount*1.0
 
         # Decode for OccRate (Population)
         OccRate = self.PomeloDecoder(torch.concatenate([encoding,no_grad_sparse_buildings],1))
 
         # Get population map and total count
-        Popmap = OccRate * sparse_buildings
-        Popcount = Popmap.sum()
+        popdensemap = OccRate * builtdensemap
+        popcount = popdensemap.sum()
         builtcount = builtcount
         
-        return Popcount, {"Popmap": Popmap, "built_map": sparse_buildings, "builtcount": builtcount}
+        return {"popcount": popcount, "popdensemap": popdensemap,
+                "builtdensemap": builtdensemap, "builtcount": builtcount,
+                "builtupmap": builtupmap, "tau": self.gumbeltau.detach()}
+        # return Popcount, {"Popmap": Popmap, "built_map": sparse_buildings, "builtcount": builtcount}
+    
+        # # Population map
+        # popdensemap = nn.functional.softplus(x[:,0])
+        # popcount = popdensemap.sum((1,2))
+
+        # # Builtup mask
+        # builtupmap = nn.functional.sigmoid(x[:,2]) 
+
+        # return {"popcount": popcount, "popdensemap": popdensemap,
+        #         "builtdensemap": builtdensemap, "builtcount": builtcount,
+        #         "builtupmap": builtupmap}

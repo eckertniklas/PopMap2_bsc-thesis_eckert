@@ -17,7 +17,8 @@ num_classes = 1  # one for regression
 if os.name == "nt":  # locally
     current_dir_path = dirname(dirname((os.getcwd())))
 
-current_dir_path = "/scratch2/metzgern/HAC/code/So2SatPOP/data"
+# current_dir_path = "/scratch2/metzgern/HAC/code/So2SatPOP/data"
+current_dir_path = "/scratch/metzgern/HAC/data"
 
 
 # paths to So2Sat POP Part1 folder

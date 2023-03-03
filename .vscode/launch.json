@@ -5,6 +5,26 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "debug train",
+            "type": "python",
+            "request": "launch",
+            "program": "run_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                "--no-osm",
+                "--satmode",
+                "--max_samples", "20000",
+                "--batch_size", "128",
+                "--num_epochs", "2500",
+                "--in_memory",
+                "-lr", "3e-5",
+                "--lr_step", "10",
+                "--lam_builtmask", "1000"
+                
+            ]
+        },
+        {
             "name": "train",
             "type": "python",
             "request": "launch",
@@ -14,6 +34,10 @@
             "args":[
                 "--no-osm",
                 "--satmode",
+                // "--max_samples", "5000",
+                "--num_epochs", "2500",
+                // "--in_memory"
+                
             ]
         }
     ]

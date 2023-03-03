@@ -70,10 +70,10 @@ def plot_2dmatrix(matrix, fig=1, vmin=None, vmax=None):
         if matrix.requires_grad:
             matrix = matrix.detach()
         matrix = matrix.numpy()
-        if matrix.shape[0]==1:
-            matrix = matrix[0]
-        if matrix.shape[0]==3:
-            matrix = matrix.permute((1,2,0))
+    if matrix.shape[0]==1:
+        matrix = matrix[0]
+    if matrix.shape[0]==3:
+        matrix = matrix.transpose((1,2,0))
 
     figure(fig)
     matshow(matrix, interpolation='nearest', vmin=vmin, vmax=vmax)

@@ -17,6 +17,7 @@ parser.add_argument('-r', '--resume', type=str, help='if argument is given, skri
 parser.add_argument("-d", "--dataset", help='', type=str, default="So2Sat")
 parser.add_argument('-b', '--batch_size', help='', type=int, default=64)
 parser.add_argument("-m", "--model", help='', type=str, default="JacobsUNet")
+parser.add_argument('-fe', '--feature_extractor', type=str, help=' ', default="resnet18")
 
 #Training
 parser.add_argument('-e', '--num_epochs', help='', type=int, default=20)
@@ -39,6 +40,7 @@ parser.add_argument("--seed", help='', type=int, default=1610)
 parser.add_argument('--save-model', default='both', choices=['last', 'best', 'no', 'both'])
 parser.add_argument('-ms', '--max_samples', help='', type=float, default=1e15)
 parser.add_argument( "--in_memory", action='store_true', help='')
+parser.add_argument( "--merge_aug", action='store_true', help='')
 
 
 

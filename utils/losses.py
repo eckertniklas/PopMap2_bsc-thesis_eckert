@@ -5,24 +5,33 @@ from utils.utils import plot_2dmatrix
 from collections import defaultdict
 
 
-def get_loss(output, gt, lam_builtmask=1., lam_dense=1.):
+def get_loss(output, gt, merge_aug=False, lam_builtmask=1., lam_dense=1.):
     auxdict = defaultdict(float)
     
-
+    # prepare vars
     y_pred = output["popcount"]
+    hl = len(y_pred)//2
+    aug_pred =torch.stack(torch.split(y_pred, hl)).sum(0)
+    aug_gt = torch.stack(torch.split(gt["y"], hl)).sum(0) 
 
     # Population loss and metrics
     popdict = {
         "l1_loss": F.l1_loss(y_pred, gt["y"]),
+        "l1_aug_loss": F.l1_loss(aug_pred, aug_gt),
         "log_l1_loss": F.l1_loss(torch.log(y_pred+1), torch.log(gt["y"]+1)),
         "mse_loss": F.mse_loss(y_pred, gt["y"]),
         "log_mse_loss": F.mse_loss(torch.log(y_pred+1), torch.log(gt["y"]+1)),
-        "r2": r2_loss(y_pred, gt["y"]),
+        "mr2": r2(y_pred, gt["y"]),
         "mape": mape_func(y_pred, gt["y"]),
     }
 
     # define optimization loss
-    optimization_loss = popdict["l1_loss"]
+    if merge_aug:
+
+        optimization_loss = popdict["l1_aug_loss"]
+    else:
+        optimization_loss = popdict["l1_loss"]
+    # optimization_loss = popdict["log_l1_loss"]
 
     popdict = {"Population:"+key: value for key,value in popdict.items()}
     auxdict = {**auxdict, **popdict}
@@ -39,7 +48,8 @@ def get_loss(output, gt, lam_builtmask=1., lam_dense=1.):
             **class_metrics(output["builtupmap"], gt["builtupmap"], thresh=0.5)
         }
 
-        optimization_loss += lam_builtmask*builtupdict["bce"]
+        if lam_builtmask>0.0:
+            optimization_loss += lam_builtmask*builtupdict["bce"]
 
         # Building density calculation
         builtdensedict = {}
@@ -49,16 +59,17 @@ def get_loss(output, gt, lam_builtmask=1., lam_dense=1.):
         auxdict = {**auxdict, **builtupdict}
         auxdict = {**auxdict, **builtdensedict}
         
-
     auxdict["optimization_loss"] =  optimization_loss
+    auxdict = {key:value.detach().item() for key,value in auxdict.items()}
 
     return optimization_loss, auxdict
 
         
 BCE = torch.nn.BCELoss()
 
+
 def class_metrics(pred, gt, thresh=0.5, eps=1e-8):
-    pred = (pred.view(-1)>thresh).float()
+    pred = (pred.reshape(-1)>thresh).float()
     gt = gt.float().view(-1)
 
     # Get confusion matrix
@@ -75,17 +86,19 @@ def class_metrics(pred, gt, thresh=0.5, eps=1e-8):
 
     return {"accuracy": acc, "precision": P, "recall": R, "f1": F1, "IoU": IoU}
 
+
 def mape_func(pred, gt, eps=1e-8):
     pos_mask = gt>0.1
     mre =  ( (pred[pos_mask]- gt[pos_mask]).abs() / (gt[pos_mask] + eps)).mean()
     return mre*100
 
+
 # stolen from https://stackoverflow.com/questions/65840698/how-to-make-r2-score-in-nn-lstm-pytorch
-def r2_loss(pred, gt):
+def r2(pred, gt, eps=1e-8):
     gt_mean = torch.mean(gt)
     ss_tot = torch.sum((gt - gt_mean) ** 2)
     ss_res = torch.sum((gt - pred) ** 2)
-    r2 = 1 - ss_res / ss_tot
+    r2 = 1 - ss_res / (ss_tot + eps)
     return r2
 
 

@@ -19,7 +19,7 @@ from sklearn import model_selection
 from arguments import train_parser
 from model.pomelo import JacobsUNet, PomeloUNet
 from data.So2Sat import PopulationDataset_Reg
-from utils.losses import get_loss
+from utils.losses import get_loss, r2
 from utils.utils import new_log, to_cuda, seed_all
 
 from utils.utils import get_fnames_labs_reg, plot_2dmatrix
@@ -30,7 +30,6 @@ import wandb
 
 import nvidia_smi
 nvidia_smi.nvmlInit()
-
 
 
 class Trainer:
@@ -46,11 +45,13 @@ class Trainer:
             self.model = JacobsUNet( 
                 input_channels = 4,
                 feature_dim = 32,
+                feature_extractor = args.feature_extractor
             ).cuda()
         elif args.model=="PomeloUNet":
             self.model = PomeloUNet( 
                 input_channels = 4,
                 feature_dim = 32,
+                feature_extractor=args.feature_extractor
             ).cuda()
 
         self.experiment_folder, self.args.expN, self.args.randN = new_log(os.path.join(args.save_dir, args.dataset), args)
@@ -109,7 +110,7 @@ class Trainer:
 
                 output = self.model(sample, train=True)
 
-                loss, loss_dict = get_loss(output, sample, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
+                loss, loss_dict = get_loss(output, sample, merge_aug=args.merge_aug, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
 
                 if torch.isnan(loss):
                     raise Exception("detected NaN loss..")
@@ -149,17 +150,24 @@ class Trainer:
         self.model.eval()
 
         with torch.no_grad():
-            for sample in tqdm(self.dataloaders['val'], leave=False):
+            pred, gt = [], []
+            for sample in tqdm(self.dataloaders["val"], leave=False):
                 sample = to_cuda(sample)
 
                 output = self.model(sample)
+                
+                # Colellect predictions and samples
+                pred.append(output["popcount"].view(-1)); gt.append(sample["y"].view(-1))
 
-                loss, loss_dict = get_loss(output, sample)
+                loss, loss_dict = get_loss(output, sample, merge_aug=args.merge_aug, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
 
                 for key in loss_dict:
                     self.val_stats[key] +=  loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key] 
-
+            
             self.val_stats = {k: v / len(self.dataloaders['val']) for k, v in self.val_stats.items()}
+
+            # Compute non-averagable metrics
+            self.val_stats["Population:r2"] = r2(torch.cat(pred), torch.cat(gt))
 
             wandb.log({**{k + '/val': v for k, v in self.val_stats.items()}, **self.info}, self.info["iter"])
             
@@ -184,7 +192,7 @@ class Trainer:
             
             val_size = 0.2
             data_dir = all_patches_mixed_train_part1
-            f_names, labels = get_fnames_labs_reg(data_dir, force_recompute=True)
+            f_names, labels = get_fnames_labs_reg(data_dir, force_recompute=False)
             f_names, labels = f_names[:int(args.max_samples)] , labels[:int(args.max_samples)] 
             # f_names_train, f_names_val, labels_train, labels_val = model_selection.train_test_split(
             #     f_names, labels, test_size=val_size, random_state=42)
@@ -199,7 +207,7 @@ class Trainer:
             raise NotImplementedError(f'Dataset {args.dataset}')
         
         return {"train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True, drop_last=True),
-                "val":  DataLoader(datasets["val"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False)}
+                "val":  DataLoader(datasets["val"], batch_size=args.batch_size*2, num_workers=args.num_workers, shuffle=True, drop_last=False)}
 
     def save_model(self, prefix=''): 
         torch.save({

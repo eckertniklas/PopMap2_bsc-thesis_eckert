@@ -5,33 +5,40 @@ from utils.utils import plot_2dmatrix
 from collections import defaultdict
 
 
-def get_loss(output, gt, merge_aug=False, lam_builtmask=1., lam_dense=1.):
+def get_loss(output, gt, loss="l1_loss", merge_aug=False, lam_builtmask=1., lam_dense=1.):
     auxdict = defaultdict(float)
     
     # prepare vars
     y_pred = output["popcount"]
-    hl = len(y_pred)//2
-    aug_pred =torch.stack(torch.split(y_pred, hl)).sum(0)
-    aug_gt = torch.stack(torch.split(gt["y"], hl)).sum(0) 
 
     # Population loss and metrics
     popdict = {
         "l1_loss": F.l1_loss(y_pred, gt["y"]),
-        "l1_aug_loss": F.l1_loss(aug_pred, aug_gt),
+        # "l1_aug_loss": F.l1_loss(aug_pred, aug_gt),
         "log_l1_loss": F.l1_loss(torch.log(y_pred+1), torch.log(gt["y"]+1)),
         "mse_loss": F.mse_loss(y_pred, gt["y"]),
         "log_mse_loss": F.mse_loss(torch.log(y_pred+1), torch.log(gt["y"]+1)),
         "mr2": r2(y_pred, gt["y"]),
         "mape": mape_func(y_pred, gt["y"]),
+        "focal_loss": focal_loss(y_pred, gt["y"]),
+        "tversky_loss": tversky_loss(y_pred, gt["y"]),
     }
+
+    # augmented loss
+    if len(y_pred)%4==0:
+        hl = len(y_pred)//4
+        aug_pred = torch.stack(torch.split(y_pred, hl)).sum(0)
+        aug_gt = torch.stack(torch.split(gt["y"], hl)).sum(0) 
+        popdict["l1_aug_loss"] = F.l1_loss(aug_pred, aug_gt)
+        popdict["mse_aug_loss"] = F.mse_loss(aug_pred, aug_gt)
+    else:
+        popdict["l1_aug_loss"] = popdict["l1_loss"]*4
 
     # define optimization loss
     if merge_aug:
-
         optimization_loss = popdict["l1_aug_loss"]
     else:
-        optimization_loss = popdict["l1_loss"]
-    # optimization_loss = popdict["log_l1_loss"]
+        optimization_loss = popdict[loss]
 
     popdict = {"Population:"+key: value for key,value in popdict.items()}
     auxdict = {**auxdict, **popdict}
@@ -42,8 +49,8 @@ def get_loss(output, gt, merge_aug=False, lam_builtmask=1., lam_dense=1.):
         builtupdict = {
             **{
                 "bce": BCE(output["builtupmap"], gt["builtupmap"]),
-                "focal_loss": focal_loss(output["builtupmap"], gt["builtupmap"]),
-                "tversky_loss": tversky_loss(output["builtupmap"], gt["builtupmap"])
+                "focal_loss": focal_loss(output["builtupmap"].view(-1), gt["builtupmap"].view(-1)),
+                "tversky_loss": tversky_loss(output["builtupmap"].view(-1), gt["builtupmap"].view(-1))
             },
             **class_metrics(output["builtupmap"], gt["builtupmap"], thresh=0.5)
         }
@@ -102,6 +109,33 @@ def r2(pred, gt, eps=1e-8):
     return r2
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def focal_loss(pred, gt, alpha=0.5, gamma=2):
     gt = torch.stack([gt, 1-gt],1)
     pred = torch.stack([pred, 1-pred],1)
@@ -112,7 +146,7 @@ def focal_loss(pred, gt, alpha=0.5, gamma=2):
     # return torch.sum(gt * focal, dim=1)
     
 
-def tversky_loss(pred, gt, eps=1e-8, alpha=0.5, beta=0.5, dims=(1,2)):
+def tversky_loss(pred, gt, eps=1e-8, alpha=0.5, beta=0.5, dims=(1)):
     gt = torch.stack([gt, 1-gt],1)
     pred = torch.stack([pred, 1-pred],1)
 

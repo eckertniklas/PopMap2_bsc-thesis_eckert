@@ -15,6 +15,9 @@ parser.add_argument('-r', '--resume', type=str, help='if argument is given, skri
                                                             ; argument should be name of the model to be trained')
 
 parser.add_argument("-d", "--dataset", help='', type=str, default="So2Sat")
+parser.add_argument("-S1", "--Sentinel1", action='store_true', help="")
+parser.add_argument("-S2", "--Sentinel2", action='store_true', help="")
+parser.add_argument("-VIIRS", "--VIIRS", action='store_true', help="")
 parser.add_argument('-b', '--batch_size', help='', type=int, default=64)
 parser.add_argument("-m", "--model", help='', type=str, default="JacobsUNet")
 parser.add_argument('-fe', '--feature_extractor', type=str, help=' ', default="resnet18")
@@ -22,6 +25,7 @@ parser.add_argument('-fe', '--feature_extractor', type=str, help=' ', default="r
 #Training
 parser.add_argument('-e', '--num_epochs', help='', type=int, default=20)
 parser.add_argument('-lr', '--learning_rate', help='', type=float, default=1e-4)
+parser.add_argument('-l', '--loss', help='', type=str, default="l1_loss", choices=["l1_loss", "log_l1_loss", "mse_loss", "log_mse_loss", "focal_loss","tversky_loss"])
 parser.add_argument('-w', '--num_workers', help='', type=int, default=10)
 parser.add_argument('-wd', '--weightdecay', help='', type=float, default=0.0)
 parser.add_argument('-lrs', '--lr_step', help='', type=int, default=3)

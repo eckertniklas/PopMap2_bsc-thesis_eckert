@@ -18,73 +18,20 @@ class JacobsUNet(nn.Module):
     def __init__(self, input_channels, feature_dim, feature_extractor="resnet18"):
         super(JacobsUNet, self).__init__()
 
-        ic = input_channels
         self.down = 3
         
-        # self.encoder = nn.Sequential(
-        #     nn.Sequential(
-        #             nn.Conv2d(ic, 32, kernel_size=3, padding='same'),  nn.ReLU(),
-        #             nn.Conv2d(32, 32, kernel_size=3, padding='same'), nn.ReLU() ),
-        #     nn.Sequential(
-        #             nn.MaxPool2d(2,2),
-        #             nn.Conv2d(32, 64, kernel_size=3, padding='same'),  nn.ReLU(),
-        #             nn.Conv2d(64, 64, kernel_size=3, padding='same'), nn.ReLU() ),
-        #     nn.Sequential(
-        #             nn.MaxPool2d(2,2),
-        #             nn.Conv2d(64, 128, kernel_size=3, padding='same'),  nn.ReLU(),
-        #             nn.Conv2d(128, 128, kernel_size=3, padding='same'),  nn.ReLU() ),
-        #     nn.Sequential(
-        #             nn.MaxPool2d(2,2),
-        #             nn.Conv2d(128, 256, kernel_size=3, padding='same'),  nn.ReLU(),
-        #             nn.Conv2d(256, 256, kernel_size=3, padding='same'),  nn.ReLU() ) 
-        # )
-
-
-        # self.decoder = nn.Sequential(
-        #     nn.Sequential(
-        #         nn.Conv2d(384, 128, kernel_size=3, padding='same'),  nn.ReLU(),
-        #         nn.Conv2d(128, 128, kernel_size=3, padding='same'),  nn.ReLU()),
-        #     nn.Sequential(
-        #         nn.Conv2d(192, 64, kernel_size=3, padding='same'),  nn.ReLU(),
-        #         nn.Conv2d(64, 64, kernel_size=3, padding='same'),  nn.ReLU()),
-        #     nn.Sequential(
-        #         nn.Conv2d(96, 32, kernel_size=3, padding='same'),  nn.ReLU(),
-        #         nn.Conv2d(32, feature_dim, kernel_size=3, padding='same'),  nn.Softplus()),
-        # )
-        
-        # self.encoder2 = nn.Sequential(
-        #     nn.Sequential(
-        #             nn.Conv2d(ic, 32, kernel_size=3, padding='same'),  nn.Softplus(),
-        #             nn.Conv2d(32, 32, kernel_size=3, padding='same'), nn.Softplus() ),
-        #     nn.Sequential(
-        #             nn.MaxPool2d(2,2),
-        #             nn.Conv2d(32, 64, kernel_size=3, padding='same'),  nn.Softplus(),
-        #             nn.Conv2d(64, 64, kernel_size=3, padding='same'), nn.Softplus() ),
-        #     nn.Sequential(
-        #             nn.MaxPool2d(2,2),
-        #             nn.Conv2d(64, 128, kernel_size=3, padding='same'),  nn.Softplus(),
-        #             nn.Conv2d(128, 128, kernel_size=3, padding='same'),  nn.Softplus() ),
-        # )
-        # self.decoder2 = nn.Sequential(
-        #     nn.Sequential(
-        #         nn.Conv2d(192, 64, kernel_size=3, padding='same'),  nn.Softplus(),
-        #         nn.Conv2d(64, 64, kernel_size=3, padding='same'),  nn.Softplus()),
-        #     nn.Sequential(
-        #         nn.Conv2d(96, 32, kernel_size=3, padding='same'),  nn.Softplus(),
-        #         nn.Conv2d(32, feature_dim, kernel_size=3, padding='same'),  nn.Softplus()),
-        # )
-
         # Padding Params
         self.p = 14
         self.p2d = (self.p, self.p, self.p, self.p)
 
         self.unetmodel = nn.Sequential(
-            smp.Unet( encoder_name="resnet18", encoder_weights="imagenet", decoder_channels=(64, 32, 16),
+            torch.nn.BatchNorm2d(input_channels),
+            smp.Unet( encoder_name=feature_extractor, encoder_weights="imagenet", decoder_channels=(64, 32, 16),
             # smp.Unet( encoder_name="resnet18", encoder_weights="imagenet", decoder_channels=(64, 32, 16),
-                encoder_depth=3, in_channels=input_channels,  classes=feature_dim, decoder_use_batchnorm=False ),
+                encoder_depth=self.down, in_channels=input_channels,  classes=feature_dim, decoder_use_batchnorm=False ),
             nn.Softplus()
         )
-
+        params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
         self.mysegmentation_head = nn.Conv2d(16, feature_dim, kernel_size=1, padding=0)
 
         self.head = nn.Conv2d(feature_dim, 4, kernel_size=1, padding=0)
@@ -93,61 +40,88 @@ class JacobsUNet(nn.Module):
                                   
     def forward(self, inputs, train=False):
 
-        deactivated = True
+        x = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
 
-        if deactivated:
-            x = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
+        x = self.unetmodel(x)[:,:,self.p:-self.p,self.p:-self.p]
 
-            if self.down>=3:
-                x = self.unetmodel(x)[:,:,self.p:-self.p,self.p:-self.p]
-            else:
-                self.unetmodel[0].check_input_shape(x)
-                features = self.unetmodel[0].encoder(x)
+        x = self.head(x)
 
-                features = features[1:]  # remove first skip with same spatial resolution
-                features = features[::-1]  # reverse channels to start from head of encoder
+        # Population map
+        popdensemap = nn.functional.softplus(x[:,0])
+        popcount = popdensemap.sum((1,2))
 
-                # head = features[0]
-                head = features[1]
-                # skips = features[1:]
-                skips = features[2:]
+        # Building map
+        builtdensemap = nn.functional.softplus(x[:,1])
+        builtcount = builtdensemap.sum((1,2))
 
-                x = self.unetmodel[0].decoder.center(head)
-                decoderout = []
-                for i, decoder_block in enumerate(self.unetmodel[0].decoder.blocks[1:]):
-                    skip = skips[i] if i < len(skips) else None
-                    x = decoder_block(x, skip)
-                    decoderout.append(x)
-
-
-                # decoder_output = self.unetmodel[0].decoder(*features)
-
-                x = self.unetmodel[0].segmentation_head(x)
-                # x = self.mysegmentation_head(x)
-                x = self.unetmodel[1](x)[:,:,self.p:-self.p,self.p:-self.p]
-
-
+        # Builtup mask
+        # builtupmap = torch.sigmoid(x[:,2]) 
+        # if train:
+        #     # builtupmap = (torch.nn.functional.softmax(x[:,2:4], dim=1)[:,0]>0.5).float()
+        #     builtupmap = torch.nn.functional.softmax(x[:,2:4], dim=1)[:,0]
+        #     # builtupmap = torch.nn.functional.gumbel_softmax(x[:,2:4], tau=self.gumbeltau, hard=True, eps=1e-10, dim=1)[:,0]
         # else:
-                
-        #     s = [ inputs["input"].shape[2]//4, inputs["input"].shape[2]//2, inputs["input"].shape[2] ]
-        #     s2 = [ inputs["input"].shape[2]//2, inputs["input"].shape[2] ]
+        #     # builtupmap = (torch.nn.functional.softmax(x[:,2:4], dim=1)[:,0]>0.5).float()
 
-        #     x = inputs["input"]
-            
-        #     #Encoding
-        #     fmaps = []
-        #     for layer in self.encoder:
-        #         x = layer(x)
-        #         fmaps.append(x)
+        builtupmap = torch.sigmoid(x[:,2]) 
+        # builtupmap = torch.nn.functional.softmax(x[:,2:4], dim=1)[:,0]
+        # Sparsify
+        # popdensemap = builtupmap * popdensemap
 
-        #     # remove this fmap, since it is the same as "x"
-        #     del fmaps[-1]
 
-        #     # Decoding
-        #     for i, layer in enumerate(self.decoder):
-        #         decodermap = torch.concatenate([ interpolate(x,(s[i],s[i])), fmaps[-(i+1)] ],1)
-        #         x = layer(decodermap)
+        return {"popcount": popcount, "popdensemap": popdensemap,
+                "builtdensemap": builtdensemap, "builtcount": builtcount,
+                "builtupmap": builtupmap}
 
+
+
+# Define a resblock
+class Block(nn.Module):
+    def __init__(self, dimension, k1=3, k2=1):
+        super(Block, self).__init__()
+
+        self.net = nn.Sequential(
+            nn.Conv2d(dimension, dimension, kernel_size=k1, padding=(k1-1)//2), nn.ReLU(),
+            nn.Conv2d(dimension, dimension, kernel_size=k2, padding=(k2-1)//2),
+        )
+    def forward(self, x):
+        return torch.nn.functional.relu(self.net(x) + x)
+
+class ResBlocks(nn.Module):
+    '''
+    PomeloUNet
+    '''
+    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18"):
+        super(ResBlocks, self).__init__()
+
+        # Padding Params
+        self.p = 14
+        self.p2d = (self.p, self.p, self.p, self.p)
+
+        self.model = nn.Sequential(
+            nn.Conv2d(input_channels, feature_dim, kernel_size=3, padding=1), nn.ReLU(),
+            Block(feature_dim, k1=3, k2=1),
+            Block(feature_dim, k1=1, k2=1),
+            nn.Conv2d(feature_dim, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
+            Block(feature_dim, k1=3, k2=1),
+            Block(feature_dim, k1=1, k2=1),
+            nn.Conv2d(feature_dim, feature_dim*2, kernel_size=1, padding=0), nn.ReLU(),
+            Block(feature_dim*2, k1=3, k2=1),
+            Block(feature_dim*2, k1=1, k2=1),
+            nn.Conv2d(feature_dim*2, feature_dim*2, kernel_size=1, padding=0), nn.ReLU(),
+            Block(feature_dim*2),
+        )
+        self.head = nn.Conv2d(feature_dim*4, 4, kernel_size=1, padding=0)
+
+        params_sum = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        # self.mysegmentation_head = nn.Conv2d(16, feature_dim, kernel_size=1, padding=0)
+        # self.gumbeltau = torch.nn.Parameter(torch.tensor([2/3]), requires_grad=True)
+    
+                                  
+    def forward(self, inputs, train=False):
+
+        x = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
+        x = self.model(x)[:,:,self.p:-self.p,self.p:-self.p]
         x = self.head(x)
 
         # Population map

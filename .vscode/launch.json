@@ -5,6 +5,14 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "rasterize CH",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/rasterize_ch.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+        },
+        {
             "name": "debug train",
             "type": "python",
             "request": "launch",
@@ -19,8 +27,8 @@
                 // "--in_memory",
                 "-lr", "3e-5",
                 "--lr_step", "10",
-                "--lam_builtmask", "1000"
-                
+                "--lam_builtmask", "1000",
+                // "--loss", "log_l1_loss"
             ]
         },
         {
@@ -36,17 +44,25 @@
                 // "--max_samples", "5000",
                 "--num_epochs", "1500",
                 "--lam_builtmask", "0.0",
-                "--batch_size", "256",
+                "--batch_size", "64",
                 "--lr_step", "10",
                 "-lr", "1e-4",
-                "--lr_step", "30",
+                "--lr_step", "15",
                 // "--in_memory"
                 "--lr_gamma", "0.75",
                 // "--weightdecay", "0.001",
-                "--feature_extractor", "resnet50",
-                "--merge_aug"
+                // "--feature_extractor", "resnet18",
+                // "--feature_extractor", "mobileone_s0",
+                "--model", "ResBlocks"
+                "--feature_extractor", "vgg11",
+                // "--feature_extractor", "resnet50",
+                // "--merge_aug",
+                // "-S1",
+                "--loss", "log_mse_loss",
+                "-S2",
+                "-VIIRS"
                 
             ]
         }
-    ]
+    ]*
 }

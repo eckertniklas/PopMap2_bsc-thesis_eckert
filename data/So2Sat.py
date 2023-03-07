@@ -30,7 +30,8 @@ class PopulationDataset_Reg(Dataset):
     """
     Population Dataset for Standard Regression Task
     """
-    def __init__(self, list_IDs, labels, dim=(img_rows, img_cols), transform=None, test=False, mode=None, satmode=False, in_memory=False): 
+    def __init__(self, list_IDs, labels, dim=(img_rows, img_cols), transform=None, test=False, mode=None, satmode=False, in_memory=False,
+                 S1=False, S2=True, VIIRS=True): 
 
         self.dim = dim
         self.labels = labels
@@ -41,12 +42,15 @@ class PopulationDataset_Reg(Dataset):
         self.mode = mode 
         self.in_memory = in_memory
         self.move_to_memory = False
+        self.S1 = S1
+        self.S2 = S2
+        self.VIIRS = VIIRS
                                                     
         self.satmode = satmode
         self.y_stats = load_json(os.path.join(config_path, 'dataset_stats', 'label_stats.json'))
         self.y_stats['max'] = float(self.y_stats['max'])
         self.y_stats['min'] = float(self.y_stats['min'])
-        self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'mod_dataset_stats.json'))
+        self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats.json'))
         for mkey in self.dataset_stats.keys():
             if isinstance(self.dataset_stats[mkey], dict):
                 for key,val in self.dataset_stats[mkey].items():
@@ -54,19 +58,13 @@ class PopulationDataset_Reg(Dataset):
             else:
                 self.dataset_stats[mkey] = np.array(val)
 
+        # Memory Mode
         self.all_samples = {}
         if in_memory:
             print("Loading to memory for Dataset: ", mode)
-            self.move_to_memory = True 
-            # quickdataloader = DataLoader(self, batch_size=1, num_workers=4, shuffle=True, drop_last=False)
-            # for idx,sample in enumerate(tqdm(quickdataloader)):
-            #     self.all_samples[self.list_IDs[idx]] = sample
-            # del quickdataloader
-
-            
+            self.move_to_memory = True              
             for idx in tqdm(range(len(self))):
                 self.all_samples[self.list_IDs[idx]] = self[idx]
-
             self.move_to_memory = False 
                 
 
@@ -128,6 +126,7 @@ class PopulationDataset_Reg(Dataset):
             if self.satmode: 
                 # preparing the batch from other datasets
                 ID_spring = ID_temp  # batch from sen2 autumn
+                ID_sen1 = ID_temp.replace('sen2spring', 'S1')
                 ID_viirs = ID_temp.replace('sen2spring', 'viirs')
                 ID_osm = ID_temp.replace('sen2spring', 'osm_features').replace('tif', 'csv')
                 ID_lu = ID_temp.replace('sen2spring', 'lu')
@@ -135,12 +134,18 @@ class PopulationDataset_Reg(Dataset):
                 # TODO: check if MS buildings exist, and load them
                 # TODO: load S1 imagery
 
-                sen2spr_X = self.generate_data(ID_spring, channels=3, data='sen2spring')
-                viirs_X = self.generate_data(ID_viirs, channels=1, data='viirs')  
+                data = []
+                if self.S2:
+                    data.append(self.generate_data(ID_spring, channels=3, data='sen2spring'))
+                if self.S1:
+                    data.append(self.generate_data(ID_sen1, channels=2 , data='sen1'))
+                if self.VIIRS:
+                    data.append(self.generate_data(ID_viirs, channels=1, data='viirs'))
                 # osm_X = self.generate_osm_data(osm_X, ID_osm, mm_scaler, channels=1)
                 lu_X = self.generate_data(ID_lu, channels=4, data='lu') 
 
-                return np.concatenate((sen2spr_X, viirs_X), axis=0), np.array([0]) , np.argmax(lu_X,0)>1.5
+                # return np.concatenate((sen2spr_X, viirs_X), axis=0), np.array([0]) , np.argmax(lu_X,0)>1.5
+                return np.concatenate(data, axis=0), np.array([0]) , np.argmax(lu_X,0)>1.5
             else:
                 sen2spr_X = np.empty((*self.dim, 3))
                 viirs_X = np.empty((*self.dim, 1))
@@ -187,26 +192,16 @@ class PopulationDataset_Reg(Dataset):
                 if ds.shape!=(img_rows, img_cols):
                     image = ds.read((4,3,2), out_shape=(ds.count, img_rows, img_cols), resampling=Resampling.cubic)
                 else:
-                    image = ds.read((4,3,2))
-                # image = image[::-1, :, :]
+                    image = ds.read((4,3,2)) 
 
-                # image = ds.read(out_shape=(ds.count, img_rows, img_cols), resampling=Resampling.cubic)
-                # print('Band1 has shape', band1.shape)
-                # height = image.shape[1]
-                # width = image.shape[2]
-                # cols, rows = np.meshgrid(np.arange(width), np.arange(height))
-                # xs, ys = rasterio.transform.xy(ds.transform, rows, cols)
-
-                # if image.shape[0] == 13:
-                    ## for sentinel-2 images, reading only the RGB bands
-                    # image = image[1:4]
-                    # image = image[::-1, :, :]
             elif data == 'lcz':
                 image = ds.read(out_shape=(ds.count, img_rows, img_cols))
             else:
                 image = ds.read(out_shape=(ds.count, img_rows, img_cols), resampling=Resampling.average)
 
         if "sen2" in data:
+            new_arr = ((image.transpose((1,2,0)) - self.dataset_stats[data]['mean'] ) / self.dataset_stats[data]['std']).transpose((2,0,1))
+        if "sen1" in data:
             new_arr = ((image.transpose((1,2,0)) - self.dataset_stats[data]['mean'] ) / self.dataset_stats[data]['std']).transpose((2,0,1))
         elif data=="viirs":
             image = np.where(image < 0, 0, image)

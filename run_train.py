@@ -17,7 +17,7 @@ from tqdm import tqdm
 from sklearn import model_selection
 
 from arguments import train_parser
-from model.pomelo import JacobsUNet, PomeloUNet
+from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks
 from data.So2Sat import PopulationDataset_Reg
 from utils.losses import get_loss, r2
 from utils.utils import new_log, to_cuda, seed_all
@@ -40,19 +40,29 @@ class Trainer:
         self.dataloaders = self.get_dataloaders(args)
         
         seed_all(args.seed)
+        input_channels = args.Sentinel1*2 + args.Sentinel2*3 + args.VIIRS*1
 
         if args.model=="JacobsUNet":
             self.model = JacobsUNet( 
-                input_channels = 4,
+                input_channels = input_channels,
                 feature_dim = 32,
                 feature_extractor = args.feature_extractor
             ).cuda()
         elif args.model=="PomeloUNet":
             self.model = PomeloUNet( 
-                input_channels = 4,
+                input_channels = input_channels,
                 feature_dim = 32,
                 feature_extractor=args.feature_extractor
             ).cuda()
+        elif args.model=="ResBlocks":
+            self.model = ResBlocks(
+                input_channels = input_channels,
+                feature_dim = 32,
+            ).cuda()
+
+        # number of params
+        args.pytorch_total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        print("Model", args.model, "; #Params:", args.pytorch_total_params)
 
         self.experiment_folder, self.args.expN, self.args.randN = new_log(os.path.join(args.save_dir, args.dataset), args)
         self.args.experiment_folder = self.experiment_folder
@@ -110,7 +120,8 @@ class Trainer:
 
                 output = self.model(sample, train=True)
 
-                loss, loss_dict = get_loss(output, sample, merge_aug=args.merge_aug, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
+                loss, loss_dict = get_loss(output, sample, loss=args.loss, 
+                                        merge_aug=args.merge_aug, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
 
                 if torch.isnan(loss):
                     raise Exception("detected NaN loss..")
@@ -159,7 +170,8 @@ class Trainer:
                 # Colellect predictions and samples
                 pred.append(output["popcount"].view(-1)); gt.append(sample["y"].view(-1))
 
-                loss, loss_dict = get_loss(output, sample, merge_aug=args.merge_aug, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
+                loss, loss_dict = get_loss(output, sample, loss=args.loss, 
+                                           merge_aug=args.merge_aug, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
 
                 for key in loss_dict:
                     self.val_stats[key] +=  loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key] 
@@ -200,8 +212,10 @@ class Trainer:
             f_names_train, f_names_val, labels_train, labels_val = f_names[:-s], f_names[-s:], labels[:-s], labels[-s:]
 
             datasets = {
-                "train": PopulationDataset_Reg(f_names_train, labels_train, transform=data_transform, mode="train", in_memory=args.in_memory, **params),
-                "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", in_memory=args.in_memory, **params)
+                "train": PopulationDataset_Reg(f_names_train, labels_train, mode="train", in_memory=args.in_memory,
+                                                S1=args.Sentinel1, S2=args.Sentinel2, VIIRS=args.VIIRS,  transform=data_transform, **params),
+                "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", in_memory=args.in_memory, 
+                                                S1=args.Sentinel1, S2=args.Sentinel2, VIIRS=args.VIIRS,  transform=data_transform, **params)
             }
         else:
             raise NotImplementedError(f'Dataset {args.dataset}')

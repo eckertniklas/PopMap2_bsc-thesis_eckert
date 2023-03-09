@@ -25,11 +25,13 @@ class JacobsUNet(nn.Module):
         self.p2d = (self.p, self.p, self.p, self.p)
 
         self.unetmodel = nn.Sequential(
-            torch.nn.BatchNorm2d(input_channels),
+            # torch.nn.BatchNorm2d(input_channels),
+            # torch.nn.Dropout2d(),
             smp.Unet( encoder_name=feature_extractor, encoder_weights="imagenet", decoder_channels=(64, 32, 16),
             # smp.Unet( encoder_name="resnet18", encoder_weights="imagenet", decoder_channels=(64, 32, 16),
                 encoder_depth=self.down, in_channels=input_channels,  classes=feature_dim, decoder_use_batchnorm=False ),
-            nn.Softplus()
+            # nn.Softplus()
+            nn.ReLU()
         )
         params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
         self.mysegmentation_head = nn.Conv2d(16, feature_dim, kernel_size=1, padding=0)
@@ -145,7 +147,6 @@ class ResBlocks(nn.Module):
         # builtupmap = torch.nn.functional.softmax(x[:,2:4], dim=1)[:,0]
         # Sparsify
         # popdensemap = builtupmap * popdensemap
-
 
         return {"popcount": popcount, "popdensemap": popdensemap,
                 "builtdensemap": builtdensemap, "builtcount": builtcount,

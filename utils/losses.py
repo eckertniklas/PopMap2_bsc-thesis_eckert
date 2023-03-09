@@ -5,10 +5,10 @@ from utils.utils import plot_2dmatrix
 from collections import defaultdict
 
 
-def get_loss(output, gt, loss="l1_loss", merge_aug=False, lam_builtmask=1., lam_dense=1.):
+def get_loss(output, gt, loss="l1_loss", lam=[1,0], merge_aug=False, lam_builtmask=1., lam_dense=1.):
     auxdict = defaultdict(float)
     
-    # prepare vars
+    # prepare vars1.0
     y_pred = output["popcount"]
 
     # Population loss and metrics
@@ -25,8 +25,8 @@ def get_loss(output, gt, loss="l1_loss", merge_aug=False, lam_builtmask=1., lam_
     }
 
     # augmented loss
-    if len(y_pred)%4==0:
-        hl = len(y_pred)//4
+    if len(y_pred)%2==0:
+        hl = len(y_pred)//2
         aug_pred = torch.stack(torch.split(y_pred, hl)).sum(0)
         aug_gt = torch.stack(torch.split(gt["y"], hl)).sum(0) 
         popdict["l1_aug_loss"] = F.l1_loss(aug_pred, aug_gt)
@@ -36,9 +36,10 @@ def get_loss(output, gt, loss="l1_loss", merge_aug=False, lam_builtmask=1., lam_
 
     # define optimization loss
     if merge_aug:
-        optimization_loss = popdict["l1_aug_loss"]
+        optimization_loss = popdict["mse_aug_loss"]
     else:
-        optimization_loss = popdict[loss]
+        # optimization_loss = popdict[loss]
+        optimization_loss = sum([popdict[lo]*la for lo,la in zip(loss,lam)])
 
     popdict = {"Population:"+key: value for key,value in popdict.items()}
     auxdict = {**auxdict, **popdict}

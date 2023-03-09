@@ -10,7 +10,7 @@ from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 from torchvision.transforms import Normalize
 from torchvision import transforms
-from utils.transform import RandomRotationTransform, RandomBrightness, RandomGamma
+from utils.transform import RandomRotationTransform, RandomHorizontalVerticalFlip, RandomBrightness, RandomGamma, AddGaussianNoise
 from tqdm import tqdm
 
 
@@ -20,11 +20,12 @@ from arguments import train_parser
 from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks
 from data.So2Sat import PopulationDataset_Reg
 from utils.losses import get_loss, r2
+from utils.metrics import get_test_metrics
 from utils.utils import new_log, to_cuda, seed_all
 
 from utils.utils import get_fnames_labs_reg, plot_2dmatrix
 
-from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1
+from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1
 
 import wandb
 
@@ -92,6 +93,7 @@ class Trainer:
 
                 if (self.info["epoch"] + 1) % self.args.val_every_n_epochs == 0:
                     self.validate()
+                    self.test()
 
                     if self.args.save_model in ['last', 'both']:
                         self.save_model('last')
@@ -120,7 +122,7 @@ class Trainer:
 
                 output = self.model(sample, train=True)
 
-                loss, loss_dict = get_loss(output, sample, loss=args.loss, 
+                loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam,
                                         merge_aug=args.merge_aug, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
 
                 if torch.isnan(loss):
@@ -170,11 +172,11 @@ class Trainer:
                 # Colellect predictions and samples
                 pred.append(output["popcount"].view(-1)); gt.append(sample["y"].view(-1))
 
-                loss, loss_dict = get_loss(output, sample, loss=args.loss, 
+                loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam,
                                            merge_aug=args.merge_aug, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
 
                 for key in loss_dict:
-                    self.val_stats[key] +=  loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key] 
+                    self.val_stats[key] += loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key] 
             
             self.val_stats = {k: v / len(self.dataloaders['val']) for k, v in self.val_stats.items()}
 
@@ -188,40 +190,117 @@ class Trainer:
                 if self.args.save_model in ['best', 'both']:
                     self.save_model('best')
 
+    def test(self):
+        self.test_stats = defaultdict(float)
+
+        self.model.eval()
+        cr_eval = False
+        sum_pool10 = torch.nn.AvgPool2d(10, stride=10, divisor_override=1)
+        sum_pool20 = torch.nn.AvgPool2d(20, stride=20, divisor_override=1)
+        sum_pool2 = torch.nn.AvgPool2d(2, stride=2, divisor_override=1)
+
+        with torch.no_grad():
+            pred, gt = [], []
+            pred2, gt2 = [], []
+            for sample in tqdm(self.dataloaders["test"], leave=False):
+                sample = to_cuda(sample)
+
+                output = self.model(sample)
+                
+                # Colellect predictions and samples
+                if cr_eval:
+                    pred.append(output["popcount"].view(-1)); gt.append(sample["y"].view(-1)) 
+                    loss, loss_dict = get_loss(output, sample, loss=args.loss, 
+                                            merge_aug=args.merge_aug, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
+
+                    for key in loss_dict:
+                        self.test_stats[key] += loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key]
+                else:
+                    #fine_eval
+                    if sample["pop_avail"].any(): 
+                        pred_zh = output["popdensemap"][sample["pop_avail"][:,0].bool()]
+                        gt_zh = sample["Pop_X"][sample["pop_avail"][:,0].bool()]
+                        gt_zhNN = sample["PopNN_X"][sample["pop_avail"][:,0].bool()]
+                        inputs_zh = sample["input"][sample["pop_avail"][:,0].bool()]
+                        pred.append(sum_pool10(pred_zh).view(-1))
+                        gt.append(gt_zh.view(-1)) 
+
+                        pred2.append(sum_pool20(pred_zh).view(-1))
+                        gt2.append(sum_pool2(gt_zh.view(-1))) 
+
+                        i = 0
+                        # plot_2dmatrix(sum_pool(output["popdensemap"][sample["pop_avail"][:,0].bool()])[i])
+                        # plot_2dmatrix(output["popdensemap"][sample["pop_avail"][:,0].bool()][i])
+                        # plot_2dmatrix(sample["PopNN_X"][sample["pop_avail"][:,0].bool()][i])
+                        # plot_2dmatrix(sample["Pop_X"][sample["pop_avail"][:,0].bool()][i])
+                        # print(sample["y"][sample["pop_avail"][:,0].bool()][i])
+                        # plot_2dmatrix(pred_zh[i])
+                        # plot_2dmatrix(gt_zh[i])
+
+
+            if cr_eval:
+                self.test_stats = {k: v / len(self.dataloaders['val']) for k, v in self.val_stats.items()}
+                # Compute non-averagable metrics
+                self.test_stats["Population:r2"] = r2(torch.cat(pred), torch.cat(gt))
+                wandb.log({**{k + '/test': v for k, v in self.test_stats.items()}, **self.info}, self.info["iter"])
+
+            else:
+                self.test_stats = get_test_metrics(torch.cat(pred), torch.cat(gt))
+                self.test_stats2 = get_test_metrics(torch.cat(pred2), torch.cat(gt2), tag="200")
+                wandb.log({**{k + '/testZH': v for k, v in self.test_stats.items()}, **self.info}, self.info["iter"])
+
+
+            
+
     @staticmethod
     def get_dataloaders(args): 
 
         phases = ('train', 'val')
         if args.dataset == 'So2Sat':
             params = {'dim': (img_rows, img_cols), "satmode": args.satmode}
-            data_transform = transforms.Compose([
-            transforms.RandomHorizontalFlip(p=0.5),
-            # transforms.RandomVerticalFlip(p=0.5),
-            RandomRotationTransform(angles=[90, 180, 270], p=0.75),
-            # RandomGamma(),
-            # RandomBrightness()
-        ])
-            
-            val_size = 0.2
-            data_dir = all_patches_mixed_train_part1
-            f_names, labels = get_fnames_labs_reg(data_dir, force_recompute=False)
+
+            if not args.Sentinel1: 
+                data_transform = transforms.Compose([
+                    transforms.RandomHorizontalFlip(p=0.5),
+                    # transforms.RandomVerticalFlip(p=0.5),
+                    RandomRotationTransform(angles=[90, 180, 270], p=0.75),
+                    # RandomGamma(),
+                    # RandomBrightness()
+                ])
+            else:
+                data_transform = transforms.Compose([
+                    # RandomHorizontalVerticalFlip(p=0.5),
+                    AddGaussianNoise(std=0.1, p=0.9),
+                    # transforms.RandomVerticalFlip(p=0.5),
+                    # RandomRotationTransform(angles=[90, 180, 270], p=0.75),
+                    # RandomGamma(),
+                    # RandomBrightness()
+                ])
+                
+            val_size = 0.2 
+            f_names, labels = get_fnames_labs_reg(all_patches_mixed_train_part1, force_recompute=False)
             f_names, labels = f_names[:int(args.max_samples)] , labels[:int(args.max_samples)] 
             # f_names_train, f_names_val, labels_train, labels_val = model_selection.train_test_split(
             #     f_names, labels, test_size=val_size, random_state=42)
             s = int(len(f_names)*val_size)
             f_names_train, f_names_val, labels_train, labels_val = f_names[:-s], f_names[-s:], labels[:-s], labels[-s:]
 
+            f_names_test, labels_test = get_fnames_labs_reg(all_patches_mixed_test_part1, force_recompute=False)
+
             datasets = {
                 "train": PopulationDataset_Reg(f_names_train, labels_train, mode="train", in_memory=args.in_memory,
                                                 S1=args.Sentinel1, S2=args.Sentinel2, VIIRS=args.VIIRS,  transform=data_transform, **params),
                 "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", in_memory=args.in_memory, 
+                                                S1=args.Sentinel1, S2=args.Sentinel2, VIIRS=args.VIIRS,  transform=data_transform, **params),
+                "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", in_memory=args.in_memory, 
                                                 S1=args.Sentinel1, S2=args.Sentinel2, VIIRS=args.VIIRS,  transform=data_transform, **params)
             }
         else:
             raise NotImplementedError(f'Dataset {args.dataset}')
         
         return {"train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True, drop_last=True),
-                "val":  DataLoader(datasets["val"], batch_size=args.batch_size*2, num_workers=args.num_workers, shuffle=True, drop_last=False)}
+                "val":  DataLoader(datasets["val"], batch_size=args.batch_size*2, num_workers=args.num_workers, shuffle=True, drop_last=False),
+                "test":  DataLoader(datasets["test"], batch_size=args.batch_size*2, num_workers=args.num_workers, shuffle=True, drop_last=False)}
 
     def save_model(self, prefix=''): 
         torch.save({

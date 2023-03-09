@@ -25,9 +25,12 @@ parser.add_argument('-fe', '--feature_extractor', type=str, help=' ', default="r
 #Training
 parser.add_argument('-e', '--num_epochs', help='', type=int, default=20)
 parser.add_argument('-lr', '--learning_rate', help='', type=float, default=1e-4)
-parser.add_argument('-l', '--loss', help='', type=str, default="l1_loss", choices=["l1_loss", "log_l1_loss", "mse_loss", "log_mse_loss", "focal_loss","tversky_loss"])
-parser.add_argument('-w', '--num_workers', help='', type=int, default=10)
+# parser.add_argument('-l', '--loss', help='', type=str, default="l1_loss", choices=["l1_loss", "log_l1_loss", "mse_loss", "log_mse_loss", "focal_loss","tversky_loss"])
+parser.add_argument('-l', '--loss', nargs='+', default=["l1_loss"], help="list composed of 'l1_loss', 'log_l1_loss', 'mse_loss', 'log_mse_loss', 'focal_loss','tversky_loss")
+parser.add_argument('-la', '--lam', nargs='+', type=float, default=[1.0], help="list composed of loss weightings")
 parser.add_argument('-wd', '--weightdecay', help='', type=float, default=0.0)
+parser.add_argument('-ls', '--lassoreg', help='Lasso style reg. of the preds.', type=float, default=0.0)
+parser.add_argument('-tv', '--tv', help='Total variation reg. of the preds.', type=float, default=0.0)
 parser.add_argument('-lrs', '--lr_step', help='', type=int, default=3)
 parser.add_argument('-lrg', '--lr_gamma', help='', type=float, default=1.0)
 parser.add_argument('-gc', '--gradient_clip', help='', type=float, default=0.01)
@@ -37,6 +40,7 @@ parser.add_argument("-ld", "--lam_dense", help='', type=float, default=1.)
 
 # misc
 parser.add_argument('--save-dir', default='/home/pf/pfstaff/projects/metzgern_Sat2Pop/POMELOv2_results', help='Path to directory where models and logs should be saved')
+parser.add_argument('-w', '--num_workers', help='', type=int, default=10)
 parser.add_argument("-wp", "--wandb_project", help='', type=str, default="POMELOv2")
 parser.add_argument('-lt', '--logstep_train', help='', type=int, default=20)
 parser.add_argument('-val', '--val_every_n_epochs', help='', type=int, default=1)

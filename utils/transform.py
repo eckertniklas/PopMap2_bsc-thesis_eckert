@@ -11,6 +11,34 @@ from utils.file_folder_ops import load_json
 from utils.utils import *
 
 
+class AddGaussianNoise(object):
+    def __init__(self, mean=0., std=1., p=0.5):
+        self.std = std
+        self.mean = mean
+        self.p = p
+        
+    def __call__(self, x):
+        if torch.rand(1) < self.p:
+            return x + torch.randn(x.size()) * self.std + self.mean
+        return x
+    
+    def __repr__(self):
+        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+
+class RandomHorizontalVerticalFlip(object):
+    def __init__(self, p=0.5): 
+        self.p = p
+        
+    def __call__(self, x):
+        if torch.rand(1) < self.p:
+            return TF.hflip(TF.vflip(x))
+        return x
+    
+    def __repr__(self):
+        return self.__class__.__name__ + '(p={0}'.format(self.p)
+
+
+
 class RandomRotationTransform(torch.nn.Module):
     """Rotate by one of the given angles.
     Args:

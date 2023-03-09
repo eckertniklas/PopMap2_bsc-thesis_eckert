@@ -1,5 +1,6 @@
 import json
 import os
+from os.path import isfile
 
 import numpy as np
 import pandas as pd
@@ -80,7 +81,7 @@ class PopulationDataset_Reg(Dataset):
         ID_temp = self.list_IDs[idx]
         # Generate data
         if self.satmode:
-            X, osm, msb = self.data_generation(ID_temp)
+            X, Pop_X, PopNN_X, pop_avail, msb, msb_avail = self.data_generation(ID_temp)
         else:
             X, osm = self.data_generation(ID_temp)
 
@@ -92,17 +93,26 @@ class PopulationDataset_Reg(Dataset):
         X = torch.from_numpy(X).type(torch.FloatTensor)
         y = torch.from_numpy(np.asarray(y)).type(torch.FloatTensor)
         y_norm = torch.from_numpy(np.asarray(y_norm)).type(torch.FloatTensor)
-        osm = torch.from_numpy(osm).type(torch.FloatTensor)
-        msb = torch.from_numpy(msb).type(torch.FloatTensor)
+        Pop_X = torch.from_numpy(np.asarray(Pop_X)).type(torch.FloatTensor)
+        PopNN_X = torch.from_numpy(np.asarray(PopNN_X)).type(torch.FloatTensor)
+        pop_avail = torch.from_numpy(np.asarray(pop_avail)).type(torch.FloatTensor)
+        msb = torch.from_numpy(np.asarray(msb)).type(torch.FloatTensor) 
+        msb_avail = torch.from_numpy(np.asarray(msb_avail)).type(torch.FloatTensor)
 
         if self.move_to_memory:
-            return {'input': X, 'y': y, 'y_norm': y_norm, 'builtupmap': msb, 'osm': osm, 'identifier': ID}
+            return {'input': X, 'y': y, 'y_norm': y_norm, 
+                      'Pop_X': Pop_X, 'PopNN_X': PopNN_X, 'pop_avail': pop_avail,
+                      'builtupmap': msb,  'msb_avail': msb_avail,
+                      'identifier': ID}
 
         if self.transform:
             X = self.transform(X)
 
         if self.satmode:
-            sample = {'input': X, 'y': y, 'y_norm': y_norm, 'builtupmap': msb, 'osm': osm, 'identifier': ID}
+            sample = {'input': X, 'y': y, 'y_norm': y_norm, 
+                      'Pop_X': Pop_X, 'PopNN_X': PopNN_X, 'pop_avail': pop_avail,
+                      'builtupmap': msb,  'msb_avail': msb_avail,
+                      'identifier': ID}
         else:
             sample = {'input': X, 'y': y, 'y_norm': y_norm, 'osm': osm, 'identifier': ID}
 
@@ -130,10 +140,13 @@ class PopulationDataset_Reg(Dataset):
                 ID_viirs = ID_temp.replace('sen2spring', 'viirs')
                 ID_osm = ID_temp.replace('sen2spring', 'osm_features').replace('tif', 'csv')
                 ID_lu = ID_temp.replace('sen2spring', 'lu')
+                ID_Pop = ID_temp.replace('sen2spring', 'Pop')
+                ID_PopNN = ID_temp.replace('sen2spring', 'PopNN')
+
                 # dem_X = generate_data(dem_X, ID_dem, channels=1, data='dem')
                 # TODO: check if MS buildings exist, and load them
                 # TODO: load S1 imagery
-
+                
                 data = []
                 if self.S2:
                     data.append(self.generate_data(ID_spring, channels=3, data='sen2spring'))
@@ -144,8 +157,24 @@ class PopulationDataset_Reg(Dataset):
                 # osm_X = self.generate_osm_data(osm_X, ID_osm, mm_scaler, channels=1)
                 lu_X = self.generate_data(ID_lu, channels=4, data='lu') 
 
+                # if finegrained cencus is available
+                if isfile(ID_Pop):
+                    Pop_X = self.generate_data(ID_Pop, channels=1, data='Pop') 
+                    PopNN_X = self.generate_data(ID_PopNN, channels=1, data='PopNN')
+                    pop_avail = np.array([1])
+                elif self.mode=="train":
+                    Pop_X = np.zeros((0,0))
+                    PopNN_X = np.zeros((0,0))
+                    pop_avail = np.array([0])
+                else:
+                    Pop_X = np.zeros((10,10))
+                    PopNN_X = np.zeros((100,100))
+                    pop_avail = np.array([0])
+
+                msb_avail = np.array([0])
+
                 # return np.concatenate((sen2spr_X, viirs_X), axis=0), np.array([0]) , np.argmax(lu_X,0)>1.5
-                return np.concatenate(data, axis=0), np.array([0]) , np.argmax(lu_X,0)>1.5
+                return np.concatenate(data, axis=0), Pop_X, PopNN_X, pop_avail, np.argmax(lu_X,0)>1.5, msb_avail
             else:
                 sen2spr_X = np.empty((*self.dim, 3))
                 viirs_X = np.empty((*self.dim, 1))
@@ -193,9 +222,12 @@ class PopulationDataset_Reg(Dataset):
                     image = ds.read((4,3,2), out_shape=(ds.count, img_rows, img_cols), resampling=Resampling.cubic)
                 else:
                     image = ds.read((4,3,2)) 
-
             elif data == 'lcz':
                 image = ds.read(out_shape=(ds.count, img_rows, img_cols))
+            elif "Pop" in data:
+                image = ds.read(1)
+            elif "sen1" in data:
+                image = ds.read((1,2)) 
             else:
                 image = ds.read(out_shape=(ds.count, img_rows, img_cols), resampling=Resampling.average)
 
@@ -208,8 +240,9 @@ class PopulationDataset_Reg(Dataset):
             new_arr = ((image.transpose((1,2,0)) - self.dataset_stats[data]['mean'] ) / self.dataset_stats[data]['std']).transpose((2,0,1))
         elif data=="lu":
             new_arr = ((image.transpose((1,2,0)) - self.dataset_stats[data]['mean'] ) / self.dataset_stats[data]['std']).transpose((2,0,1))
-        else:
-
+        elif "Pop" in data:
+            new_arr = image
+        else: 
             new_arr = np.empty([channels, img_rows, img_cols])
             for k, layer in enumerate(image):
                 if data == 'lcz':

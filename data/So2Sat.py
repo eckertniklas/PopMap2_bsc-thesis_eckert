@@ -200,7 +200,6 @@ class PopulationDataset_Reg(Dataset):
 
                 return np.concatenate((sen2spr_X, viirs_X, lcz_X, lu_X, dem_X), axis=0), osm_X
 
-
     def normalize_reg_labels(self, y): 
         y_max = self.y_stats['max']
         y_min = self.y_stats['min']
@@ -212,7 +211,6 @@ class PopulationDataset_Reg(Dataset):
         y_min = self.y_stats['min']
         y = y_scaled * (y_max - y_min) + y_min
         return y
-
 
     def generate_data(self, ID_temp, channels, data):
         # load dataset statistics and patches 

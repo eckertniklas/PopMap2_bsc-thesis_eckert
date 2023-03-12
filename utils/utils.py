@@ -10,6 +10,7 @@ from random import randrange
 import time
 from pylab import figure, imshow, matshow, grid, savefig, colorbar
 import pandas as pd
+import matplotlib.pyplot as plt
 
 def to_cuda(sample):
     sampleout = {}
@@ -81,6 +82,27 @@ def plot_2dmatrix(matrix, fig=1, vmin=None, vmax=None):
     colorbar()
     savefig('plot_outputs/last_plot.png')
 
+
+def plot_and_save(img, mask=None, vmax=None, vmin=None, idx=None,
+    model_name='model_name', title=None, name='latest_figure', colorbar=True, cmap="viridis"):
+
+    if mask is not None:
+        img = np.ma.masked_where(mask, img)
+
+    plt.figure(figsize=(12, 8), dpi=260)
+    plt.imshow(img, vmax=vmax, vmin=vmin, cmap=cmap)
+    if colorbar:
+        plt.colorbar()
+    title = title if title is not None else model_name
+    plt.title(title)
+
+    if idx is not None:
+        if not os.path.exists(f'vis/{model_name}/'):
+            os.makedirs(f'vis/{model_name}/')
+        plt.savefig(f'vis/{model_name}/{str(idx).zfill(4)}_{name}.png')
+        plt.close()
+    else:
+        plt.savefig(f'{name}.png')
 
 
 def get_fnames_labs_reg(path, force_recompute=False):

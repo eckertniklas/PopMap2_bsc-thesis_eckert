@@ -19,6 +19,7 @@ parser.add_argument("-S1", "--Sentinel1", action='store_true', help="")
 parser.add_argument("-S2", "--Sentinel2", action='store_true', help="")
 parser.add_argument("-VIIRS", "--VIIRS", action='store_true', help="")
 parser.add_argument('-b', '--batch_size', help='', type=int, default=64)
+parser.add_argument('-f', '--feature_dim', help='', type=int, default=32)
 parser.add_argument("-m", "--model", help='', type=str, default="JacobsUNet")
 parser.add_argument('-fe', '--feature_extractor', type=str, help=' ', default="resnet18")
 

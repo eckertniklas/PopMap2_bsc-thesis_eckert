@@ -42,7 +42,85 @@
             ]
         },
         {
-            "name": "train",
+            "name": "train, ResBlocksDeep",
+            "type": "python",
+            "request": "launch",
+            "program": "run_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                "--no-osm",
+                "--satmode",
+                // "--max_samples", "5000",
+                "--num_epochs", "1500",
+                "--lam_builtmask", "0.0",
+                "--batch_size", "128",
+                "--lr_step", "10",
+                "-lr", "1e-3",
+                "--lr_step", "15",
+                // "--in_memory"
+                "--lr_gamma", "0.75",
+                // "--weightdecay", "0.000001",
+                // "--feature_extractor", "resnet18",
+                // "--feature_extractor", "mobileone_s0",
+                "--model", "ResBlocksDeep",
+                // "--feature_extractor", "resnet18",
+                // "--feature_extractor", "resnet50",
+                // "--merge_aug",
+                // "-S1",
+                // "--loss", "log_mse_loss", "mse_loss",
+                // "--loss", "log_mse_loss", "l1_loss",
+                "--loss", "l1_loss", //"log_mse_loss",
+                // "--loss", "log_mse_loss",
+                // "--lam", "1.0", "0.00001",
+                // "--lam", "1.0", "0.005",
+                "--lam", "1.0", //"10.0",
+                // "-S1",
+                "-S2",
+                "--feature_dim", "48"
+                // "-tv", "1.0"
+                // "-VIIRS" 
+            ]
+        },
+        {
+            "name": "train, ResBlocks",
+            "type": "python",
+            "request": "launch",
+            "program": "run_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                "--no-osm",
+                "--satmode",
+                // "--max_samples", "5000",
+                "--num_epochs", "1500",
+                "--lam_builtmask", "0.0",
+                "--batch_size", "128",
+                "--lr_step", "10",
+                "-lr", "1e-3",
+                "--lr_step", "15",
+                // "--in_memory"
+                "--lr_gamma", "0.75",
+                // "--weightdecay", "0.000001", 
+                "--model", "ResBlocks", 
+                // "--merge_aug",
+                // "-S1",
+                // "--loss", "log_mse_loss", "mse_loss",
+                // "--loss", "log_mse_loss", "l1_loss",
+                "--loss", "l1_loss", //"log_mse_loss",
+                // "--loss", "log_mse_loss",
+                // "--lam", "1.0", "0.00001",
+                // "--lam", "1.0", "0.005",
+                "--lam", "1.0", //"10.0",
+                // "-S1",
+                "-S2",
+                "--feature_dim", "96"
+                // "-tv", "1.0"
+                // "-VIIRS" 
+            ]
+        },
+        {
+            "name": "train, smp",
             "type": "python",
             "request": "launch",
             "program": "run_train.py",
@@ -56,7 +134,7 @@
                 "--lam_builtmask", "0.0",
                 "--batch_size", "64",
                 "--lr_step", "10",
-                "-lr", "1e-4",
+                "-lr", "1e-3",
                 "--lr_step", "15",
                 // "--in_memory"
                 "--lr_gamma", "0.75",
@@ -64,23 +142,23 @@
                 // "--feature_extractor", "resnet18",
                 // "--feature_extractor", "mobileone_s0",
                 "--model", "JacobsUNet",
-                "--feature_extractor", "vgg11",
+                "--feature_extractor", "resnet18",
                 // "--feature_extractor", "resnet50",
                 // "--merge_aug",
                 // "-S1",
                 // "--loss", "log_mse_loss", "mse_loss",
                 // "--loss", "log_mse_loss", "l1_loss",
-                "--loss", "l1_loss", "log_mse_loss",
+                "--loss", "l1_loss", //"log_mse_loss",
                 // "--loss", "log_mse_loss",
                 // "--lam", "1.0", "0.00001",
                 // "--lam", "1.0", "0.005",
-                "--lam", "1.0", "100.0",
-                "-S1",
+                "--lam", "1.0", //"10.0",
+                // "-S1",
                 "-S2",
+                "--feature_dim", "16"
                 // "-tv", "1.0"
-                // "-VIIRS"
-                
+                // "-VIIRS" 
             ]
         }
-    ]*
+    ]
 }

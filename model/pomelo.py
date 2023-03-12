@@ -42,8 +42,9 @@ class JacobsUNet(nn.Module):
                                   
     def forward(self, inputs, train=False):
 
-        x = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
+        x  = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
 
+        # forward and remove padding
         x = self.unetmodel(x)[:,:,self.p:-self.p,self.p:-self.p]
 
         x = self.head(x)
@@ -79,15 +80,17 @@ class JacobsUNet(nn.Module):
 
 # Define a resblock
 class Block(nn.Module):
-    def __init__(self, dimension, k1=3, k2=1):
+    def __init__(self, dimension, k1=3, k2=1, activation=None):
         super(Block, self).__init__()
 
         self.net = nn.Sequential(
             nn.Conv2d(dimension, dimension, kernel_size=k1, padding=(k1-1)//2), nn.ReLU(),
             nn.Conv2d(dimension, dimension, kernel_size=k2, padding=(k2-1)//2),
         )
+        self.act = activation if activation is not None else nn.ReLU()
     def forward(self, x):
-        return torch.nn.functional.relu(self.net(x) + x)
+        return self.act(self.net(x) + x)
+
 
 class ResBlocks(nn.Module):
     '''
@@ -100,20 +103,36 @@ class ResBlocks(nn.Module):
         self.p = 14
         self.p2d = (self.p, self.p, self.p, self.p)
 
+        k1a = 3
+        k1b = 3
+        k2 = 1
+
         self.model = nn.Sequential(
             nn.Conv2d(input_channels, feature_dim, kernel_size=3, padding=1), nn.ReLU(),
-            Block(feature_dim, k1=3, k2=1),
-            Block(feature_dim, k1=1, k2=1),
-            nn.Conv2d(feature_dim, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
-            Block(feature_dim, k1=3, k2=1),
-            Block(feature_dim, k1=1, k2=1),
-            nn.Conv2d(feature_dim, feature_dim*2, kernel_size=1, padding=0), nn.ReLU(),
-            Block(feature_dim*2, k1=3, k2=1),
-            Block(feature_dim*2, k1=1, k2=1),
-            nn.Conv2d(feature_dim*2, feature_dim*2, kernel_size=1, padding=0), nn.ReLU(),
-            Block(feature_dim*2),
+            Block(feature_dim, k1=k1a, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+
+            Block(feature_dim, k1=k1a, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+
+            Block(feature_dim, k1=k1a, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            
+            # Block(feature_dim, k1=3, k2=1),
+            # Block(feature_dim, k1=1, k2=1),
+            # nn.Conv2d(feature_dim, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
+            # Block(feature_dim, k1=3, k2=1),
+            # Block(feature_dim, k1=1, k2=1),
+            # nn.Conv2d(feature_dim, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
+            # Block(feature_dim, k1=3, k2=1),
+            # Block(feature_dim, k1=1, k2=1),
+            # nn.Conv2d(feature_dim, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
+            Block(feature_dim),
         )
-        self.head = nn.Conv2d(feature_dim*4, 4, kernel_size=1, padding=0)
+        self.head = nn.Conv2d(feature_dim, 4, kernel_size=1, padding=0)
 
         params_sum = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         # self.mysegmentation_head = nn.Conv2d(16, feature_dim, kernel_size=1, padding=0)
@@ -134,19 +153,83 @@ class ResBlocks(nn.Module):
         builtdensemap = nn.functional.softplus(x[:,1])
         builtcount = builtdensemap.sum((1,2))
 
-        # Builtup mask
-        # builtupmap = torch.sigmoid(x[:,2]) 
-        # if train:
-        #     # builtupmap = (torch.nn.functional.softmax(x[:,2:4], dim=1)[:,0]>0.5).float()
-        #     builtupmap = torch.nn.functional.softmax(x[:,2:4], dim=1)[:,0]
-        #     # builtupmap = torch.nn.functional.gumbel_softmax(x[:,2:4], tau=self.gumbeltau, hard=True, eps=1e-10, dim=1)[:,0]
-        # else:
-        #     # builtupmap = (torch.nn.functional.softmax(x[:,2:4], dim=1)[:,0]>0.5).float()
+        builtupmap = torch.sigmoid(x[:,2]) 
+
+        return {"popcount": popcount, "popdensemap": popdensemap,
+                "builtdensemap": builtdensemap, "builtcount": builtcount,
+                "builtupmap": builtupmap}
+
+
+class ResBlocksDeep(nn.Module):
+    '''
+    PomeloUNet
+    '''
+    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", k1a=3, k1b=3):
+        super(ResBlocksDeep, self).__init__()
+
+        # Padding Params
+        self.p = 14
+        self.p2d = (self.p, self.p, self.p, self.p)
+        k1a = 3
+        k1b = 3
+        k2 = 1
+
+        self.model = nn.Sequential(
+            nn.Conv2d(input_channels, feature_dim, kernel_size=3, padding=1), nn.ReLU(),
+            # 1
+            Block(feature_dim, k1=k1a, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            # 2
+            Block(feature_dim, k1=k1a, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            # 3
+            Block(feature_dim, k1=k1a, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            # 4
+            Block(feature_dim, k1=k1a, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            # 5
+            Block(feature_dim, k1=k1a, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            # 6
+            Block(feature_dim, k1=k1a, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            # 7
+            Block(feature_dim, k1=k1a, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            # 9 
+            Block(feature_dim, k1=k1a, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            # ...
+        )
+        self.head = nn.Conv2d(feature_dim, 4, kernel_size=1, padding=0)
+
+        params_sum = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+    
+                                  
+    def forward(self, inputs, train=False):
+
+        x = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
+        x = self.model(x)[:,:,self.p:-self.p,self.p:-self.p]
+        x = self.head(x)
+
+        # Population map
+        popdensemap = nn.functional.softplus(x[:,0])
+        popcount = popdensemap.sum((1,2))
+
+        # Building map
+        builtdensemap = nn.functional.softplus(x[:,1])
+        builtcount = builtdensemap.sum((1,2))
 
         builtupmap = torch.sigmoid(x[:,2]) 
-        # builtupmap = torch.nn.functional.softmax(x[:,2:4], dim=1)[:,0]
-        # Sparsify
-        # popdensemap = builtupmap * popdensemap
 
         return {"popcount": popcount, "popdensemap": popdensemap,
                 "builtdensemap": builtdensemap, "builtcount": builtcount,

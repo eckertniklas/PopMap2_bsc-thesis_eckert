@@ -6,7 +6,7 @@ from utils.losses import r2, mape_func
 import torch.nn.functional as F
 
 
-def get_test_metrics(pred, y):
+def get_test_metrics(pred, y, tag=""):
 
 
     log_dict = {
@@ -17,5 +17,6 @@ def get_test_metrics(pred, y):
         "mse_loss": F.mse_loss(pred, y),
         "log_mse_loss": F.mse_loss(torch.log(pred+1), torch.log(y+1))
     }
-    log_dict = {"Population:"+key: value for key,value in log_dict.items()}
+    log_dict = {"Population" + tag + ":"+key: value for key,value in log_dict.items()}
+
     return log_dict

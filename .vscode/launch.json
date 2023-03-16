@@ -13,6 +13,55 @@
             "justMyCode": true,
         },
         {
+            "name": "RWA preprocess_and_cut_shapefiles.py",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/preprocess_and_cut_shapefiles.py",
+            "console": "integratedTerminal",
+            "args": [
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/HumDataOCHA/RWA/rwa_adm3_2006_NISR_WGS1984_20181002.shp",
+                // "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/HumDataOCHA/RWA/rwa_humdata_regions.tif",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/WorldPopGIS/Mastergrid/Global_2000_2020/RWA/Subnational/Shapefile",
+                // "../../data/OtherBuildings/RWA/rwa_wpop_regions.tif",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/WorldPopGIS/Population/Global_2000_2020/CensusTables/rwa_population_2000_2020.csv",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/processed/RWA/",
+                "rwa",
+                "P_2020"
+            ]
+        },
+        {
+            "name": "RWA download_gee_country.py",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/download_gee_country.py",
+            "console": "integratedTerminal",
+            "args": [
+                "28.782241559728206", 
+                "-2.9039507660291455",
+                "30.96165440152508",
+                "-0.9948970488002317",
+                "rwa",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/GEEraster/RWA",
+                // "P_2020"
+            ]
+        }, 
+        {
+            "name": "RWA download_gee_country.py, test",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/download_gee_country.py",
+            "console": "integratedTerminal",
+            "args": [
+                "30.782241559728206", 
+                "-2.9039507660291455",
+                "30.96165440152508",
+                "-2.7948970488002317",
+                "RWA_test_mosaic_smart2",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/GEEraster/RWA",
+                // "P_2020"
+            ]
+        }, 
+        {
             "name": "debug train",
             "type": "python",
             "request": "launch",
@@ -116,6 +165,35 @@
                 "-S2",
                 "--feature_dim", "96"
                 // "-tv", "1.0"
+                // "-VIIRS" 
+            ]
+        },
+        {
+            "name": "train, UResBlocks",
+            "type": "python",
+            "request": "launch",
+            "program": "run_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                "--no-osm",
+                "--satmode",
+                // "--max_samples", "5000",
+                "--num_epochs", "1500",
+                "--lam_builtmask", "0.0",
+                "--batch_size", "128",
+                "--lr_step", "10",
+                "-lr", "1e-3",
+                "--lr_step", "15",
+                // "--in_memory"
+                "--lr_gamma", "0.75",
+                // "--weightdecay", "0.000001", 
+                "--model", "UResBlocks",  
+                // "--loss", "log_mse_loss", 
+                "--lam", "1.0", //"10.0",
+                // "-S1",
+                "-S2",
+                "--feature_dim", "16" 
                 // "-VIIRS" 
             ]
         },

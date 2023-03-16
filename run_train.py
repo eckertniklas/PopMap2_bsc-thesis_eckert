@@ -17,7 +17,7 @@ from tqdm import tqdm
 from sklearn import model_selection
 
 from arguments import train_parser
-from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, ResBlocksDeep
+from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep
 from data.So2Sat import PopulationDataset_Reg
 from utils.losses import get_loss, r2
 from utils.metrics import get_test_metrics
@@ -57,6 +57,12 @@ class Trainer:
             ).cuda()
         elif args.model=="ResBlocks":
             self.model = ResBlocks(
+                input_channels = input_channels,
+                feature_dim = args.feature_dim,
+            ).cuda()
+
+        elif args.model=="UResBlocks":
+            self.model = UResBlocks(
                 input_channels = input_channels,
                 feature_dim = args.feature_dim,
             ).cuda()

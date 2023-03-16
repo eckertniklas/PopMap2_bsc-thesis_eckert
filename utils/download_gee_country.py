@@ -1,0 +1,253 @@
+
+import argparse
+import requests
+
+import ee
+try:
+    ee.Initialize()
+except:
+    print("couldn't init EE")
+    ee.Authenticate(auth_mode="localhost")
+    ee.Initialize()
+    # gcloud auth application-default login --no-browser
+
+ee_crs = ee.Projection('EPSG:4326')
+    
+# Sentinel 2 Config
+Sen2spring_start_date = '2018-03-01'
+Sen2spring_finish_date = '2018-06-01'
+Sen2summer_start_date = '2018-06-01'
+Sen2summer_finish_date = '2018-09-01'
+Sen2autumn_start_date = '2018-09-01'
+Sen2autumn_finish_date = '2018-12-01'
+Sen2winter_start_date = '2018-12-01'
+Sen2winter_finish_date = '2019-03-01'
+
+AOI = ee.Geometry.Point(-122.269, 45.701)
+START_DATE = '2020-06-01'
+END_DATE = '2020-09-01'
+CLOUD_FILTER = 60
+CLD_PRB_THRESH = 40
+NIR_DRK_THRESH = 0.15
+CLD_PRJ_DIST = 2
+BUFFER = 100
+# S2_bands = ['B2', 'B3', 'B4']
+
+Sentinel1_start_date = '2018-07-03'
+Sentinel1_finish_date = '2018-08-30'
+orbit = 'DESCENDING'
+
+
+# https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless
+def get_s2_sr_cld_col(aoi, start_date, end_date):
+    """Join Sentinel-2 Surface Reflectance and Cloud Probability
+    This function retrieves and joins ee.ImageCollections:
+    'COPERNICUS/S2_SR' and 'COPERNICUS/S2_CLOUD_PROBABILITY'
+    Parameters
+    ----------
+    aoi : ee.Geometry or ee.FeatureCollection
+      Area of interested used to filter Sentinel imagery
+    params : dict
+      Dictionary used to select and filter Sentinel images. Must contain
+      START_DATE : str (YYYY-MM-DD)
+      END_DATE : str (YYYY-MM-DD)
+      CLOUD_FILTER : int
+        Threshold percentage for filtering Sentinel images
+    """
+        
+    # Import and filter S2 SR.
+    s2_sr_col = (ee.ImageCollection('COPERNICUS/S2_SR') 
+        .filterBounds(aoi)
+        .filterDate(start_date, end_date)
+        .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', CLOUD_FILTER)))
+        
+    # print(s2_sr_col.getInfo()["bands"])
+
+    # Import and filter s2cloudless.
+    s2_cloudless_col = (ee.ImageCollection('COPERNICUS/S2_CLOUD_PROBABILITY')
+        .filterBounds(aoi)
+        .filterDate(start_date, end_date))
+
+    # print(s2_cloudless_col.getInfo()["bands"])
+
+    # Join the filtered s2cloudless collection to the SR collection by the 'system:index' property.
+    # return s2_sr_col
+    return ee.ImageCollection(ee.Join.saveFirst('s2cloudless').apply(**{
+        'primary': s2_sr_col,
+        'secondary': s2_cloudless_col,
+        'condition': ee.Filter.equals(**{
+            'leftField': 'system:index',
+            'rightField': 'system:index'
+        })
+    }))
+
+# https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless
+def add_cloud_bands(img):
+    """Add cloud bands to Sentinel-2 image
+    Parameters
+    ----------
+    img : ee.Image
+      Sentinel 2 image including (cloud) 'probability' band
+    params : dict
+      Parameter dictionary including
+      CLD_PRB_THRESH : int
+        Threshold percentage to identify cloudy pixels
+    """
+    # Get s2cloudless image, subset the probability band.
+    cld_prb = ee.Image(img.get('s2cloudless')).select('probability')
+
+    # Condition s2cloudless by the probability threshold value.
+    is_cloud = cld_prb.gt(CLD_PRB_THRESH).rename('clouds')
+
+    # Add the cloud probability layer and cloud mask as image bands.
+    return img.addBands(ee.Image([cld_prb, is_cloud]))
+
+# https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless
+def add_shadow_bands(img):
+    """Add cloud shadow bands to Sentinel-2 image
+    Parameters
+    ----------
+    img : ee.Image
+      Sentinel 2 image including (cloud) 'probability' band
+    params : dict
+      Parameter dictionary including
+      NIR_DRK_THRESH : int
+        Threshold percentage to identify potential shadow pixels as dark pixels from NIR band
+      CLD_PRJ_DIST : int
+        Distance to project clouds along azimuth angle to detect potential cloud shadows
+    """
+    
+    # Identify water pixels from the SCL band.
+    not_water = img.select('SCL').neq(6)
+
+    # Identify dark NIR pixels that are not water (potential cloud shadow pixels).
+    SR_BAND_SCALE = 1e4
+    dark_pixels = img.select('B8').lt(NIR_DRK_THRESH*SR_BAND_SCALE).multiply(not_water).rename('dark_pixels')
+
+    # Determine the direction to project cloud shadow from clouds (assumes UTM projection).
+    shadow_azimuth = ee.Number(90).subtract(ee.Number(img.get('MEAN_SOLAR_AZIMUTH_ANGLE')));
+
+    # Project shadows from clouds for the distance specified by the CLD_PRJ_DIST input.
+    cld_proj = (img.select('clouds').directionalDistanceTransform(shadow_azimuth, CLD_PRJ_DIST*10)
+        .reproject(**{'crs': img.select(0).projection(), 'scale': 100})
+        .select('distance')
+        .mask()
+        .rename('cloud_transform'))
+
+    # Identify the intersection of dark pixels with cloud shadow projection.
+    shadows = cld_proj.multiply(dark_pixels).rename('shadows')
+
+    # Add dark pixels, cloud projection, and identified shadows as image bands.
+    return img.addBands(ee.Image([dark_pixels, cld_proj, shadows]))
+
+# https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless
+def add_cld_shdw_mask(img):
+    # Add cloud component bands.
+    img_cloud = add_cloud_bands(img)
+
+    # Add cloud shadow component bands.
+    img_cloud_shadow = add_shadow_bands(img_cloud)
+
+    # Combine cloud and shadow mask, set cloud and shadow as value 1, else 0.
+    is_cld_shdw = img_cloud_shadow.select('clouds').add(img_cloud_shadow.select('shadows')).gt(0)
+
+    # Remove small cloud-shadow patches and dilate remaining pixels by BUFFER input.
+    # 20 m scale is for speed, and assumes clouds don't require 10 m precision.
+    is_cld_shdw = (is_cld_shdw.focalMin(2).focalMax(BUFFER*2/20)
+        .reproject(**{'crs': img.select([0]).projection(), 'scale': 20})
+        .rename('cloudmask'))
+
+    # Add the final cloud-shadow mask to the image.
+    # return img.addBands(is_cld_shdw)
+    return img_cloud_shadow.addBands(is_cld_shdw)
+
+# https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless
+def apply_cld_shdw_mask(img):
+    # Subset the cloudmask band and invert it so clouds/shadow are 0, else 1.
+    not_cld_shdw = img.select('cloudmask').Not()
+
+    # Subset reflectance bands and update their masks, return the result.
+    return img.select('B.*').updateMask(not_cld_shdw)
+
+
+def download(minx, miny, maxx, maxy, name):
+
+    exportarea = { "type": "Polygon",  "coordinates": [[[maxx, miny], [maxx, maxy], [minx, maxy], [minx, miny], [maxx, miny]]]  }
+    exportarea = ee.Geometry.Polygon(exportarea["coordinates"]) 
+
+    
+    ########################### Processing Sentinel 1 #############################################
+    collectionS1 = ee.ImageCollection('COPERNICUS/S1_GRD')
+    collectionS1 = collectionS1.filter(ee.Filter.eq('instrumentMode', 'IW'))
+    collectionS1 = collectionS1.filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+    collectionS1 = collectionS1.filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))
+    collectionS1 = collectionS1.filter(ee.Filter.eq('orbitProperties_pass', orbit))
+    collectionS1 = collectionS1.filterBounds(exportarea)
+    collectionS1 = collectionS1.filterDate(Sentinel1_start_date, Sentinel1_finish_date)
+    collectionS1 = collectionS1.select(['VV', 'VH'])
+    collectionS1_first = collectionS1.median()
+    
+    # Export
+    task = ee.batch.Export.image.toDrive(
+                    image = collectionS1_first,
+                    scale = 10,  
+                    description = "S1_" + name,
+                    fileFormat="GEOTIFF", 
+                    folder = name, 
+                    region = exportarea,
+                    crs='EPSG:4326',
+                    maxPixels=80000000000,
+                )
+    task.start()
+
+    ########################### Processing Sentinel 2 #############################################
+    # cating the clouds to the Sentinel-2 data
+    s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2winter_start_date, Sen2winter_finish_date)
+
+    # Filtering clouds and cloud shadow and apply the mask to sentinel-2
+    s2_sr_median = (s2_sr_cld_col.map(add_cld_shdw_mask)
+                                .map(apply_cld_shdw_mask))
+    
+    # composite the image by giving preference to the least cloudy image first.
+    s2_sr_median = s2_sr_median.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
+
+    # print(s2_sr_median.getInfo()["bands"])
+
+    # batch export to google drive
+    task_ordered = ee.batch.Export.image.toDrive(
+        image = s2_sr_median,
+        scale = 10,  
+        description = "S2_" + name,
+        fileFormat="GEOTIFF", 
+        folder = name, 
+        region = exportarea,
+        crs='EPSG:4326',
+        maxPixels=80000000000,
+    )
+    task_ordered.start() 
+
+    ########################### Processing Sentinel 2 #############################################
+
+    dataset = (ee.ImageCollection('NOAA/VIIRS/DNB/MONTHLY_V1/VCMCFG')
+                  .filter(ee.Filter.date('2017-05-01', '2017-05-31')) )
+
+    return None
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("minx", type=float)
+    parser.add_argument("miny", type=float)
+    parser.add_argument("maxx", type=float)
+    parser.add_argument("maxy", type=float) 
+    parser.add_argument("name", type=str) 
+    parser.add_argument("output_path", type=str, help="Output path")
+    args = parser.parse_args()
+
+    download(args.minx, args.miny, args.maxx, args.maxy, args.name)
+
+
+if __name__ == "__main__":
+    main()
+    print("Done!")
+
+

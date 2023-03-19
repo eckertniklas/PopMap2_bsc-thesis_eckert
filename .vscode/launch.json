@@ -13,10 +13,10 @@
             "justMyCode": true,
         },
         {
-            "name": "RWA preprocess_and_cut_shapefiles.py",
+            "name": "RWA 02_preprocess_rwa_shapefile.py",
             "type": "python",
             "request": "launch",
-            "program": "utils/preprocess_and_cut_shapefiles.py",
+            "program": "utils/02_preprocess_rwa_shapefile.py",
             "console": "integratedTerminal",
             "args": [
                 "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/HumDataOCHA/RWA/rwa_adm3_2006_NISR_WGS1984_20181002.shp",
@@ -30,10 +30,10 @@
             ]
         },
         {
-            "name": "RWA download_gee_country.py",
+            "name": "RWA 01_download_gee_country.py",
             "type": "python",
             "request": "launch",
-            "program": "utils/download_gee_country.py",
+            "program": "utils/01_download_gee_country.py",
             "console": "integratedTerminal",
             "args": [
                 "28.782241559728206", 
@@ -44,12 +44,44 @@
                 "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/GEEraster/RWA",
                 // "P_2020"
             ]
+        },
+        {
+            "name": "PRI 01_download_gee_country.py",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/01_download_gee_country.py",
+            "console": "integratedTerminal",
+            "args": [
+                "-67.28203119204046", 
+                "17.874492216594003",
+                "-65.20561517641546",
+                "18.522873187515714",
+                "pri",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/GEEraster/pri",
+                // "P_2020"
+            ]
+        }, 
+        {
+            "name": "PRItest download_gee_country.py",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/01_download_gee_country.py",
+            "console": "integratedTerminal",
+            "args": [
+                "-65.08203119204046", 
+                "17.874492216594003",
+                "-65.20561517641546",
+                "18.522873187515714",
+                "pri_S1asctest",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/GEEraster/pri",
+                // "P_2020"
+            ]
         }, 
         {
             "name": "RWA download_gee_country.py, test",
             "type": "python",
             "request": "launch",
-            "program": "utils/download_gee_country.py",
+            "program": "utils/01_download_gee_country.py",
             "console": "integratedTerminal",
             "args": [
                 "30.782241559728206", 

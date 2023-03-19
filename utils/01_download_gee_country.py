@@ -14,28 +14,38 @@ except:
 ee_crs = ee.Projection('EPSG:4326')
     
 # Sentinel 2 Config
-Sen2spring_start_date = '2018-03-01'
-Sen2spring_finish_date = '2018-06-01'
-Sen2summer_start_date = '2018-06-01'
-Sen2summer_finish_date = '2018-09-01'
-Sen2autumn_start_date = '2018-09-01'
-Sen2autumn_finish_date = '2018-12-01'
-Sen2winter_start_date = '2018-12-01'
-Sen2winter_finish_date = '2019-03-01'
+# Sen2spring_start_date = '2019-03-01'
+# Sen2spring_finish_date = '2019-06-01'
+# Sen2summer_start_date = '2019-06-01'
+# Sen2summer_finish_date = '2019-09-01'
+# Sen2autumn_start_date = '2019-09-01'
+# Sen2autumn_finish_date = '2019-12-01'
+# Sen2winter_start_date = '2019-12-01'
+# Sen2winter_finish_date = '2020-03-01'
 
-AOI = ee.Geometry.Point(-122.269, 45.701)
-START_DATE = '2020-06-01'
-END_DATE = '2020-09-01'
+# Sentinel 2 Config
+Sen2spring_start_date = '2020-03-01'
+Sen2spring_finish_date = '2020-06-01'
+Sen2summer_start_date = '2020-06-01'
+Sen2summer_finish_date = '2020-09-01'
+Sen2autumn_start_date = '2020-09-01'
+Sen2autumn_finish_date = '2020-12-01'
+Sen2winter_start_date = '2020-12-01'
+Sen2winter_finish_date = '2021-03-01'
+
+# AOI = ee.Geometry.Point(-122.269, 45.701)
+# START_DATE = '2020-06-01'
+# END_DATE = '2020-09-01'
 CLOUD_FILTER = 60
 CLD_PRB_THRESH = 40
 NIR_DRK_THRESH = 0.15
 CLD_PRJ_DIST = 2
 BUFFER = 100
-# S2_bands = ['B2', 'B3', 'B4']
 
-Sentinel1_start_date = '2018-07-03'
-Sentinel1_finish_date = '2018-08-30'
-orbit = 'DESCENDING'
+Sentinel1_start_date = '2020-07-03'
+Sentinel1_finish_date = '2020-08-30'
+orbit = 'DESCENDING' # Default
+# orbit = 'Ascending' # for pri?
 
 
 # https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless
@@ -81,6 +91,7 @@ def get_s2_sr_cld_col(aoi, start_date, end_date):
         })
     }))
 
+
 # https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless
 def add_cloud_bands(img):
     """Add cloud bands to Sentinel-2 image
@@ -101,6 +112,7 @@ def add_cloud_bands(img):
 
     # Add the cloud probability layer and cloud mask as image bands.
     return img.addBands(ee.Image([cld_prb, is_cloud]))
+
 
 # https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless
 def add_shadow_bands(img):
@@ -140,6 +152,7 @@ def add_shadow_bands(img):
     # Add dark pixels, cloud projection, and identified shadows as image bands.
     return img.addBands(ee.Image([dark_pixels, cld_proj, shadows]))
 
+
 # https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless
 def add_cld_shdw_mask(img):
     # Add cloud component bands.
@@ -161,6 +174,7 @@ def add_cld_shdw_mask(img):
     # return img.addBands(is_cld_shdw)
     return img_cloud_shadow.addBands(is_cld_shdw)
 
+
 # https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless
 def apply_cld_shdw_mask(img):
     # Subset the cloudmask band and invert it so clouds/shadow are 0, else 1.
@@ -170,66 +184,131 @@ def apply_cld_shdw_mask(img):
     return img.select('B.*').updateMask(not_cld_shdw)
 
 
+def submit_s2job(s2_sr_mosaic, description, name, exportarea):
+    # Submits a job to Google earth engine with all the requred arguments
+    
+    task = ee.batch.Export.image.toDrive(
+        image = s2_sr_mosaic,
+        scale = 10,  
+        description = description + "_" + name,
+        fileFormat="GEOTIFF", 
+        folder = name, 
+        region = exportarea,
+        crs='EPSG:4326',
+        maxPixels=80000000000 
+    )
+
+    # submit/start the job
+    task.start() 
+
 def download(minx, miny, maxx, maxy, name):
 
     exportarea = { "type": "Polygon",  "coordinates": [[[maxx, miny], [maxx, maxy], [minx, maxy], [minx, miny], [maxx, miny]]]  }
     exportarea = ee.Geometry.Polygon(exportarea["coordinates"]) 
 
-    
-    ########################### Processing Sentinel 1 #############################################
-    collectionS1 = ee.ImageCollection('COPERNICUS/S1_GRD')
-    collectionS1 = collectionS1.filter(ee.Filter.eq('instrumentMode', 'IW'))
-    collectionS1 = collectionS1.filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
-    collectionS1 = collectionS1.filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))
-    collectionS1 = collectionS1.filter(ee.Filter.eq('orbitProperties_pass', orbit))
-    collectionS1 = collectionS1.filterBounds(exportarea)
-    collectionS1 = collectionS1.filterDate(Sentinel1_start_date, Sentinel1_finish_date)
-    collectionS1 = collectionS1.select(['VV', 'VH'])
-    collectionS1_first = collectionS1.median()
-    
-    # Export
-    task = ee.batch.Export.image.toDrive(
-                    image = collectionS1_first,
-                    scale = 10,  
-                    description = "S1_" + name,
-                    fileFormat="GEOTIFF", 
-                    folder = name, 
-                    region = exportarea,
-                    crs='EPSG:4326',
-                    maxPixels=80000000000,
-                )
-    task.start()
+    S1 = True
+    S2 = True
+    VIIRS = True
 
-    ########################### Processing Sentinel 2 #############################################
-    # cating the clouds to the Sentinel-2 data
-    s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2winter_start_date, Sen2winter_finish_date)
+    if S1:
+        ########################### Processing Sentinel 1 #############################################
+        # collectionS1 = ee.ImageCollection('COPERNICUS/S1_GRD')
+        # collectionS1 = collectionS1.filter(ee.Filter.eq('instrumentMode', 'IW'))
+        # collectionS1 = collectionS1.filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+        # collectionS1 = collectionS1.filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))
+        # collectionS1 = collectionS1.filter(ee.Filter.eq('orbitProperties_pass', orbit))
+        # collectionS1 = collectionS1.filterBounds(exportarea)
+        # collectionS1 = collectionS1.filterDate(Sentinel1_start_date, Sentinel1_finish_date)
+        # collectionS1 = collectionS1.select(['VV', 'VH'])
+        # collectionS1_first = collectionS1.median()
+        
+        # select by data and sensormode and area
+        collectionS1 = ee.ImageCollection('COPERNICUS/S1_GRD')\
+            .filter(ee.Filter.eq('instrumentMode', 'IW'))\
+            .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))\
+            .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))\
+            .filter(ee.Filter.eq('orbitProperties_pass', orbit))\
+            .filterBounds(exportarea)\
+            .filterDate(Sentinel1_start_date, Sentinel1_finish_date)\
+            .select(['VV', 'VH'])
+        
+        # Reduce with Median operation
+        collectionS1_mean = collectionS1.mean()
+        # collectionS1_median = collectionS1.first()
+        # collectionS1_median = collectionS1.mosaic()
+        # collectionS1_median = collectionS1.mean()
 
-    # Filtering clouds and cloud shadow and apply the mask to sentinel-2
-    s2_sr_median = (s2_sr_cld_col.map(add_cld_shdw_mask)
-                                .map(apply_cld_shdw_mask))
-    
-    # composite the image by giving preference to the least cloudy image first.
-    s2_sr_median = s2_sr_median.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
+        # Export
+        task = ee.batch.Export.image.toDrive(
+                        image = collectionS1_mean,
+                        scale = 10,  
+                        description = "S1_" + name,
+                        fileFormat="GEOTIFF", 
+                        folder = name, 
+                        region = exportarea,
+                        crs='EPSG:4326',
+                        maxPixels=80000000000,
+                    )
+        task.start()
 
-    # print(s2_sr_median.getInfo()["bands"])
+    if S2:
+        ########################### Processing Sentinel 2 #############################################
+        # 1. cating the clouds to the Sentinel-2 data
+        # 2. Filtering clouds and cloud shadow and apply the mask to sentinel-2
+        # 3. composite the image by giving preference to the least cloudy image first.
+        # 4. Submit job
 
-    # batch export to google drive
-    task_ordered = ee.batch.Export.image.toDrive(
-        image = s2_sr_median,
-        scale = 10,  
-        description = "S2_" + name,
-        fileFormat="GEOTIFF", 
-        folder = name, 
-        region = exportarea,
-        crs='EPSG:4326',
-        maxPixels=80000000000,
-    )
-    task_ordered.start() 
+        # SPRING
+        s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2spring_start_date, Sen2spring_finish_date)
+        s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
+        s2_sr_mosaic = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
+        submit_s2job(s2_sr_mosaic, "sen2spring",  name, exportarea)
 
-    ########################### Processing Sentinel 2 #############################################
+        # SUMMER
+        s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2summer_start_date, Sen2summer_finish_date)
+        s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
+        s2_sr_mosaic = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
+        submit_s2job(s2_sr_mosaic, "sen2summer", name, exportarea)
 
-    dataset = (ee.ImageCollection('NOAA/VIIRS/DNB/MONTHLY_V1/VCMCFG')
-                  .filter(ee.Filter.date('2017-05-01', '2017-05-31')) )
+        # AUTUMN
+        s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2autumn_start_date, Sen2autumn_finish_date)
+        s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
+        s2_sr_mosaic = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
+        submit_s2job(s2_sr_mosaic, "sen2autumn", name, exportarea)
+
+        # WINTER
+        s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2winter_start_date, Sen2winter_finish_date)
+        s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
+        s2_sr_mosaic = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
+        submit_s2job(s2_sr_mosaic, "sen2winter", name, exportarea)
+        # print(s2_sr_median.getInfo()["bands"])
+
+    if VIIRS:
+        ########################### Processing Sentinel 2 #############################################
+
+        viirs_NL_col = ee.ImageCollection('NOAA/VIIRS/DNB/MONTHLY_V1/VCMCFG') \
+                    .filter(ee.Filter.date(Sen2spring_start_date, Sen2winter_finish_date))
+        NL_median = viirs_NL_col.select("avg_rad").median()
+
+        # Create composite
+        # num_obs = viirs_NL_col.select("cf_cvg")
+        # NL_col = NL_col.updateMask(num_obs.gt(1))
+        # viirs_NL = viirs_NL_col.mosaic()
+        
+        # Export
+        task = ee.batch.Export.image.toDrive(
+                        image = NL_median,
+                        scale = 10,  
+                        description = "VIIRS_" + name,
+                        fileFormat="GEOTIFF", 
+                        folder = name, 
+                        region = exportarea,
+                        crs='EPSG:4326',
+                        maxPixels=80000000000,
+                    )
+        task.start()
+        # viirs_NL.sort()
+
 
     return None
 

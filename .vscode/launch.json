@@ -13,23 +13,6 @@
             "justMyCode": true,
         },
         {
-            "name": "RWA 02_preprocess_rwa_shapefile.py",
-            "type": "python",
-            "request": "launch",
-            "program": "utils/02_preprocess_rwa_shapefile.py",
-            "console": "integratedTerminal",
-            "args": [
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/HumDataOCHA/RWA/rwa_adm3_2006_NISR_WGS1984_20181002.shp",
-                // "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/HumDataOCHA/RWA/rwa_humdata_regions.tif",
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/WorldPopGIS/Mastergrid/Global_2000_2020/RWA/Subnational/Shapefile",
-                // "../../data/OtherBuildings/RWA/rwa_wpop_regions.tif",
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/WorldPopGIS/Population/Global_2000_2020/CensusTables/rwa_population_2000_2020.csv",
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/processed/RWA/",
-                "rwa",
-                "P_2020"
-            ]
-        },
-        {
             "name": "RWA 01_download_gee_country.py",
             "type": "python",
             "request": "launch",
@@ -62,7 +45,7 @@
             ]
         }, 
         {
-            "name": "PRItest download_gee_country.py",
+            "name": "PRItest 01_download_gee_country.py",
             "type": "python",
             "request": "launch",
             "program": "utils/01_download_gee_country.py",
@@ -78,7 +61,7 @@
             ]
         }, 
         {
-            "name": "RWA download_gee_country.py, test",
+            "name": "RWA 01_download_gee_country.py, test",
             "type": "python",
             "request": "launch",
             "program": "utils/01_download_gee_country.py",
@@ -91,6 +74,58 @@
                 "RWA_test_mosaic_smart2",
                 "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/GEEraster/RWA",
                 // "P_2020"
+            ]
+        }, 
+        {
+            "name": "02_preprocess_rwa_shapefile.py",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/02_preprocess_rwa_shapefile.py",
+            "console": "integratedTerminal",
+            "args": [
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/HumDataOCHA/RWA/rwa_adm3_2006_NISR_WGS1984_20181002.shp",
+                // "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/HumDataOCHA/RWA/rwa_humdata_regions.tif",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/WorldPopGIS/Mastergrid/Global_2000_2020/RWA/Subnational/Shapefile",
+                // "../../data/OtherBuildings/RWA/rwa_wpop_regions.tif",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/WorldPopGIS/Population/Global_2000_2020/CensusTables/rwa_population_2000_2020.csv",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/processed/RWA/",
+                "rwa",
+                "P_2020"
+            ]
+        },
+        {
+            "name": "03_merge_tiffs.py",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/03_merge_tiffs.py",
+            "console": "integratedTerminal",
+            "args": [
+                "/scratch/metzgern/HAC/data/AfricaSat/raw/EE/pri"
+            ]
+        }, 
+        {
+            "name": "04_preprocess_pri_shapefile.py",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/04_preprocess_pri_shapefile.py",
+            "console": "integratedTerminal",
+            "args": [
+                "/scratch/metzgern/HAC/data/AfricaSat/raw/boundaries/pri",
+                "/scratch/metzgern/HAC/data/AfricaSat/processed/pri/boundaries.tif",
+                "/scratch/metzgern/HAC/data/AfricaSat/processed/pri/census.csv",
+                "/scratch/metzgern/HAC/data/AfricaSat/merged/EE/pri/S1/pri_S1.tif"
+            ]
+        },
+        {
+            "name": "05_cut_tiles.py",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/05_cut_tiles.py",
+            "console": "integratedTerminal",
+            "args":[
+                "/scratch/metzgern/HAC/data/AfricaSat/merged/EE/pri",
+                "/scratch/metzgern/HAC/data/AfricaSat/merged/EE/pri",
+                "10",
             ]
         }, 
         {

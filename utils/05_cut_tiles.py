@@ -83,8 +83,8 @@ def process(input_path, output_dir, tile_size=100):
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("input_path", default="/scratch/metzgern/HAC/data/AfricaSat/merged/EE/pri", type=str, help="processed covariate data")
-    parser.add_argument("output_dir", default="/scratch/metzgern/HAC/data/AfricaSat/processed/EE/pri", type=str, help="processed covariate data")
+    parser.add_argument("input_path", default="/scratch/metzgern/HAC/data/PopMapData/merged/EE/pri", type=str, help="processed covariate data")
+    parser.add_argument("output_dir", default="/scratch/metzgern/HAC/data/PopMapData/processed/EE/pri", type=str, help="processed covariate data")
     parser.add_argument("tile_size", default=100, type=int, help="")
     args = parser.parse_args()
 

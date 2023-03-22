@@ -131,7 +131,7 @@ class Trainer:
         self.train_stats = defaultdict(float)
 
         self.model.train()
-        
+
         
         # get GPU memory usage
         handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
@@ -228,7 +228,7 @@ class Trainer:
         self.test_stats = defaultdict(float)
 
         self.model.eval()
-        cr_eval = False
+        cr_eval = True
         sum_pool10 = torch.nn.AvgPool2d(10, stride=10, divisor_override=1)
         sum_pool20 = torch.nn.AvgPool2d(20, stride=20, divisor_override=1)
         sum_pool40 = torch.nn.AvgPool2d(40, stride=40, divisor_override=1)
@@ -256,43 +256,43 @@ class Trainer:
 
                     for key in loss_dict:
                         self.test_stats[key] += loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key]
-                else:
-                    #fine_eval
-                    if sample["pop_avail"].any(): 
-                        pred_zh = output["popdensemap"][sample["pop_avail"][:,0].bool()]
-                        gt_zh = sample["Pop_X"][sample["pop_avail"][:,0].bool()]
-                        PopNN_X = sample["PopNN_X"][sample["pop_avail"][:,0].bool()]
+                
+                #fine_eval
+                if sample["pop_avail"].any(): 
+                    pred_zh = output["popdensemap"][sample["pop_avail"][:,0].bool()]
+                    gt_zh = sample["Pop_X"][sample["pop_avail"][:,0].bool()]
+                    PopNN_X = sample["PopNN_X"][sample["pop_avail"][:,0].bool()]
 
-                        pred.append(sum_pool10(pred_zh).view(-1))
-                        gt.append(gt_zh.view(-1))
-                        pred2.append(sum_pool20(pred_zh).view(-1))
-                        gt2.append(sum_pool2(gt_zh).view(-1))
-                        pred4.append(sum_pool40(pred_zh).view(-1))
-                        gt4.append(sum_pool4(gt_zh).view(-1))
+                    pred.append(sum_pool10(pred_zh).view(-1))
+                    gt.append(gt_zh.view(-1))
+                    pred2.append(sum_pool20(pred_zh).view(-1))
+                    gt2.append(sum_pool2(gt_zh).view(-1))
+                    pred4.append(sum_pool40(pred_zh).view(-1))
+                    gt4.append(sum_pool4(gt_zh).view(-1))
 
-                        gt10.append(sum_pool10(gt_zh).view(-1))
-                        pred10.append(output["popcount"][sample["pop_avail"][:,0].bool()].view(-1))
-                        gtSo2.append(sample["y"][sample["pop_avail"][:,0].bool()].view(-1))
+                    gt10.append(sum_pool10(gt_zh).view(-1))
+                    pred10.append(output["popcount"][sample["pop_avail"][:,0].bool()].view(-1))
+                    gtSo2.append(sample["y"][sample["pop_avail"][:,0].bool()].view(-1))
 
-                        i = 0
-                        if plot==True:
-                            for i in range(len(gt_zh)):
-                                vmin, vmax = gt_zh[i].min(), gt_zh[i].max()
-                                plot_and_save(gt_zh[i].cpu(), model_name=args.expN, title=gt_zh[i].sum().cpu().item(), vmin=vmin, vmax=vmax, idx=s, name="01_GT")
-                                plot_and_save(sum_pool10(pred_zh)[i].cpu(), model_name=args.expN, title=sum_pool10(pred_zh)[i].sum().cpu().item(), vmin=vmin, vmax=vmax, idx=s, name="02_pred10")
-                                plot_and_save(PopNN_X[i].cpu(), model_name=args.expN, title=(PopNN_X[i].sum()/100).cpu().item(), vmin=vmin, vmax=vmax, idx=s, name="03_GTNN")
-                                plot_and_save(pred_zh[i].cpu()*100, model_name=args.expN, title=pred_zh[i].sum().cpu().item(), vmin=vmin, vmax=vmax, idx=s, name="04_pred100")
+                    i = 0
+                    if plot==True:
+                        for i in range(len(gt_zh)):
+                            vmax = max([gt_zh[i].max(), pred[i].max()*100]) 
+                            plot_and_save(gt_zh[i].cpu(), model_name=args.expN, title=gt_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="01_GT")
+                            plot_and_save(sum_pool10(pred_zh)[i].cpu(), model_name=args.expN, title=sum_pool10(pred_zh)[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="02_pred10")
+                            plot_and_save(PopNN_X[i].cpu(), model_name=args.expN, title=(PopNN_X[i].sum()/100).cpu().item(), vmin=0, vmax=vmax, idx=s, name="03_GTNN")
+                            plot_and_save(pred_zh[i].cpu()*100, model_name=args.expN, title=pred_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="04_pred100")
 
-                                inp = sample["input"][sample["pop_avail"][:,0].bool()]
-                                if args.Sentinel2:
-                                    plot_and_save(inp[i,:3].cpu().permute(1,2,0)*0.2+0.5, model_name=args.expN, title=self.args.expN, idx=s, name="05_S2", cmap=None)
-                                    if args.Sentinel1:
-                                        plot_and_save(torch.cat([inp[i,3:5].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None)
-                                else:
-                                    plot_and_save(torch.cat([inp[i,:2].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None)
+                            inp = sample["input"][sample["pop_avail"][:,0].bool()]
+                            if args.Sentinel2:
+                                plot_and_save(inp[i,:3].cpu().permute(1,2,0)*0.2+0.5, model_name=args.expN, title=self.args.expN, idx=s, name="05_S2", cmap=None)
+                                if args.Sentinel1:
+                                    plot_and_save(torch.cat([inp[i,3:5].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None)
+                            else:
+                                plot_and_save(torch.cat([inp[i,:2].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None)
 
-                                s += 1
-                            plot = s<100
+                            s += 1
+                        plot = s<200
 
             if cr_eval:
                 self.test_stats = {k: v / len(self.dataloaders['val']) for k, v in self.val_stats.items()}
@@ -306,9 +306,18 @@ class Trainer:
                 self.test_stats4 = get_test_metrics(torch.cat(pred4), torch.cat(gt4), tag="400m")
                 self.test_stats10 = get_test_metrics(torch.cat(pred10), torch.cat(gt10), tag="1km")
                 self.test_statsGT = get_test_metrics(torch.cat(gt10), torch.cat(gtSo2), tag="GTCons")
-                self.test_stats = {**self.test_stats1, **self.test_stats2, **self.test_stats4, **self.test_stats10, **self.test_statsGT}
+                self.test_stats = {**self.test_stats, **self.test_stats1, **self.test_stats2, **self.test_stats4, **self.test_stats10, **self.test_statsGT}
+            
                 wandb.log({**{k + '/testZH': v for k, v in self.test_stats.items()}, **self.info}, self.info["iter"])
 
+    def test_target(self, save=False):
+        # Test on target domain
+        self.model.eval()
+        self.test_stats = defaultdict(float)
+
+        # inputialize the output map
+        h, w = 
+        torch.zeros()
 
     @staticmethod
     def get_dataloaders(args): 
@@ -351,7 +360,7 @@ class Trainer:
                 "train": PopulationDataset_Reg(f_names_train, labels_train, mode="train", transform=data_transform, random_season=args.random_season, **params),
                 "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", transform=None, **params),
                 "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", transform=None, **params),
-                "testtarget": PopulationDataset_target(f_names_test, labels_test, mode="test", transform=None, **params)
+                "test_target": [ PopulationDataset_target(f_names_test, labels_test, mode="test", transform=None, **params) for reg in args.target_regions ]
             }
         else:
             raise NotImplementedError(f'Dataset {args.dataset}')

@@ -24,7 +24,7 @@
                 "30.96165440152508",
                 "-0.9948970488002317",
                 "rwa",
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/GEEraster/RWA",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/GEEraster/RWA",
                 // "P_2020"
             ]
         },
@@ -40,7 +40,7 @@
                 "-65.20561517641546",
                 "18.522873187515714",
                 "pri",
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/GEEraster/pri",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/GEEraster/pri",
                 // "P_2020"
             ]
         }, 
@@ -56,7 +56,7 @@
                 "-65.20561517641546",
                 "18.522873187515714",
                 "pri_S1asctest",
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/GEEraster/pri",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/GEEraster/pri",
                 // "P_2020"
             ]
         }, 
@@ -72,7 +72,7 @@
                 "30.96165440152508",
                 "-2.7948970488002317",
                 "RWA_test_mosaic_smart2",
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/GEEraster/RWA",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/GEEraster/RWA",
                 // "P_2020"
             ]
         }, 
@@ -83,12 +83,12 @@
             "program": "utils/02_preprocess_rwa_shapefile.py",
             "console": "integratedTerminal",
             "args": [
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/HumDataOCHA/RWA/rwa_adm3_2006_NISR_WGS1984_20181002.shp",
-                // "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/HumDataOCHA/RWA/rwa_humdata_regions.tif",
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/WorldPopGIS/Mastergrid/Global_2000_2020/RWA/Subnational/Shapefile",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/HumDataOCHA/RWA/rwa_adm3_2006_NISR_WGS1984_20181002.shp",
+                // "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/HumDataOCHA/RWA/rwa_humdata_regions.tif",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/WorldPopGIS/Mastergrid/Global_2000_2020/RWA/Subnational/Shapefile",
                 // "../../data/OtherBuildings/RWA/rwa_wpop_regions.tif",
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/raw/WorldPopGIS/Population/Global_2000_2020/CensusTables/rwa_population_2000_2020.csv",
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/AfricaSat/processed/RWA/",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/WorldPopGIS/Population/Global_2000_2020/CensusTables/rwa_population_2000_2020.csv",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/processed/RWA/",
                 "rwa",
                 "P_2020"
             ]
@@ -100,7 +100,7 @@
             "program": "utils/03_merge_tiffs.py",
             "console": "integratedTerminal",
             "args": [
-                "/scratch/metzgern/HAC/data/AfricaSat/raw/EE/pri"
+                "/scratch/metzgern/HAC/data/PopMapData/raw/EE/pri"
             ]
         }, 
         {
@@ -110,10 +110,10 @@
             "program": "utils/04_preprocess_pri_shapefile.py",
             "console": "integratedTerminal",
             "args": [
-                "/scratch/metzgern/HAC/data/AfricaSat/raw/boundaries/pri",
-                "/scratch/metzgern/HAC/data/AfricaSat/processed/pri/boundaries.tif",
-                "/scratch/metzgern/HAC/data/AfricaSat/processed/pri/census.csv",
-                "/scratch/metzgern/HAC/data/AfricaSat/merged/EE/pri/S1/pri_S1.tif"
+                "/scratch/metzgern/HAC/data/PopMapData/raw/boundaries/pri",
+                "/scratch/metzgern/HAC/data/PopMapData/processed/pri/boundaries.tif",
+                "/scratch/metzgern/HAC/data/PopMapData/processed/pri/census.csv",
+                "/scratch/metzgern/HAC/data/PopMapData/merged/EE/pri/S1/pri_S1.tif"
             ]
         },
         {
@@ -123,8 +123,8 @@
             "program": "utils/05_cut_tiles.py",
             "console": "integratedTerminal",
             "args":[
-                "/scratch/metzgern/HAC/data/AfricaSat/merged/EE/pri",
-                "/scratch/metzgern/HAC/data/AfricaSat/processed/EE/pri",
+                "/scratch/metzgern/HAC/data/PopMapData/merged/EE/pri",
+                "/scratch/metzgern/HAC/data/PopMapData/processed/EE/pri",
                 "100",
             ]
         }, 

@@ -40,13 +40,20 @@ class JacobsUNet(nn.Module):
         # self.gumbeltau = torch.nn.Parameter(torch.tensor([2/3]), requires_grad=True)
         
                                   
-    def forward(self, inputs, train=False):
+    def forward(self, inputs, train=False, padding=True):
+        
+        # Add padding
+        if padding:
+            x  = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
 
-        x  = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
+        # Forward the main model
+        x = self.unetmodel(x)
 
-        # forward and remove padding
-        x = self.unetmodel(x)[:,:,self.p:-self.p,self.p:-self.p]
+        # remove padding
+        if padding:
+            x = x[:,:,self.p:-self.p,self.p:-self.p]
 
+        # Foward the segmentation head
         x = self.head(x)
 
         # Population map

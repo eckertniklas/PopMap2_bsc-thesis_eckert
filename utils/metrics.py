@@ -8,7 +8,6 @@ import torch.nn.functional as F
 
 def get_test_metrics(pred, y, tag=""):
 
-
     log_dict = {
         "l1_loss":  F.l1_loss(pred, y),
         "r2": r2(pred, y),

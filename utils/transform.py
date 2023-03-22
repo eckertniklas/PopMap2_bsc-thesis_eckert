@@ -12,7 +12,13 @@ from utils.utils import *
 
 
 class AddGaussianNoise(object):
-    def __init__(self, mean=0., std=1., p=0.5):
+    """Add gaussian noise to a tensor image with a given probability.
+    Args:
+        mean (float): mean of the noise distribution. Default value is 0.
+        std (float): standard deviation of the noise distribution. Default value is 1.
+        p (float): probability of the noise beeing applied. Default value is 1.0.
+    """
+    def __init__(self, mean=0., std=1., p=1.0):
         self.std = std
         self.mean = mean
         self.p = p
@@ -24,6 +30,7 @@ class AddGaussianNoise(object):
     
     def __repr__(self):
         return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+    
 
 class RandomHorizontalVerticalFlip(object):
     def __init__(self, p=0.5): 

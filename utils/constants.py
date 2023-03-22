@@ -31,6 +31,10 @@ all_patches_mixed_part2 = os.path.join(current_dir_path, 'So2Sat_POP_Part2')  # 
 all_patches_mixed_train_part2 = os.path.join(all_patches_mixed_part2, 'train')   # path to train folder
 all_patches_mixed_test_part2 = os.path.join(all_patches_mixed_part2, 'test')   # path to test folder
 
+# Sat2Pop data folder
+pop_map_root = os.path.join(current_dir_path, os.path.join("PopMapData", "processed"))
+
+
 src_path = os.path.dirname(os.path.dirname(__file__))
 config_path = os.path.join(os.path.join(src_path, 'data'), 'config')
 exp_path = os.path.join(os.path.dirname(src_path), 'results')

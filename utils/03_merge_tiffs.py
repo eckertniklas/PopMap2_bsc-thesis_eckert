@@ -37,7 +37,7 @@ def process(parent_dir):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("parent_dir", default="/scratch/metzgern/HAC/data/AfricaSat/raw/EE/pri", type=str, help="")
+    parser.add_argument("parent_dir", default="/scratch/metzgern/HAC/data/PopMapData/raw/EE/pri", type=str, help="")
     args = parser.parse_args()
 
     process(args.parent_dir)

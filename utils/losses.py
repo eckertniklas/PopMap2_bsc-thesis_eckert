@@ -111,6 +111,44 @@ def r2(pred, gt, eps=1e-8):
 
 
 
+def negative_binomial_loss(y_true, y_pred):
+    """
+    Negative binomial loss function.
+    Assumes tensorflow backend.
+    
+    Parameters
+    ----------
+    y_true : tf.Tensor
+        Ground truth values of predicted variable.
+    y_pred : tf.Tensor
+        n and p values of predicted distribution.
+        
+    Returns
+    -------
+    nll : tf.Tensor
+        Negative log likelihood.
+    """
+
+    # Separate the parameters
+    n, p = torch.unbind(y_pred, dim=1)
+    
+    # # Add one dimension to make the right shape
+    # n = tf.expand_dims(n, -1)
+    # p = tf.expand_dims(p, -1)
+    
+    # Calculate the negative log likelihood
+    nll = (
+        torch.lgamma(n) 
+        + torch.lgamma(y_true + 1)
+        - torch.lgamma(n + y_true)
+        - n * torch.log(p)
+        - y_true * torch.log(1 - p)
+    )                  
+
+    return nll
+
+
+
 
 
 

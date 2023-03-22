@@ -50,7 +50,8 @@ class JacobsUNet(nn.Module):
         x = self.head(x)
 
         # Population map
-        popdensemap = nn.functional.softplus(x[:,0])
+        # popdensemap = nn.functional.softplus(x[:,0])
+        popdensemap = nn.functional.relu(x[:,0])
         popcount = popdensemap.sum((1,2))
 
         # Building map
@@ -71,10 +72,12 @@ class JacobsUNet(nn.Module):
         # Sparsify
         # popdensemap = builtupmap * popdensemap
 
+        # p = torch.sigmoid(x[:,2]) 
+
 
         return {"popcount": popcount, "popdensemap": popdensemap,
                 "builtdensemap": builtdensemap, "builtcount": builtcount,
-                "builtupmap": builtupmap}
+                "builtupmap": builtupmap, }
 
 
 

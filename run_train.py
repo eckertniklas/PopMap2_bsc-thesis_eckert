@@ -38,11 +38,16 @@ class Trainer:
     def __init__(self, args: argparse.Namespace):
         self.args = args
 
+        # set up dataloaders
         self.dataloaders = self.get_dataloaders(args)
         
+        # set up model
         seed_all(args.seed)
+
+        # define input channels based on the number of input modalities
         input_channels = args.Sentinel1*2 + args.Sentinel2*3 + args.VIIRS*1
 
+        # define architecture
         if args.model=="JacobsUNet":
             self.model = JacobsUNet( 
                 input_channels = input_channels,
@@ -77,20 +82,25 @@ class Trainer:
         args.pytorch_total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         print("Model", args.model, "; #Params:", args.pytorch_total_params)
 
+        # set up experiment folder
         self.experiment_folder, self.args.expN, self.args.randN = new_log(os.path.join(args.save_dir, args.dataset), args)
         self.args.experiment_folder = self.experiment_folder
 
+        # wandb config
         wandb.init(project=args.wandb_project, dir=self.experiment_folder)
         wandb.config.update(self.args) 
 
+        # set up optimizer and scheduler
         self.optimizer = optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
 
+        # set up info
         self.info = { "epoch": 0,  "iter": 0,  "sampleitr": 0}
         self.train_stats = defaultdict(lambda: np.nan)
         self.val_stats = defaultdict(lambda: np.nan)
         self.best_optimization_loss = np.inf
 
+        # in case of checkpoint resume
         if args.resume is not None:
             self.resume(path=args.resume)
 
@@ -109,7 +119,8 @@ class Trainer:
 
                     if self.args.save_model in ['last', 'both']:
                         self.save_model('last')
-
+                
+                # logging and scheduler step
                 if self.args.lr_gamma != 1.0: 
                     self.scheduler.step()
                     wandb.log({**{'log_lr': np.log10(self.scheduler.get_last_lr())}, **self.info}, self.info["iter"])
@@ -121,6 +132,8 @@ class Trainer:
 
         self.model.train()
         
+        
+        # get GPU memory usage
         handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
         info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
         self.train_stats["gpu_used"] = info.used
@@ -128,24 +141,28 @@ class Trainer:
         with tqdm(self.dataloaders['train'], leave=False) as inner_tnr:
             inner_tnr.set_postfix(training_loss=np.nan)
             for i, sample in enumerate(inner_tnr):
-                sample = to_cuda(sample)
-
                 self.optimizer.zero_grad()
 
+                sample = to_cuda(sample)
                 output = self.model(sample, train=True)
-
+                
+                # compute loss
                 loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam,
                                         merge_aug=args.merge_aug, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
 
+                # detect NaN loss
                 if torch.isnan(loss):
                     raise Exception("detected NaN loss..")
-                    
+
+                # accumulate stats 
                 for key in loss_dict:
                     self.train_stats[key] += loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key] 
 
+                # backprop
                 if self.info["epoch"] > 0 or not self.args.skip_first:
                     loss.backward()
 
+                    # gradient clipping
                     if self.args.gradient_clip > 0.:
                         clip_grad_norm_(self.model.parameters(), self.args.gradient_clip)
 
@@ -154,6 +171,7 @@ class Trainer:
                 self.info["iter"] += 1
                 self.info["sampleitr"] += self.args.batch_size
 
+                # logging
                 if (i + 1) % min(self.args.logstep_train, len(self.dataloaders['train'])) == 0:
                     self.train_stats = {k: v / self.args.logstep_train for k, v in self.train_stats.items()}
 
@@ -183,13 +201,16 @@ class Trainer:
                 
                 # Colellect predictions and samples
                 pred.append(output["popcount"].view(-1)); gt.append(sample["y"].view(-1))
-
+                
+                # compute loss
                 loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam,
                                            merge_aug=args.merge_aug, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
 
+                # accumulate stats
                 for key in loss_dict:
                     self.val_stats[key] += loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key] 
             
+            # Compute average metrics
             self.val_stats = {k: v / len(self.dataloaders['val']) for k, v in self.val_stats.items()}
 
             # Compute non-averagable metrics
@@ -197,6 +218,7 @@ class Trainer:
 
             wandb.log({**{k + '/val': v for k, v in self.val_stats.items()}, **self.info}, self.info["iter"])
             
+            # save best model
             if self.val_stats['optimization_loss'] < self.best_optimization_loss:
                 self.best_optimization_loss = self.val_stats['optimization_loss']
                 if self.args.save_model in ['best', 'both']:
@@ -240,8 +262,6 @@ class Trainer:
                         pred_zh = output["popdensemap"][sample["pop_avail"][:,0].bool()]
                         gt_zh = sample["Pop_X"][sample["pop_avail"][:,0].bool()]
                         PopNN_X = sample["PopNN_X"][sample["pop_avail"][:,0].bool()]
-                        # gt_zhNN = sample["PopNN_X"][sample["pop_avail"][:,0].bool()]
-                        # inputs_zh = sample["input"][sample["pop_avail"][:,0].bool()]
 
                         pred.append(sum_pool10(pred_zh).view(-1))
                         gt.append(gt_zh.view(-1))
@@ -290,14 +310,13 @@ class Trainer:
                 wandb.log({**{k + '/testZH': v for k, v in self.test_stats.items()}, **self.info}, self.info["iter"])
 
 
-            
-
     @staticmethod
     def get_dataloaders(args): 
 
         phases = ('train', 'val')
         if args.dataset == 'So2Sat':
-            params = {'dim': (img_rows, img_cols), "satmode": args.satmode}
+            params = {'dim': (img_rows, img_cols), "satmode": args.satmode, 'in_memory': args.in_memory,
+                      'S1': args.Sentinel1, 'S2': args.Sentinel2, 'VIIRS': args.VIIRS}
 
             if not args.Sentinel1: 
                 data_transform = transforms.Compose([
@@ -329,12 +348,10 @@ class Trainer:
             f_names_test, labels_test = get_fnames_labs_reg(all_patches_mixed_test_part1, force_recompute=False)
 
             datasets = {
-                "train": PopulationDataset_Reg(f_names_train, labels_train, mode="train", in_memory=args.in_memory,
-                                                S1=args.Sentinel1, S2=args.Sentinel2, VIIRS=args.VIIRS,  transform=data_transform, **params),
-                "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", in_memory=args.in_memory, 
-                                                S1=args.Sentinel1, S2=args.Sentinel2, VIIRS=args.VIIRS,  transform=None, **params),
-                "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", in_memory=args.in_memory, 
-                                                S1=args.Sentinel1, S2=args.Sentinel2, VIIRS=args.VIIRS,  transform=None, **params)
+                "train": PopulationDataset_Reg(f_names_train, labels_train, mode="train", transform=data_transform, random_season=args.random_season, **params),
+                "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", transform=None, **params),
+                "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", transform=None, **params),
+                "testtarget": PopulationDataset_target(f_names_test, labels_test, mode="test", transform=None, **params)
             }
         else:
             raise NotImplementedError(f'Dataset {args.dataset}')
@@ -343,7 +360,7 @@ class Trainer:
                 "val":  DataLoader(datasets["val"], batch_size=args.batch_size*4, num_workers=args.num_workers, shuffle=False, drop_last=False),
                 "test":  DataLoader(datasets["test"], batch_size=args.batch_size*4, num_workers=args.num_workers, shuffle=False, drop_last=False)}
 
-    def save_model(self, prefix=''): 
+    def save_model(self, prefix=''):
         torch.save({
             'model': self.model.state_dict(),
             'epoch': self.info["epoch"] + 1,

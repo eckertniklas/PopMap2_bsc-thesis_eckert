@@ -12,6 +12,8 @@ from rasterio.enums import Resampling
 from torch.utils.data import Dataset
 from utils.constants import img_rows, img_cols, osm_features, num_classes, config_path
 from utils.utils import plot_2dmatrix
+import random
+
 
 from torch.utils.data import DataLoader
 
@@ -32,7 +34,7 @@ class PopulationDataset_Reg(Dataset):
     Population Dataset for Standard Regression Task
     """
     def __init__(self, list_IDs, labels, dim=(img_rows, img_cols), transform=None, test=False, mode=None, satmode=False, in_memory=False,
-                 S1=False, S2=True, VIIRS=True): 
+                 S1=False, S2=True, VIIRS=True, random_season=False): 
 
         self.dim = dim
         self.labels = labels
@@ -46,6 +48,7 @@ class PopulationDataset_Reg(Dataset):
         self.S1 = S1
         self.S2 = S2
         self.VIIRS = VIIRS
+        self.random_season = random_season
                                                     
         self.satmode = satmode
         self.y_stats = load_json(os.path.join(config_path, 'dataset_stats', 'label_stats.json'))
@@ -135,27 +138,28 @@ class PopulationDataset_Reg(Dataset):
         else:
             if self.satmode: 
                 # preparing the batch from other datasets
-                ID_spring = ID_temp  # batch from sen2 autumn
+                if self.random_season:
+                    ID_sen2 = ID_temp.replace('sen2spring', "sen2{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
+                else:
+                    ID_sen2 = ID_temp.replace('sen2spring', 'sen2spring') # for testing just use the spring images
+                     
                 ID_sen1 = ID_temp.replace('sen2spring', 'S1')
                 ID_viirs = ID_temp.replace('sen2spring', 'viirs')
                 ID_osm = ID_temp.replace('sen2spring', 'osm_features').replace('tif', 'csv')
                 ID_lu = ID_temp.replace('sen2spring', 'lu')
                 ID_Pop = ID_temp.replace('sen2spring', 'Pop')
                 ID_PopNN = ID_temp.replace('sen2spring', 'PopNN')
-
-                # dem_X = generate_data(dem_X, ID_dem, channels=1, data='dem')
-                # TODO: check if MS buildings exist, and load them
-                # TODO: load S1 imagery
+                ID_msb = ID_temp.replace('sen2spring', 'msb')
                 
                 data = []
                 if self.S2:
-                    data.append(self.generate_data(ID_spring, channels=3, data='sen2spring'))
+                    data.append(self.generate_data(ID_sen2, channels=3, data='sen2spring'))
                 if self.S1:
                     data.append(self.generate_data(ID_sen1, channels=2 , data='sen1'))
                 if self.VIIRS:
                     data.append(self.generate_data(ID_viirs, channels=1, data='viirs'))
                 # osm_X = self.generate_osm_data(osm_X, ID_osm, mm_scaler, channels=1)
-                lu_X = self.generate_data(ID_lu, channels=4, data='lu') 
+                # lu_X = self.generate_data(ID_lu, channels=4, data='lu') 
 
                 # if finegrained cencus is available
                 if isfile(ID_Pop):
@@ -171,34 +175,15 @@ class PopulationDataset_Reg(Dataset):
                     PopNN_X = np.zeros((100,100))
                     pop_avail = np.array([0])
 
-                msb_avail = np.array([0])
-
-                # return np.concatenate((sen2spr_X, viirs_X), axis=0), np.array([0]) , np.argmax(lu_X,0)>1.5
-                return np.concatenate(data, axis=0), Pop_X, PopNN_X, pop_avail, np.argmax(lu_X,0)>1.5, msb_avail
-            else:
-                sen2spr_X = np.empty((*self.dim, 3))
-                viirs_X = np.empty((*self.dim, 1))
-                osm_X = np.empty((osm_features, 1))
-                lcz_X = np.empty((*self.dim, 1))
-                lu_X = np.empty((*self.dim, 4))
-                dem_X = np.empty((*self.dim, 1))
-
-                # preparing the batch from other datasets
-                ID_spring = ID_temp  # batch from sen2 autumn
-                ID_viirs = ID_temp.replace('sen2spring', 'viirs')
-                ID_osm = ID_temp.replace('sen2spring', 'osm_features').replace('tif', 'csv')
-                ID_lcz = ID_temp.replace('sen2spring', 'lcz')
-                ID_lu = ID_temp.replace('sen2spring', 'lu')
-                ID_dem = ID_temp.replace('Part1', 'Part2').replace('sen2spring', 'dem') 
-
-                sen2spr_X = self.generate_data(sen2spr_X, ID_spring, channels=3, data='sen2spring')
-                viirs_X = self.generate_data(viirs_X, ID_viirs, channels=1, data='viirs')
-                osm_X = self.generate_osm_data(osm_X, ID_osm, mm_scaler, channels=1)
-                lcz_X = self.generate_data(lcz_X, ID_lcz, channels=1, data='lcz')
-                lu_X = self.generate_data(lu_X, ID_lu, channels=4, data='lu')
-                dem_X = self.generate_data(dem_X, ID_dem, channels=1, data='dem')
-
-                return np.concatenate((sen2spr_X, viirs_X, lcz_X, lu_X, dem_X), axis=0), osm_X
+                use_msb = False
+                if isfile(ID_msb) and use_msb:
+                    msb = self.generate_data(ID_msb, channels=1, data='msb')
+                    msb_avail = np.array([1])
+                else:
+                    msb = np.zeros((100,100))
+                    msb_avail = np.array([0])
+                
+                return np.concatenate(data, axis=0), Pop_X, PopNN_X, pop_avail, msb, msb_avail
 
     def normalize_reg_labels(self, y): 
         y_max = self.y_stats['max']
@@ -231,7 +216,7 @@ class PopulationDataset_Reg(Dataset):
 
         if "sen2" in data:
             new_arr = ((image.transpose((1,2,0)) - self.dataset_stats[data]['mean'] ) / self.dataset_stats[data]['std']).transpose((2,0,1))
-        if "sen1" in data:
+        elif "sen1" in data:
             new_arr = ((image.transpose((1,2,0)) - self.dataset_stats[data]['mean'] ) / self.dataset_stats[data]['std']).transpose((2,0,1))
         elif data=="viirs":
             image = np.where(image < 0, 0, image)
@@ -241,41 +226,7 @@ class PopulationDataset_Reg(Dataset):
         elif "Pop" in data:
             new_arr = image
         else: 
-            new_arr = np.empty([channels, img_rows, img_cols])
-            for k, layer in enumerate(image):
-                if data == 'lcz':
-                    arr = layer
-                    arr = np.where((arr > 0) & (arr <= 10), arr * (-0.09) + 1.09, arr)
-                    arr = np.where(arr == 0, 0.1, arr)
-                    arr = np.where(arr > 10, 0, arr)
-                    new_arr[k] = arr
-                elif 'sen2' in data:
-                    p2 = self.dataset_stats[data]['p2'][k]
-                    mean = self.dataset_stats[data]['mean'][k]
-                    std = self.dataset_stats[data]['std'][k]
-                    arr = layer
-                    arr = np.where(arr >= p2, p2, arr)
-                    arr = arr - mean
-                    arr = arr / std
-                    new_arr[k] = arr
-                elif data == 'viirs':
-                    p2 = self.dataset_stats[data]['p2'][k]
-                    mean = self.dataset_stats[data]['mean'][k]
-                    std = self.dataset_stats[data]['std'][k]
-                    arr = layer
-                    arr = np.where(arr < 0, 0, arr)
-                    arr = np.where(arr >= p2, p2, arr)
-                    arr = arr - mean
-                    arr = arr / std
-                    new_arr[k] = arr
-                else:
-                    channel_min = self.dataset_stats[data]['min'][k]
-                    channel_max = self.dataset_stats[data]['max'][k]
-                    arr = layer
-                    arr = arr - channel_min
-                    arr = arr / (channel_max - channel_min)
-                    new_arr[k] = arr
-                # X = new_arr
+            raise ValueError("Invalid data type")
 
         return new_arr
 

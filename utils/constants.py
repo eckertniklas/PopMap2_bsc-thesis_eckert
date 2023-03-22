@@ -11,6 +11,9 @@ rot_angle = np.arctan(16/97)*(180/np.pi)
 img_rows = 100  # patch height
 img_cols = 100  # patch width
 
+# inference patch size
+inference_patch_size = 1024
+
 osm_features = 56  # number of osm based features
 num_classes = 1  # one for regression
 
@@ -33,7 +36,7 @@ all_patches_mixed_test_part2 = os.path.join(all_patches_mixed_part2, 'test')   #
 
 # Sat2Pop data folder
 pop_map_root = os.path.join(current_dir_path, os.path.join("PopMapData", "processed"))
-
+pop_map_covariates = os.path.join(current_dir_path, os.path.join("PopMapData", "merged"))
 
 src_path = os.path.dirname(os.path.dirname(__file__))
 config_path = os.path.join(os.path.join(src_path, 'data'), 'config')

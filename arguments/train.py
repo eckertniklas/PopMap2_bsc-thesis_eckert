@@ -14,8 +14,8 @@ parser.add_argument('-r', '--resume', type=str, help='if argument is given, skri
                                                             'given model\
                                                             ; argument should be name of the model to be trained')
 
-parser.add_argument("-d", "--dataset", help='', type=str, default="So2Sat", help="the source domain") 
-parser.add_argument("-treg", "--target_region", help='', type=str, default="train", help="the target domain")
+parser.add_argument("-d", "--dataset", type=str, default="So2Sat", help="the source domain") 
+parser.add_argument("-treg", "--target_regions", nargs='+', default=[], help="the target domain")
 parser.add_argument("-S1", "--Sentinel1", action='store_true', help="")
 parser.add_argument("-S2", "--Sentinel2", action='store_true', help="")
 parser.add_argument("-VIIRS", "--VIIRS", action='store_true', help="")

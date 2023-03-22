@@ -19,13 +19,14 @@ from sklearn import model_selection
 from arguments import train_parser
 from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep
 from data.So2Sat import PopulationDataset_Reg
+from data.PopulationDataset_target import Population_Dataset_target
 from utils.losses import get_loss, r2
 from utils.metrics import get_test_metrics
 from utils.utils import new_log, to_cuda, seed_all
 
 from utils.utils import get_fnames_labs_reg, plot_2dmatrix, plot_and_save
 
-from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1
+from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1, inference_patch_size
 
 import wandb
 
@@ -224,11 +225,10 @@ class Trainer:
                 if self.args.save_model in ['best', 'both']:
                     self.save_model('best')
 
-    def test(self, plot=False):
+    def test(self, plot=False, full_eval=False, zh_eval=True, save=False):
         self.test_stats = defaultdict(float)
 
-        self.model.eval()
-        cr_eval = True
+        self.model.eval() 
         sum_pool10 = torch.nn.AvgPool2d(10, stride=10, divisor_override=1)
         sum_pool20 = torch.nn.AvgPool2d(20, stride=20, divisor_override=1)
         sum_pool40 = torch.nn.AvgPool2d(40, stride=40, divisor_override=1)
@@ -249,7 +249,7 @@ class Trainer:
                 output = self.model(sample)
                 
                 # Colellect predictions and samples
-                if cr_eval:
+                if full_eval:
                     pred.append(output["popcount"].view(-1)); gt.append(sample["y"].view(-1)) 
                     loss, loss_dict = get_loss(output, sample, loss=args.loss, 
                                             merge_aug=args.merge_aug, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
@@ -258,49 +258,50 @@ class Trainer:
                         self.test_stats[key] += loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key]
                 
                 #fine_eval
-                if sample["pop_avail"].any(): 
-                    pred_zh = output["popdensemap"][sample["pop_avail"][:,0].bool()]
-                    gt_zh = sample["Pop_X"][sample["pop_avail"][:,0].bool()]
-                    PopNN_X = sample["PopNN_X"][sample["pop_avail"][:,0].bool()]
+                if zh_eval:
+                    if sample["pop_avail"].any(): 
+                        pred_zh = output["popdensemap"][sample["pop_avail"][:,0].bool()]
+                        gt_zh = sample["Pop_X"][sample["pop_avail"][:,0].bool()]
+                        PopNN_X = sample["PopNN_X"][sample["pop_avail"][:,0].bool()]
 
-                    pred.append(sum_pool10(pred_zh).view(-1))
-                    gt.append(gt_zh.view(-1))
-                    pred2.append(sum_pool20(pred_zh).view(-1))
-                    gt2.append(sum_pool2(gt_zh).view(-1))
-                    pred4.append(sum_pool40(pred_zh).view(-1))
-                    gt4.append(sum_pool4(gt_zh).view(-1))
+                        pred.append(sum_pool10(pred_zh).view(-1))
+                        gt.append(gt_zh.view(-1))
+                        pred2.append(sum_pool20(pred_zh).view(-1))
+                        gt2.append(sum_pool2(gt_zh).view(-1))
+                        pred4.append(sum_pool40(pred_zh).view(-1))
+                        gt4.append(sum_pool4(gt_zh).view(-1))
 
-                    gt10.append(sum_pool10(gt_zh).view(-1))
-                    pred10.append(output["popcount"][sample["pop_avail"][:,0].bool()].view(-1))
-                    gtSo2.append(sample["y"][sample["pop_avail"][:,0].bool()].view(-1))
+                        gt10.append(sum_pool10(gt_zh).view(-1))
+                        pred10.append(output["popcount"][sample["pop_avail"][:,0].bool()].view(-1))
+                        gtSo2.append(sample["y"][sample["pop_avail"][:,0].bool()].view(-1))
 
-                    i = 0
-                    if plot==True:
-                        for i in range(len(gt_zh)):
-                            vmax = max([gt_zh[i].max(), pred[i].max()*100]) 
-                            plot_and_save(gt_zh[i].cpu(), model_name=args.expN, title=gt_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="01_GT")
-                            plot_and_save(sum_pool10(pred_zh)[i].cpu(), model_name=args.expN, title=sum_pool10(pred_zh)[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="02_pred10")
-                            plot_and_save(PopNN_X[i].cpu(), model_name=args.expN, title=(PopNN_X[i].sum()/100).cpu().item(), vmin=0, vmax=vmax, idx=s, name="03_GTNN")
-                            plot_and_save(pred_zh[i].cpu()*100, model_name=args.expN, title=pred_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="04_pred100")
+                        i = 0
+                        if plot==True:
+                            for i in range(len(gt_zh)):
+                                vmax = max([gt_zh[i].max(), pred[i].max()*100]) 
+                                plot_and_save(gt_zh[i].cpu(), model_name=args.expN, title=gt_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="01_GT")
+                                plot_and_save(sum_pool10(pred_zh)[i].cpu(), model_name=args.expN, title=sum_pool10(pred_zh)[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="02_pred10")
+                                plot_and_save(PopNN_X[i].cpu(), model_name=args.expN, title=(PopNN_X[i].sum()/100).cpu().item(), vmin=0, vmax=vmax, idx=s, name="03_GTNN")
+                                plot_and_save(pred_zh[i].cpu()*100, model_name=args.expN, title=pred_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="04_pred100")
 
-                            inp = sample["input"][sample["pop_avail"][:,0].bool()]
-                            if args.Sentinel2:
-                                plot_and_save(inp[i,:3].cpu().permute(1,2,0)*0.2+0.5, model_name=args.expN, title=self.args.expN, idx=s, name="05_S2", cmap=None)
-                                if args.Sentinel1:
-                                    plot_and_save(torch.cat([inp[i,3:5].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None)
-                            else:
-                                plot_and_save(torch.cat([inp[i,:2].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None)
+                                inp = sample["input"][sample["pop_avail"][:,0].bool()]
+                                if args.Sentinel2:
+                                    plot_and_save(inp[i,:3].cpu().permute(1,2,0)*0.2+0.5, model_name=args.expN, title=self.args.expN, idx=s, name="05_S2", cmap=None)
+                                    if args.Sentinel1:
+                                        plot_and_save(torch.cat([inp[i,3:5].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None)
+                                else:
+                                    plot_and_save(torch.cat([inp[i,:2].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None)
 
-                            s += 1
-                        plot = s<200
+                                s += 1
+                            plot = s<200
 
-            if cr_eval:
-                self.test_stats = {k: v / len(self.dataloaders['val']) for k, v in self.val_stats.items()}
+            if full_eval:
+                self.test_stats = {k: v / len(self.dataloaders['val']) for k, v in self.test_stats.items()}
                 # Compute non-averagable metrics
                 self.test_stats["Population:r2"] = r2(torch.cat(pred), torch.cat(gt))
                 wandb.log({**{k + '/test': v for k, v in self.test_stats.items()}, **self.info}, self.info["iter"])
 
-            else:
+            if zh_eval:
                 self.test_stats1 = get_test_metrics(torch.cat(pred), torch.cat(gt), tag="100m")
                 self.test_stats2 = get_test_metrics(torch.cat(pred2), torch.cat(gt2), tag="200m")
                 self.test_stats4 = get_test_metrics(torch.cat(pred4), torch.cat(gt4), tag="400m")
@@ -315,9 +316,32 @@ class Trainer:
         self.model.eval()
         self.test_stats = defaultdict(float)
 
-        # inputialize the output map
-        h, w = 
-        torch.zeros()
+        with torch.no_grad():
+            for testdataloader in self.dataloaders["test_target"]:
+                    
+                # inputialize the output map
+                h, w = testdataloader.dataset.shape()
+                output_map = torch.zeros((h, w)).to(self.device)
+                output_map_count = torch.zeros((h, w)).to(self.device)
+
+                for sample in tqdm(testdataloader, leave=False):
+                    
+                    sample = to_cuda(sample)
+                    x,y = sample["coords"]
+                    output = self.model(sample)
+                    output_map[sample["mask"]] += output["popdensemap"]
+                    output_map_count[sample["mask"]] += 1
+
+
+                output_map = output_map / output_map_count
+
+                if save:
+                    # save the output map
+                    testdataloader.dataset.save(output_map, self.args.expN)
+                
+                # convert populationmap to census
+                testdataloader.dataset.convert_popmap_to_census(output_map)
+
 
     @staticmethod
     def get_dataloaders(args): 
@@ -360,14 +384,14 @@ class Trainer:
                 "train": PopulationDataset_Reg(f_names_train, labels_train, mode="train", transform=data_transform, random_season=args.random_season, **params),
                 "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", transform=None, **params),
                 "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", transform=None, **params),
-                "test_target": [ PopulationDataset_target(f_names_test, labels_test, mode="test", transform=None, **params) for reg in args.target_regions ]
+                "test_target": [ Population_Dataset_target(reg, S1=args.Sentinel1, S2= args.Sentinel2, VIIRS=args.VIIRS, patchsize=inference_patch_size) for reg in args.target_regions ]
             }
         else:
             raise NotImplementedError(f'Dataset {args.dataset}')
         
         return {"train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True, drop_last=True),
                 "val":  DataLoader(datasets["val"], batch_size=args.batch_size*4, num_workers=args.num_workers, shuffle=False, drop_last=False),
-                "test":  DataLoader(datasets["test"], batch_size=args.batch_size*4, num_workers=args.num_workers, shuffle=False, drop_last=False)}
+                "test":  DataLoader(datasets["test"], batch_size=1, num_workers=args.num_workers, shuffle=False, drop_last=False)}
 
     def save_model(self, prefix=''):
         torch.save({

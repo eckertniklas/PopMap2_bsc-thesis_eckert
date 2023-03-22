@@ -277,7 +277,7 @@
                 // "--max_samples", "5000",
                 "--num_epochs", "1500",
                 "--lam_builtmask", "0.0",
-                "--batch_size", "64",
+                "--batch_size", "128",
                 "--lr_step", "10",
                 "-lr", "1e-4",
                 "--lr_step", "15",
@@ -298,14 +298,42 @@
                 "--loss", "log_mse_loss",
                 // "--lam", "1.0", "0.00001",
                 // "--lam", "1.0", "0.005",
-                "--lam", "1.0", //"10.0",
                 "--lam", "1000",
                 // "-S1",
                 "-S2",
                 "--feature_dim", "16",
                 "--random_season",
+                // "--target_region", "pri"
                 // "-tv", "1.0"
                 // "-VIIRS" 
+            ]
+        }
+        {
+            "name": "train, smp, debug",
+            "type": "python",
+            "request": "launch",
+            "program": "run_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                "--no-osm",
+                "--satmode",
+                "--max_samples", "5000",
+                "--num_epochs", "1500",
+                "--lam_builtmask", "0.0",
+                "--batch_size", "64",
+                "--lr_step", "10",
+                "-lr", "1e-4",
+                "--lr_step", "15", 
+                "--lr_gamma", "0.75", 
+                "--model", "JacobsUNet",
+                "--feature_extractor", "vgg11", 
+                "--loss", "log_mse_loss",  
+                "--lam", "1000",
+                "-S2",
+                "--feature_dim", "16",
+                "--random_season",
+                "--target_region", "pri"
             ]
         }
     ]

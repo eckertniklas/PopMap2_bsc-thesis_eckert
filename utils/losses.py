@@ -7,6 +7,9 @@ from collections import defaultdict
 
 def get_loss(output, gt, loss="l1_loss", lam=[1,0], merge_aug=False, lam_builtmask=1., lam_dense=1.):
     auxdict = defaultdict(float)
+
+    # TODO: if domain adversarial loss is used, split the prediction and output into labeled and unlabeled
+    # TODO: calculate the adversarial loss and add it to the optimization loss
     
     # prepare vars1.0
     y_pred = output["popcount"]

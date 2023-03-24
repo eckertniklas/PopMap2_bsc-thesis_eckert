@@ -13,6 +13,7 @@ img_cols = 100  # patch width
 
 # inference patch size
 inference_patch_size = 1024
+overlap = 32
 
 osm_features = 56  # number of osm based features
 num_classes = 1  # one for regression
@@ -22,7 +23,6 @@ if os.name == "nt":  # locally
 
 # current_dir_path = "/scratch2/metzgern/HAC/code/So2SatPOP/data"
 current_dir_path = "/scratch/metzgern/HAC/data"
-
 
 # paths to So2Sat POP Part1 folder
 all_patches_mixed_part1 = os.path.join(current_dir_path, 'So2Sat_POP_Part1')  # path to So2Sat POP Part 1 data folder
@@ -36,7 +36,7 @@ all_patches_mixed_test_part2 = os.path.join(all_patches_mixed_part2, 'test')   #
 
 # Sat2Pop data folder
 pop_map_root = os.path.join(current_dir_path, os.path.join("PopMapData", "processed"))
-pop_map_covariates = os.path.join(current_dir_path, os.path.join("PopMapData", "merged"))
+pop_map_covariates = os.path.join(current_dir_path, os.path.join("PopMapData", os.path.join("merged", "EE")))
 
 src_path = os.path.dirname(os.path.dirname(__file__))
 config_path = os.path.join(os.path.join(src_path, 'data'), 'config')

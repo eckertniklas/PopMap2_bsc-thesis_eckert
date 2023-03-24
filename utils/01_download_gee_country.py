@@ -37,10 +37,10 @@ Sen2winter_finish_date = '2021-03-01'
 # START_DATE = '2020-06-01'
 # END_DATE = '2020-09-01'
 CLOUD_FILTER = 60
-CLD_PRB_THRESH = 40
+CLD_PRB_THRESH = 60
 NIR_DRK_THRESH = 0.15
 CLD_PRJ_DIST = 2
-BUFFER = 100
+BUFFER = 60
 
 Sentinel1_start_date = '2020-07-03'
 Sentinel1_finish_date = '2020-08-30'
@@ -66,23 +66,31 @@ def get_s2_sr_cld_col(aoi, start_date, end_date):
     """
         
     # Import and filter S2 SR.
-    s2_sr_col = (ee.ImageCollection('COPERNICUS/S2_SR') 
+    # s2_sr_col = (ee.ImageCollection('COPERNICUS/S2_SR')  # Default
+    # s2_sr_col = (ee.ImageCollection('COPERNICUS/S2') 
+    
+    # Real Data from raw S2 collection
+    s2_sr_col = (ee.ImageCollection('COPERNICUS/S2') 
         .filterBounds(aoi)
         .filterDate(start_date, end_date)
         .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', CLOUD_FILTER)))
+    
+    # Query the Sentinel-2 SR collection with cloud masks.
+    s2_sr_col_FORMASKS = (ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') 
+        .filterBounds(aoi)
+        .filterDate(start_date, end_date)
+        .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', CLOUD_FILTER))
+        .select('SCL'))
         
-    # print(s2_sr_col.getInfo()["bands"])
-
     # Import and filter s2cloudless.
     s2_cloudless_col = (ee.ImageCollection('COPERNICUS/S2_CLOUD_PROBABILITY')
         .filterBounds(aoi)
         .filterDate(start_date, end_date))
-
     # print(s2_cloudless_col.getInfo()["bands"])
 
     # Join the filtered s2cloudless collection to the SR collection by the 'system:index' property.
     # return s2_sr_col
-    return ee.ImageCollection(ee.Join.saveFirst('s2cloudless').apply(**{
+    merge1 =  ee.ImageCollection(ee.Join.saveFirst('s2cloudless').apply(**{
         'primary': s2_sr_col,
         'secondary': s2_cloudless_col,
         'condition': ee.Filter.equals(**{
@@ -90,6 +98,24 @@ def get_s2_sr_cld_col(aoi, start_date, end_date):
             'rightField': 'system:index'
         })
     }))
+
+    #  merge1 with s2_sr_col_FORMASKS
+    # merge1 =  ee.ImageCollection(ee.Join.saveFirst('s2cloudless').apply(**{
+    #     'primary': merge1,
+    #     'secondary': s2_sr_col_FORMASKS,
+    #     'condition': ee.Filter.equals(**{
+    #         'leftField': 'system:index',
+    #         'rightField': 'system:index'
+    #     })
+    # }))
+
+    # merge1 = merge1.addBands(s2_sr_col_FORMASKS)
+
+    # Combine the two collections merge1 and s2_sr_col_FORMASKS
+
+    merge1 = ee.ImageCollection.combine(merge1, s2_sr_col_FORMASKS)
+
+    return merge1
 
 
 # https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless
@@ -137,7 +163,7 @@ def add_shadow_bands(img):
     dark_pixels = img.select('B8').lt(NIR_DRK_THRESH*SR_BAND_SCALE).multiply(not_water).rename('dark_pixels')
 
     # Determine the direction to project cloud shadow from clouds (assumes UTM projection).
-    shadow_azimuth = ee.Number(90).subtract(ee.Number(img.get('MEAN_SOLAR_AZIMUTH_ANGLE')));
+    shadow_azimuth = ee.Number(90).subtract(ee.Number(img.get('MEAN_SOLAR_AZIMUTH_ANGLE')))
 
     # Project shadows from clouds for the distance specified by the CLD_PRJ_DIST input.
     cld_proj = (img.select('clouds').directionalDistanceTransform(shadow_azimuth, CLD_PRJ_DIST*10)
@@ -172,7 +198,8 @@ def add_cld_shdw_mask(img):
 
     # Add the final cloud-shadow mask to the image.
     # return img.addBands(is_cld_shdw)
-    return img_cloud_shadow.addBands(is_cld_shdw)
+    # return img_cloud_shadow.addBands(is_cld_shdw)
+    return img.addBands(is_cld_shdw)
 
 
 # https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless
@@ -212,15 +239,6 @@ def download(minx, miny, maxx, maxy, name):
 
     if S1:
         ########################### Processing Sentinel 1 #############################################
-        # collectionS1 = ee.ImageCollection('COPERNICUS/S1_GRD')
-        # collectionS1 = collectionS1.filter(ee.Filter.eq('instrumentMode', 'IW'))
-        # collectionS1 = collectionS1.filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
-        # collectionS1 = collectionS1.filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))
-        # collectionS1 = collectionS1.filter(ee.Filter.eq('orbitProperties_pass', orbit))
-        # collectionS1 = collectionS1.filterBounds(exportarea)
-        # collectionS1 = collectionS1.filterDate(Sentinel1_start_date, Sentinel1_finish_date)
-        # collectionS1 = collectionS1.select(['VV', 'VH'])
-        # collectionS1_first = collectionS1.median()
         
         # select by data and sensormode and area
         collectionS1 = ee.ImageCollection('COPERNICUS/S1_GRD')\
@@ -261,26 +279,27 @@ def download(minx, miny, maxx, maxy, name):
         # SPRING
         s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2spring_start_date, Sen2spring_finish_date)
         s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
-        s2_sr_mosaic = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
-        submit_s2job(s2_sr_mosaic, "sen2spring",  name, exportarea)
+        s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False)
+        s2_sr_col = s2_sr_col.mosaic()
+        submit_s2job(s2_sr_col, "sen2spring",  name, exportarea)
 
         # SUMMER
         s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2summer_start_date, Sen2summer_finish_date)
         s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
-        s2_sr_mosaic = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
-        submit_s2job(s2_sr_mosaic, "sen2summer", name, exportarea)
+        s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
+        submit_s2job(s2_sr_col, "sen2summer", name, exportarea)
 
         # AUTUMN
         s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2autumn_start_date, Sen2autumn_finish_date)
         s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
-        s2_sr_mosaic = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
-        submit_s2job(s2_sr_mosaic, "sen2autumn", name, exportarea)
+        s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
+        submit_s2job(s2_sr_col, "sen2autumn", name, exportarea)
 
         # WINTER
         s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2winter_start_date, Sen2winter_finish_date)
         s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
-        s2_sr_mosaic = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
-        submit_s2job(s2_sr_mosaic, "sen2winter", name, exportarea)
+        s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
+        submit_s2job(s2_sr_col, "sen2winter", name, exportarea)
         # print(s2_sr_median.getInfo()["bands"])
 
     if VIIRS:
@@ -307,8 +326,6 @@ def download(minx, miny, maxx, maxy, name):
                         maxPixels=80000000000,
                     )
         task.start()
-        # viirs_NL.sort()
-
 
     return None
 

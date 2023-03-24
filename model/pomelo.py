@@ -42,16 +42,27 @@ class JacobsUNet(nn.Module):
                                   
     def forward(self, inputs, train=False, padding=True):
         
+
         # Add padding
         if padding:
             x  = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
+            p = self.p
+        else:
+            x = inputs["input"]
+            p = None
+
+        # pad to make sure it is divisible by 32
+        if (x.shape[2] % 32) != 0:
+            p = (x.shape[2] % 64) //2
+            x  = nn.functional.pad(inputs["input"], (p,p,p,p), mode='reflect')
+            # print("suspect input shape: div32", inputs["input"].shape)
 
         # Forward the main model
         x = self.unetmodel(x)
 
-        # remove padding
-        if padding:
-            x = x[:,:,self.p:-self.p,self.p:-self.p]
+        # revert padding
+        if p is not None:
+            x = x[:,:,p:-p,p:-p]
 
         # Foward the segmentation head
         x = self.head(x)

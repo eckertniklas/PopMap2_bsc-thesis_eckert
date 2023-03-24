@@ -33,12 +33,13 @@ class PopulationDataset_Reg(Dataset):
     """
     Population Dataset for Standard Regression Task
     """
-    def __init__(self, list_IDs, labels, dim=(img_rows, img_cols), transform=None, test=False, mode=None, satmode=False, in_memory=False,
+    def __init__(self, list_IDs, labels, f_names_unlab=[], dim=(img_rows, img_cols), transform=None, test=False, mode=None, satmode=False, in_memory=False,
                  S1=False, S2=True, VIIRS=True, random_season=False): 
 
         self.dim = dim
         self.labels = labels
         self.list_IDs = list_IDs
+        self.f_names_unlab = f_names_unlab
         self.n_classes = num_classes
         self.transform = transform
         self.test = test
@@ -48,9 +49,13 @@ class PopulationDataset_Reg(Dataset):
         self.S1 = S1
         self.S2 = S2
         self.VIIRS = VIIRS
-        self.random_season = random_season
-                                                    
+        self.random_season = random_season                 
         self.satmode = satmode
+
+        self.all_ids = list_IDs + f_names_unlab
+        self.labeled_indices = [i for i,name in enumerate(self.all_ids) if name in list_IDs]
+        self.unlabeled_indices = [i for i,name in enumerate(self.all_ids) if name in f_names_unlab]
+
         self.y_stats = load_json(os.path.join(config_path, 'dataset_stats', 'label_stats.json'))
         self.y_stats['max'] = float(self.y_stats['max'])
         self.y_stats['min'] = float(self.y_stats['min'])
@@ -81,7 +86,7 @@ class PopulationDataset_Reg(Dataset):
 
             return sample
 
-        ID_temp = self.list_IDs[idx]
+        ID_temp = self.all_ids[idx]
         # Generate data
         if self.satmode:
             X, Pop_X, PopNN_X, pop_avail, msb, msb_avail = self.data_generation(ID_temp)
@@ -89,13 +94,19 @@ class PopulationDataset_Reg(Dataset):
             X, osm = self.data_generation(ID_temp)
 
         ID = ID_temp.split(os.sep)[-1].split('_sen2')[0]
-        y = self.labels[idx]
-        y_norm = self.normalize_reg_labels(y) 
+        if idx<len(self.labels):
+            y = self.labels[idx]
+            y_norm = self.normalize_reg_labels(y) 
+            y = torch.from_numpy(np.asarray(y)).type(torch.FloatTensor)
+            y_norm = torch.from_numpy(np.asarray(y_norm)).type(torch.FloatTensor)
+            source = True
+        else:
+            y = torch.tensor(-9999).type(torch.FloatTensor)
+            y_norm = torch.tensor(-9999).type(torch.FloatTensor)
+            source = False
 
         # To torch
         X = torch.from_numpy(X).type(torch.FloatTensor)
-        y = torch.from_numpy(np.asarray(y)).type(torch.FloatTensor)
-        y_norm = torch.from_numpy(np.asarray(y_norm)).type(torch.FloatTensor)
         Pop_X = torch.from_numpy(np.asarray(Pop_X)).type(torch.FloatTensor)
         PopNN_X = torch.from_numpy(np.asarray(PopNN_X)).type(torch.FloatTensor)
         pop_avail = torch.from_numpy(np.asarray(pop_avail)).type(torch.FloatTensor)
@@ -106,7 +117,7 @@ class PopulationDataset_Reg(Dataset):
             return {'input': X, 'y': y, 'y_norm': y_norm, 
                       'Pop_X': Pop_X, 'PopNN_X': PopNN_X, 'pop_avail': pop_avail,
                       'builtupmap': msb,  'msb_avail': msb_avail,
-                      'identifier': ID}
+                    'identifier': ID, 'source': source}
 
         if self.transform:
             X = self.transform(X)
@@ -115,7 +126,7 @@ class PopulationDataset_Reg(Dataset):
             sample = {'input': X, 'y': y, 'y_norm': y_norm, 
                       'Pop_X': Pop_X, 'PopNN_X': PopNN_X, 'pop_avail': pop_avail,
                       'builtupmap': msb,  'msb_avail': msb_avail,
-                      'identifier': ID}
+                      'identifier': ID, 'source': source}
         else:
             sample = {'input': X, 'y': y, 'y_norm': y_norm, 'osm': osm, 'identifier': ID}
 
@@ -123,7 +134,7 @@ class PopulationDataset_Reg(Dataset):
 
 
     def __len__(self):
-        return len(self.labels)
+        return len(self.labels) + len(self.f_names_unlab)
     
 
     def data_generation(self, ID_temp):
@@ -215,7 +226,7 @@ class PopulationDataset_Reg(Dataset):
                 image = ds.read(out_shape=(ds.count, img_rows, img_cols), resampling=Resampling.average)
 
         if "sen2" in data:
-            new_arr = ((image.transpose((1,2,0)) - self.dataset_stats[data]['mean'] ) / self.dataset_stats[data]['std']).transpose((2,0,1))
+            new_arr = ((image.transpose((1,2,0)) - self.dataset_stats["sen2spring"]['mean'] ) / self.dataset_stats["sen2spring"]['std']).transpose((2,0,1))
         elif "sen1" in data:
             new_arr = ((image.transpose((1,2,0)) - self.dataset_stats[data]['mean'] ) / self.dataset_stats[data]['std']).transpose((2,0,1))
         elif data=="viirs":

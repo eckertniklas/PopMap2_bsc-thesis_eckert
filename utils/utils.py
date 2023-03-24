@@ -90,7 +90,7 @@ def plot_and_save(img, mask=None, vmax=None, vmin=None, idx=None,
         img = np.ma.masked_where(mask, img)
 
     plt.figure(figsize=(12, 8), dpi=260)
-    plt.imshow(img, vmax=vmax, vmin=vmin, cmap=cmap)
+    plt.imshow((img * 255).astype(np.uint8), vmax=vmax, vmin=vmin, cmap=cmap)
     if colorbar:
         plt.colorbar()
     title = title if title is not None else model_name
@@ -159,3 +159,34 @@ def get_fnames_labs_reg(path, force_recompute=False):
                     filehandle2.write(f'{la}\n')
 
     return f_names_all, labs_all
+
+def get_fnames_unlabs_reg(parent_dir, force_recompute=False):
+ 
+    data_path = os.path.join(parent_dir, "sen2spring")
+    fnames_file = os.path.join(parent_dir, 'file_list.txt')
+    # labs_file = os.path.join(parent_dir, 'label_list.txt')
+
+    if os.path.isfile(fnames_file) and (not force_recompute):
+        # read filenames from file, Define an empty list
+        f_names_all = []
+        labs_all = []
+
+        # Open the file and read the content in a list
+        with open(fnames_file, 'r') as filehandle:
+            for line in filehandle:
+                curr_place = line[:-1] # Remove linebreak which is the last character of the string
+                f_names_all.append(curr_place)
+
+    # iterate though the data path and list names
+    f_names_all = []
+    for root, dirs, files in os.walk(data_path):
+        for file in files:
+            if file.endswith(".tif"):
+                f_names_all.append(os.path.join(root, file))
+
+        # Write the found lists to the disk to later load it more quickly
+        with open(fnames_file, 'w') as filehandle1:
+            for fname, in zip(f_names_all,labs_all):
+                filehandle1.write(f'{fname}\n')
+
+    return f_names_all

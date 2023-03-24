@@ -13,6 +13,22 @@
             "justMyCode": true,
         },
         {
+            "name": "CHE 01_download_gee_country.py",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/01_download_gee_country.py",
+            "console": "integratedTerminal",
+            "args": [
+                "8.342543532767808", 
+                "47.21619954958101",
+                "8.700972487845933",
+                "47.52405300662494",
+                "che_test5",
+                "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/GEEraster/CHE_test5",
+                // "P_2020"
+            ]
+        },
+        {
             "name": "RWA 01_download_gee_country.py",
             "type": "python",
             "request": "launch",
@@ -45,7 +61,7 @@
             ]
         }, 
         {
-            "name": "PRItest 01_download_gee_country.py",
+            "name": "PRI test 01_download_gee_country.py",
             "type": "python",
             "request": "launch",
             "program": "utils/01_download_gee_country.py",
@@ -71,7 +87,7 @@
                 "-2.9039507660291455",
                 "30.96165440152508",
                 "-2.7948970488002317",
-                "RWA_test_mosaic_smart2",
+                "RWA_test",
                 "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/GEEraster/RWA",
                 // "P_2020"
             ]
@@ -279,7 +295,7 @@
                 "--lam_builtmask", "0.0",
                 "--batch_size", "128",
                 "--lr_step", "10",
-                "-lr", "1e-4",
+                "-lr", "3e-4",
                 "--lr_step", "15",
                 // "--in_memory"
                 "--lr_gamma", "0.75",
@@ -303,7 +319,7 @@
                 "-S2",
                 "--feature_dim", "16",
                 "--random_season",
-                // "--target_region", "pri"
+                "--target_region", "pri"
                 // "-tv", "1.0"
                 // "-VIIRS" 
             ]
@@ -321,7 +337,7 @@
                 "--max_samples", "5000",
                 "--num_epochs", "1500",
                 "--lam_builtmask", "0.0",
-                "--batch_size", "64",
+                "--batch_size", "32",
                 "--lr_step", "10",
                 "-lr", "1e-4",
                 "--lr_step", "15", 
@@ -333,7 +349,8 @@
                 "-S2",
                 "--feature_dim", "16",
                 "--random_season",
-                "--target_region", "pri"
+                "--target_region", "pri",
+                "--resume", "/home/pf/pfstaff/projects/metzgern_Sat2Pop/POMELOv2_results/So2Sat/experiment_283_128/best_model.pth"
             ]
         }
     ]

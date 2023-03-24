@@ -24,9 +24,9 @@ from utils.losses import get_loss, r2
 from utils.metrics import get_test_metrics
 from utils.utils import new_log, to_cuda, seed_all
 
-from utils.utils import get_fnames_labs_reg, plot_2dmatrix, plot_and_save
-
-from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1, inference_patch_size
+from utils.utils import get_fnames_labs_reg, get_fnames_unlabs_reg, plot_2dmatrix, plot_and_save
+from utils.datasampler import LabeledUnlabeledSampler
+from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1, pop_map_root, inference_patch_size, overlap
 
 import wandb
 
@@ -116,7 +116,10 @@ class Trainer:
 
                 if (self.info["epoch"] + 1) % self.args.val_every_n_epochs == 0:
                     self.validate()
-                    self.test(plot=(( (self.info["epoch"])+1) % 4)==0)
+                    # self.test(plot=((self.info["epoch"]+1) % 4)==0, full_eval=((self.info["epoch"]+1) % 1)==0, zh_eval=True) 
+                    self.test(plot=((self.info["epoch"]+1) % 8)==0, full_eval=False, zh_eval=True) 
+                    if ((self.info["epoch"]+1) % 1)==0:
+                        self.test_target(save=True)
 
                     if self.args.save_model in ['last', 'both']:
                         self.save_model('last')
@@ -235,6 +238,9 @@ class Trainer:
         sum_pool2 = torch.nn.AvgPool2d(2, stride=2, divisor_override=1)
         sum_pool4 = torch.nn.AvgPool2d(4, stride=4, divisor_override=1)
 
+        if plot:
+            print("Plotting predictions...")
+
         s = 0
         pad = torch.ones(1, 100,100)
 
@@ -276,9 +282,9 @@ class Trainer:
                         gtSo2.append(sample["y"][sample["pop_avail"][:,0].bool()].view(-1))
 
                         i = 0
-                        if plot==True:
+                        if plot:
                             for i in range(len(gt_zh)):
-                                vmax = max([gt_zh[i].max(), pred[i].max()*100]) 
+                                vmax = max([gt_zh[i].max(), pred_zh[i].max()*100]) 
                                 plot_and_save(gt_zh[i].cpu(), model_name=args.expN, title=gt_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="01_GT")
                                 plot_and_save(sum_pool10(pred_zh)[i].cpu(), model_name=args.expN, title=sum_pool10(pred_zh)[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="02_pred10")
                                 plot_and_save(PopNN_X[i].cpu(), model_name=args.expN, title=(PopNN_X[i].sum()/100).cpu().item(), vmin=0, vmax=vmax, idx=s, name="03_GTNN")
@@ -293,7 +299,8 @@ class Trainer:
                                     plot_and_save(torch.cat([inp[i,:2].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None)
 
                                 s += 1
-                            plot = s<200
+                                if s > 300:
+                                    break
 
             if full_eval:
                 self.test_stats = {k: v / len(self.dataloaders['val']) for k, v in self.test_stats.items()}
@@ -316,31 +323,38 @@ class Trainer:
         self.model.eval()
         self.test_stats = defaultdict(float)
 
-        with torch.no_grad():
+        with torch.no_grad():  
+
+
+            
+
             for testdataloader in self.dataloaders["test_target"]:
                     
                 # inputialize the output map
                 h, w = testdataloader.dataset.shape()
-                output_map = torch.zeros((h, w)).to(self.device)
-                output_map_count = torch.zeros((h, w)).to(self.device)
+                output_map = torch.zeros((h, w))
+                output_map_count = torch.zeros((h, w))
 
                 for sample in tqdm(testdataloader, leave=False):
                     
                     sample = to_cuda(sample)
-                    x,y = sample["coords"]
-                    output = self.model(sample)
-                    output_map[sample["mask"]] += output["popdensemap"]
-                    output_map_count[sample["mask"]] += 1
+                    xmin, xmax, ymin, ymax = [val.item() for val in sample["valid_coords"]]
 
+                    output = self.model(sample, padding=False)
 
-                output_map = output_map / output_map_count
+                    # add the output to the output map
+                    output_map[xmin:xmax, ymin:ymax] += output["popdensemap"][0,overlap:-overlap,overlap:-overlap].cpu()
+                    output_map_count[xmin:xmax, ymin:ymax] += 1
+
+                # average over the number of times each pixel was visited
+                output_map[output_map_count>0] = output_map[output_map_count>0] / output_map_count[output_map_count>0]
 
                 if save:
                     # save the output map
-                    testdataloader.dataset.save(output_map, self.args.expN)
+                    testdataloader.dataset.save(output_map, self.experiment_folder)
                 
                 # convert populationmap to census
-                testdataloader.dataset.convert_popmap_to_census(output_map)
+                # testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True)
 
 
     @staticmethod
@@ -369,35 +383,56 @@ class Trainer:
                     # RandomGamma(),
                     # RandomBrightness()
                 ])
-                
+            
+            # source domain samples
             val_size = 0.2 
             f_names, labels = get_fnames_labs_reg(all_patches_mixed_train_part1, force_recompute=False)
-            f_names, labels = f_names[:int(args.max_samples)] , labels[:int(args.max_samples)] 
-            # f_names_train, f_names_val, labels_train, labels_val = model_selection.train_test_split(
-            #     f_names, labels, test_size=val_size, random_state=42)
+            f_names, labels = f_names[:int(args.max_samples)] , labels[:int(args.max_samples)]
             s = int(len(f_names)*val_size)
             f_names_train, f_names_val, labels_train, labels_val = f_names[:-s], f_names[-s:], labels[:-s], labels[-s:]
-
             f_names_test, labels_test = get_fnames_labs_reg(all_patches_mixed_test_part1, force_recompute=False)
 
+            # target domain samples
+            f_names_unlab = []
+            active = False
+            if active:
+                for reg in args.target_regions:
+                    this_unlabeled_path = os.path.join(pop_map_root, os.path.join("EE", reg))
+                    f_names_unlab.extend(get_fnames_unlabs_reg(this_unlabeled_path, force_recompute=False)) 
+
             datasets = {
-                "train": PopulationDataset_Reg(f_names_train, labels_train, mode="train", transform=data_transform, random_season=args.random_season, **params),
+                "train": PopulationDataset_Reg(f_names_train, labels_train, f_names_unlab=f_names_unlab, mode="train", transform=data_transform,random_season=args.random_season, **params),
                 "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", transform=None, **params),
                 "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", transform=None, **params),
-                "test_target": [ Population_Dataset_target(reg, S1=args.Sentinel1, S2= args.Sentinel2, VIIRS=args.VIIRS, patchsize=inference_patch_size) for reg in args.target_regions ]
+                "test_target": [ Population_Dataset_target(reg, S1=args.Sentinel1, S2= args.Sentinel2, VIIRS=args.VIIRS,
+                                                           patchsize=inference_patch_size, overlap=overlap) for reg in args.target_regions ]
             }
+            
+            if len(args.target_regions)<0:
+                custom_sampler = LabeledUnlabeledSampler(
+                    labeled_indices=datasets["train"].labeled_indices,
+                    unlabeled_indices=datasets["train"].labeled_indices,
+                    batch_size=args.batch_size
+                )
+            else:
+                custom_sampler = None
+
         else:
             raise NotImplementedError(f'Dataset {args.dataset}')
         
         return {"train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True, drop_last=True),
                 "val":  DataLoader(datasets["val"], batch_size=args.batch_size*4, num_workers=args.num_workers, shuffle=False, drop_last=False),
-                "test":  DataLoader(datasets["test"], batch_size=1, num_workers=args.num_workers, shuffle=False, drop_last=False)}
+                "test":  DataLoader(datasets["test"], batch_size=args.batch_size*4, num_workers=args.num_workers, shuffle=False, drop_last=False),
+                "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False) for datasets["test_target"] in datasets["test_target"] ]
+                }
 
     def save_model(self, prefix=''):
         torch.save({
             'model': self.model.state_dict(),
             'epoch': self.info["epoch"] + 1,
-            'iter': self.info["iter"]
+            'iter': self.info["iter"],
+            'optimizer': self.optimizer.state_dict(),
+            'scheduler': self.scheduler.state_dict(),
         }, os.path.join(self.experiment_folder, f'{prefix}_model.pth'))
 
     def resume(self, path):
@@ -406,9 +441,8 @@ class Trainer:
 
         checkpoint = torch.load(path)
         self.model.load_state_dict(checkpoint['model'])
-        if not args.no_opt:
-            self.optimizer.load_state_dict(checkpoint['optimizer'])
-            self.scheduler.load_state_dict(checkpoint['scheduler'])
+        # self.optimizer.load_state_dict(checkpoint['optimizer'])
+        # self.scheduler.load_state_dict(checkpoint['scheduler'])
         self.info["epoch"] = checkpoint['epoch']
         self.info["iter"] = checkpoint['iter']
 

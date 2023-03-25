@@ -24,10 +24,10 @@ from utils.losses import get_loss, r2
 from utils.metrics import get_test_metrics
 from utils.utils import new_log, to_cuda, seed_all
 
-from utils.utils import get_fnames_labs_reg, get_fnames_unlabs_reg, plot_2dmatrix, plot_and_save
+from utils.utils import get_fnames_labs_reg, get_fnames_unlab_reg, plot_2dmatrix, plot_and_save
 from utils.datasampler import LabeledUnlabeledSampler
 from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1, pop_map_root, inference_patch_size, overlap
-
+from utils.constants import inference_patch_size as ips
 import wandb
 
 import nvidia_smi
@@ -97,6 +97,7 @@ class Trainer:
 
         # set up info
         self.info = { "epoch": 0,  "iter": 0,  "sampleitr": 0}
+        self.info["alpha"] = 0
         self.train_stats = defaultdict(lambda: np.nan)
         self.val_stats = defaultdict(lambda: np.nan)
         self.best_optimization_loss = np.inf
@@ -104,9 +105,6 @@ class Trainer:
         # in case of checkpoint resume
         if args.resume is not None:
             self.resume(path=args.resume)
-
-    # def __del__(self):
-    #     self.writer.close()
 
     def train(self):
         with tqdm(range(self.info["epoch"], self.args.num_epochs), leave=True) as tnr:
@@ -116,10 +114,13 @@ class Trainer:
 
                 if (self.info["epoch"] + 1) % self.args.val_every_n_epochs == 0:
                     self.validate()
+                    torch.cuda.empty_cache()
                     # self.test(plot=((self.info["epoch"]+1) % 4)==0, full_eval=((self.info["epoch"]+1) % 1)==0, zh_eval=True) 
-                    self.test(plot=((self.info["epoch"]+1) % 8)==0, full_eval=False, zh_eval=True) 
+                    self.test(plot=((self.info["epoch"]+1) % 6)==0, full_eval=False, zh_eval=True)
+                    torch.cuda.empty_cache()
                     if ((self.info["epoch"]+1) % 1)==0:
                         self.test_target(save=True)
+                        torch.cuda.empty_cache()
 
                     if self.args.save_model in ['last', 'both']:
                         self.save_model('last')
@@ -128,6 +129,7 @@ class Trainer:
                 if self.args.lr_gamma != 1.0: 
                     self.scheduler.step()
                     wandb.log({**{'log_lr': np.log10(self.scheduler.get_last_lr())}, **self.info}, self.info["iter"])
+                
 
                 self.info["epoch"] += 1
 
@@ -136,7 +138,6 @@ class Trainer:
 
         self.model.train()
 
-        
         # get GPU memory usage
         handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
         info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
@@ -147,14 +148,16 @@ class Trainer:
             for i, sample in enumerate(inner_tnr):
                 self.optimizer.zero_grad()
 
+                # forward pass
                 sample = to_cuda(sample)
-                output = self.model(sample, train=True)
+                output = self.model(sample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0.)
                 
                 # compute loss
-                loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam,
-                                        merge_aug=args.merge_aug, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
+                loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
+                                           lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense, lam_adv=1.0 if self.args.adversarial else 0.0)
 
                 # detect NaN loss
+                # print(loss)
                 if torch.isnan(loss):
                     raise Exception("detected NaN loss..")
 
@@ -171,9 +174,16 @@ class Trainer:
                         clip_grad_norm_(self.model.parameters(), self.args.gradient_clip)
 
                     self.optimizer.step()
-
+                
+                # update info
                 self.info["iter"] += 1
-                self.info["sampleitr"] += self.args.batch_size
+                self.info["sampleitr"] += self.args.batch_size//2 if self.args.adversarial else self.args.batch_size
+
+                # update alpha for the adversarial loss
+                if self.args.adversarial:
+                    p = float(i + self.info["epoch"] * len(self.dataloaders['train'])) / self.args.num_epochs / len(self.dataloaders['train'])
+                    # p = float(self.info["epoch"]) / args.num_epochs
+                    self.info["alpha"] = 2. / (1. + np.exp(-10 * p)) - 1
 
                 # logging
                 if (i + 1) % min(self.args.logstep_train, len(self.dataloaders['train'])) == 0:
@@ -283,7 +293,7 @@ class Trainer:
 
                         i = 0
                         if plot:
-                            for i in range(len(gt_zh)):
+                            for i in tqdm(range(len(gt_zh))):
                                 vmax = max([gt_zh[i].max(), pred_zh[i].max()*100]) 
                                 plot_and_save(gt_zh[i].cpu(), model_name=args.expN, title=gt_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="01_GT")
                                 plot_and_save(sum_pool10(pred_zh)[i].cpu(), model_name=args.expN, title=sum_pool10(pred_zh)[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="02_pred10")
@@ -324,9 +334,11 @@ class Trainer:
         self.test_stats = defaultdict(float)
 
         with torch.no_grad():  
+            # test_dataloader = True
+            # if test_dataloader:
+            #     for i in range(3):
+            #         sample = self.dataloaders["test_target"][0].dataset[i]
 
-
-            
 
             for testdataloader in self.dataloaders["test_target"]:
                     
@@ -339,12 +351,17 @@ class Trainer:
                     
                     sample = to_cuda(sample)
                     xmin, xmax, ymin, ymax = [val.item() for val in sample["valid_coords"]]
+                    xl,yl = [val.item() for val in sample["img_coords"]]
+                    mask = sample["mask"][0].bool()
 
                     output = self.model(sample, padding=False)
 
                     # add the output to the output map
-                    output_map[xmin:xmax, ymin:ymax] += output["popdensemap"][0,overlap:-overlap,overlap:-overlap].cpu()
-                    output_map_count[xmin:xmax, ymin:ymax] += 1
+                    # output_map[yl:yl+output["popdensemap"].shape[1], xl:xl+output["popdensemap"].shape[2]][mask.cpu()] += output["popdensemap"][0][mask].cpu()
+                    output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu()
+                    # output_map[xmin:xmax, ymin:ymax] += output["popdensemap"][0,overlap:-overlap,overlap:-overlap].cpu()
+                    output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
+                    # output_map_count[xmin:xmax, ymin:ymax] += 1
 
                 # average over the number of times each pixel was visited
                 output_map[output_map_count>0] = output_map[output_map_count>0] / output_map_count[output_map_count>0]
@@ -354,7 +371,12 @@ class Trainer:
                     testdataloader.dataset.save(output_map, self.experiment_folder)
                 
                 # convert populationmap to census
-                # testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True)
+                census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True)
+                self.target_test_stats = get_test_metrics(census_pred, census_gt.float().cuda(), tag="census")
+                
+            wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}, **self.info}, self.info["iter"])
+        
+        
 
 
     @staticmethod
@@ -394,35 +416,36 @@ class Trainer:
 
             # target domain samples
             f_names_unlab = []
-            active = False
-            if active:
+            if args.adversarial:
                 for reg in args.target_regions:
                     this_unlabeled_path = os.path.join(pop_map_root, os.path.join("EE", reg))
-                    f_names_unlab.extend(get_fnames_unlabs_reg(this_unlabeled_path, force_recompute=False)) 
+                    f_names_unlab.extend(get_fnames_unlab_reg(this_unlabeled_path, force_recompute=False)) 
 
             datasets = {
                 "train": PopulationDataset_Reg(f_names_train, labels_train, f_names_unlab=f_names_unlab, mode="train", transform=data_transform,random_season=args.random_season, **params),
                 "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", transform=None, **params),
                 "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", transform=None, **params),
                 "test_target": [ Population_Dataset_target(reg, S1=args.Sentinel1, S2= args.Sentinel2, VIIRS=args.VIIRS,
-                                                           patchsize=inference_patch_size, overlap=overlap) for reg in args.target_regions ]
+                                                           patchsize=ips, overlap=overlap) for reg in args.target_regions ]
             }
             
-            if len(args.target_regions)<0:
+            if len(args.target_regions)>0 and len(datasets["train"].unlabeled_indices)>0:
                 custom_sampler = LabeledUnlabeledSampler(
                     labeled_indices=datasets["train"].labeled_indices,
-                    unlabeled_indices=datasets["train"].labeled_indices,
+                    unlabeled_indices=datasets["train"].unlabeled_indices,
                     batch_size=args.batch_size
                 )
+                shuffle = False
             else:
                 custom_sampler = None
+                shuffle = True
 
         else:
             raise NotImplementedError(f'Dataset {args.dataset}')
         
-        return {"train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True, drop_last=True),
-                "val":  DataLoader(datasets["val"], batch_size=args.batch_size*4, num_workers=args.num_workers, shuffle=False, drop_last=False),
-                "test":  DataLoader(datasets["test"], batch_size=args.batch_size*4, num_workers=args.num_workers, shuffle=False, drop_last=False),
+        return {"train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, sampler=custom_sampler, shuffle=shuffle, drop_last=True),
+                "val":  DataLoader(datasets["val"], batch_size=args.batch_size*2, num_workers=args.num_workers, shuffle=False, drop_last=False),
+                "test":  DataLoader(datasets["test"], batch_size=args.batch_size*2, num_workers=args.num_workers, shuffle=False, drop_last=False),
                 "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False) for datasets["test_target"] in datasets["test_target"] ]
                 }
 

@@ -6,6 +6,7 @@ import torch
 
 # import copy
 import segmentation_models_pytorch as smp
+from model.DANN import DomainClassifier, DomainClassifier1x1, ReverseLayerF
 from torch.nn.functional import upsample_nearest, interpolate
 
 from utils.utils import plot_2dmatrix
@@ -24,23 +25,32 @@ class JacobsUNet(nn.Module):
         self.p = 14
         self.p2d = (self.p, self.p, self.p, self.p)
 
+        # Build the main model
         self.unetmodel = nn.Sequential(
-            # torch.nn.BatchNorm2d(input_channels),
-            # torch.nn.Dropout2d(),
             smp.Unet( encoder_name=feature_extractor, encoder_weights="imagenet", decoder_channels=(64, 32, 16),
-            # smp.Unet( encoder_name="resnet18", encoder_weights="imagenet", decoder_channels=(64, 32, 16),
-                encoder_depth=self.down, in_channels=input_channels,  classes=feature_dim, decoder_use_batchnorm=False ),
-            # nn.Softplus()
+                encoder_depth=self.down, in_channels=input_channels,  classes=feature_dim, decoder_use_batchnorm=False),
             nn.ReLU()
         )
-        params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
-        self.mysegmentation_head = nn.Conv2d(16, feature_dim, kernel_size=1, padding=0)
 
+        # Build the segmentation head
         self.head = nn.Conv2d(feature_dim, 4, kernel_size=1, padding=0)
-        # self.gumbeltau = torch.nn.Parameter(torch.tensor([2/3]), requires_grad=True)
-        
+        # self.head = nn.Sequential(
+        #     nn.Conv2d(feature_dim, 32, kernel_size=3, padding=1), nn.ReLU(),
+        #     nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
+        #     nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
+        #     nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
+        #     nn.Conv2d(32, 4, kernel_size=1, padding=0)
+        # )
+
+        # Build the domain classifier
+        self.domain_classifier = DomainClassifier(feature_dim)
+        # self.domain_classifier = DomainClassifier1x1(feature_dim)
+
+        # calculate the number of parameters
+        self.params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
+
                                   
-    def forward(self, inputs, train=False, padding=True):
+    def forward(self, inputs, train=False, padding=True, alpha=0.1):
         
 
         # Add padding
@@ -54,26 +64,29 @@ class JacobsUNet(nn.Module):
         # pad to make sure it is divisible by 32
         if (x.shape[2] % 32) != 0:
             p = (x.shape[2] % 64) //2
-            x  = nn.functional.pad(inputs["input"], (p,p,p,p), mode='reflect')
-            # print("suspect input shape: div32", inputs["input"].shape)
+            x  = nn.functional.pad(inputs["input"], (p,p,p,p), mode='reflect') 
 
         # Forward the main model
-        x = self.unetmodel(x)
+        features = self.unetmodel(x)
 
         # revert padding
         if p is not None:
-            x = x[:,:,p:-p,p:-p]
+            features = features[:,:,p:-p,p:-p]
 
         # Foward the segmentation head
-        x = self.head(x)
+        out = self.head(features)
 
+        # Foward the domain classifier
+        reverse_features = ReverseLayerF.apply(features, alpha)
+        domain = self.domain_classifier(reverse_features)
+        
         # Population map
         # popdensemap = nn.functional.softplus(x[:,0])
-        popdensemap = nn.functional.relu(x[:,0])
+        popdensemap = nn.functional.relu(out[:,0])
         popcount = popdensemap.sum((1,2))
 
         # Building map
-        builtdensemap = nn.functional.softplus(x[:,1])
+        builtdensemap = nn.functional.softplus(out[:,1])
         builtcount = builtdensemap.sum((1,2))
 
         # Builtup mask
@@ -85,7 +98,7 @@ class JacobsUNet(nn.Module):
         # else:
         #     # builtupmap = (torch.nn.functional.softmax(x[:,2:4], dim=1)[:,0]>0.5).float()
 
-        builtupmap = torch.sigmoid(x[:,2]) 
+        builtupmap = torch.sigmoid(out[:,2]) 
         # builtupmap = torch.nn.functional.softmax(x[:,2:4], dim=1)[:,0]
         # Sparsify
         # popdensemap = builtupmap * popdensemap
@@ -95,7 +108,7 @@ class JacobsUNet(nn.Module):
 
         return {"popcount": popcount, "popdensemap": popdensemap,
                 "builtdensemap": builtdensemap, "builtcount": builtcount,
-                "builtupmap": builtupmap, }
+                "builtupmap": builtupmap, "domain": domain, "features": features}
 
 
 

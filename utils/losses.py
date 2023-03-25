@@ -5,33 +5,38 @@ from utils.utils import plot_2dmatrix
 from collections import defaultdict
 
 
-def get_loss(output, gt, loss="l1_loss", lam=[1,0], merge_aug=False, lam_builtmask=1., lam_dense=1.):
+def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_builtmask=1., lam_dense=1., lam_adv=1.):
     auxdict = defaultdict(float)
 
     # TODO: if domain adversarial loss is used, split the prediction and output into labeled and unlabeled
     # TODO: calculate the adversarial loss and add it to the optimization loss
     
     # prepare vars1.0
-    y_pred = output["popcount"]
+    y_pred = output["popcount"][gt["source"]]
+    y_gt = gt["y"][gt["source"]]
+
 
     # Population loss and metrics
     popdict = {
-        "l1_loss": F.l1_loss(y_pred, gt["y"]),
-        # "l1_aug_loss": F.l1_loss(aug_pred, aug_gt),
-        "log_l1_loss": F.l1_loss(torch.log(y_pred+1), torch.log(gt["y"]+1)),
-        "mse_loss": F.mse_loss(y_pred, gt["y"]),
-        "log_mse_loss": F.mse_loss(torch.log(y_pred+1), torch.log(gt["y"]+1)),
-        "mr2": r2(y_pred, gt["y"]),
-        "mape": mape_func(y_pred, gt["y"]),
-        "focal_loss": focal_loss(y_pred, gt["y"]),
-        "tversky_loss": tversky_loss(y_pred, gt["y"]),
+        "l1_loss": F.l1_loss(y_pred, y_gt),
+        "log_l1_loss": F.l1_loss(torch.log(y_pred+1), torch.log(y_gt+1)),
+        "mse_loss": F.mse_loss(y_pred, y_gt),
+        "log_mse_loss": F.mse_loss(torch.log(y_pred+1), torch.log(y_gt+1)),
+        "mr2": r2(y_pred, y_gt),
+        "mape": mape_func(y_pred, y_gt),
+        "focal_loss": focal_loss(y_pred, y_gt),
+        "tversky_loss": tversky_loss(y_pred, y_gt),
+        "GTmean": y_gt.mean(),
+        "GTstd": y_gt.std(),
+        "predmean": y_pred.mean(),
+        "predstd": y_pred.std(),
     }
 
     # augmented loss
     if len(y_pred)%2==0:
         hl = len(y_pred)//2
         aug_pred = torch.stack(torch.split(y_pred, hl)).sum(0)
-        aug_gt = torch.stack(torch.split(gt["y"], hl)).sum(0) 
+        aug_gt = torch.stack(torch.split(y_gt, hl)).sum(0) 
         popdict["l1_aug_loss"] = F.l1_loss(aug_pred, aug_gt)
         popdict["mse_aug_loss"] = F.mse_loss(aug_pred, aug_gt)
     else:
@@ -46,7 +51,20 @@ def get_loss(output, gt, loss="l1_loss", lam=[1,0], merge_aug=False, lam_builtma
 
     popdict = {"Population:"+key: value for key,value in popdict.items()}
     auxdict = {**auxdict, **popdict}
+
+    # Adversarial loss
+    if ~gt["source"].all():
+        adv_dict = {}
+        bce = F.binary_cross_entropy(output["domain"], gt["source"].float() )
+        optimization_loss += lam_adv*bce
+
+        # prepate for logging
+        adv_dict["bce"] = bce
+        adv_dict.update(**class_metrics(output["domain"], gt["source"].float(), thresh=0.5))
+        adv_dict = {"Adversarial:"+key: value for key,value in adv_dict.items()}
+        auxdict = {**auxdict, **adv_dict}
     
+    # Builtup mask loss
     if "builtupmap" in gt:
         y_bpred = output["builtupmap"] 
 

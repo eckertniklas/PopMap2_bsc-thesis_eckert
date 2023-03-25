@@ -291,9 +291,9 @@
                 "--no-osm",
                 "--satmode",
                 // "--max_samples", "5000",
-                "--num_epochs", "1500",
+                "--num_epochs", "100",
                 "--lam_builtmask", "0.0",
-                "--batch_size", "128",
+                "--batch_size", "256",
                 "--lr_step", "10",
                 "-lr", "3e-4",
                 "--lr_step", "15",
@@ -319,11 +319,12 @@
                 "-S2",
                 "--feature_dim", "16",
                 "--random_season",
-                "--target_region", "pri"
+                "--target_region", "pri",
+                "--adversarial",
                 // "-tv", "1.0"
                 // "-VIIRS" 
             ]
-        }
+        },
         {
             "name": "train, smp, debug",
             "type": "python",
@@ -337,7 +338,7 @@
                 "--max_samples", "5000",
                 "--num_epochs", "1500",
                 "--lam_builtmask", "0.0",
-                "--batch_size", "32",
+                "--batch_size", "128",
                 "--lr_step", "10",
                 "-lr", "1e-4",
                 "--lr_step", "15", 
@@ -350,7 +351,8 @@
                 "--feature_dim", "16",
                 "--random_season",
                 "--target_region", "pri",
-                "--resume", "/home/pf/pfstaff/projects/metzgern_Sat2Pop/POMELOv2_results/So2Sat/experiment_283_128/best_model.pth"
+                "--adversarial"
+                // "--resume", "/home/pf/pfstaff/projects/metzgern_Sat2Pop/POMELOv2_results/So2Sat/experiment_283_128/best_model.pth"
             ]
         }
     ]

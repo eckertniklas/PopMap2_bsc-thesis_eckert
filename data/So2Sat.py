@@ -134,7 +134,10 @@ class PopulationDataset_Reg(Dataset):
 
 
     def __len__(self):
-        return len(self.labels) + len(self.f_names_unlab)
+        if self.mode=="train":
+            return len(self.labels)
+        else:
+            return len(self.labels)
     
 
     def data_generation(self, ID_temp):

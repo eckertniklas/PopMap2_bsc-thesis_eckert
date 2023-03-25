@@ -14,7 +14,9 @@ def get_test_metrics(pred, y, tag=""):
         "mape": mape_func(pred, y),
         "log_l1_loss": F.l1_loss(torch.log(pred+1), torch.log(y+1)),
         "mse_loss": F.mse_loss(pred, y),
-        "log_mse_loss": F.mse_loss(torch.log(pred+1), torch.log(y+1))
+        "log_mse_loss": F.mse_loss(torch.log(pred+1), torch.log(y+1)),
+        "predmean": pred.mean(),
+        "GTmean": y.mean(),
     }
     log_dict = {"Population" + tag + ":"+key: value for key,value in log_dict.items()}
 

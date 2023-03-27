@@ -53,7 +53,8 @@ class Trainer:
             self.model = JacobsUNet( 
                 input_channels = input_channels,
                 feature_dim = args.feature_dim,
-                feature_extractor = args.feature_extractor
+                feature_extractor = args.feature_extractor,
+                classifier = args.classifier
             ).cuda()
         elif args.model=="PomeloUNet":
             self.model = PomeloUNet( 

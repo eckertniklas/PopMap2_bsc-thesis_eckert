@@ -6,7 +6,7 @@ import torch
 
 # import copy
 import segmentation_models_pytorch as smp
-from model.DANN import DomainClassifier, DomainClassifier1x1, ReverseLayerF
+from model.DANN import DomainClassifier, DomainClassifier1x1, DomainClassifier_v3, ReverseLayerF
 from torch.nn.functional import upsample_nearest, interpolate
 
 from utils.utils import plot_2dmatrix
@@ -16,7 +16,7 @@ class JacobsUNet(nn.Module):
     '''
     PomeloUNet
     '''
-    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18"):
+    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1"):
         super(JacobsUNet, self).__init__()
 
         self.down = 3
@@ -43,7 +43,12 @@ class JacobsUNet(nn.Module):
         # )
 
         # Build the domain classifier
-        self.domain_classifier = DomainClassifier(feature_dim)
+        if classifier=="v1":
+            self.domain_classifier = DomainClassifier(feature_dim)
+        elif classifier=="v2":
+            self.domain_classifier = DomainClassifier1x1(feature_dim)
+        elif classifier=="v3":
+            self.domain_classifier = DomainClassifier_v3(feature_dim)
         # self.domain_classifier = DomainClassifier1x1(feature_dim)
 
         # calculate the number of parameters

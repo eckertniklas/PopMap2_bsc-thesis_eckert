@@ -152,8 +152,9 @@ class Population_Dataset_target(Dataset):
         # get the input data
         if self.S1:
             with rasterio.open(self.S1_file, "r") as src:
-                data = src.read(window=((x,x+self.patchsize),(y,y+self.patchsize))) 
-            new_arr = ((data.transpose((1,2,0)) - self.dataset_stats["sen1"]['mean'] ) / self.dataset_stats["sen1"]['std']).transpose((2,0,1))
+                raw_data = src.read(window=((x,x+self.patchsize),(y,y+self.patchsize))) 
+            # raw_data = np.where(raw_data > self.dataset_stats["sen1"]['p2'][:,None,None], self.dataset_stats["sen1"]['p2'][:,None,None], raw_data)
+            new_arr = ((raw_data.transpose((1,2,0)) - self.dataset_stats["sen1"]['mean'] ) / self.dataset_stats["sen1"]['std']).transpose((2,0,1))
             data.append(new_arr)
         if self.S2:
             S2_file = self.S2_file[season]
@@ -161,6 +162,7 @@ class Population_Dataset_target(Dataset):
                 raw_data = src.read((4,3,2), window=((x,x+self.patchsize),(y,y+self.patchsize))) 
             this_mask = raw_data.sum(axis=0) != 0
             mask = mask & this_mask
+            # raw_data = np.where(raw_data > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], raw_data)
             new_arr = ((raw_data.transpose((1,2,0)) - self.dataset_stats["sen2spring"]['mean'] ) / self.dataset_stats["sen2spring"]['std']).transpose((2,0,1))
             data.append(new_arr)
         if self.VIIRS:

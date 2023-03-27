@@ -229,6 +229,7 @@ class PopulationDataset_Reg(Dataset):
                 image = ds.read(out_shape=(ds.count, img_rows, img_cols), resampling=Resampling.average)
 
         if "sen2" in data:
+            image = np.where(image > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], image)
             new_arr = ((image.transpose((1,2,0)) - self.dataset_stats["sen2spring"]['mean'] ) / self.dataset_stats["sen2spring"]['std']).transpose((2,0,1))
         elif "sen1" in data:
             new_arr = ((image.transpose((1,2,0)) - self.dataset_stats[data]['mean'] ) / self.dataset_stats[data]['std']).transpose((2,0,1))

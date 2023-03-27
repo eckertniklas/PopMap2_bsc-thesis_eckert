@@ -30,6 +30,7 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_built
         "GTstd": y_gt.std(),
         "predmean": y_pred.mean(),
         "predstd": y_pred.std(),
+        "correlation": torch.corrcoef(torch.stack([y_pred, y_gt]))[0,1]
     }
 
     # augmented loss
@@ -49,7 +50,7 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_built
         # optimization_loss = popdict[loss]
         optimization_loss = sum([popdict[lo]*la for lo,la in zip(loss,lam)])
 
-    popdict = {"Population:"+key: value for key,value in popdict.items()}
+    popdict = {"Population/"+key: value for key,value in popdict.items()}
     auxdict = {**auxdict, **popdict}
 
     # Adversarial loss
@@ -61,11 +62,12 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_built
         # prepate for logging
         adv_dict["bce"] = bce
         adv_dict.update(**class_metrics(output["domain"], gt["source"].float(), thresh=0.5))
-        adv_dict = {"Adversarial:"+key: value for key,value in adv_dict.items()}
+        adv_dict = {"Adversarial/"+key: value for key,value in adv_dict.items()}
         auxdict = {**auxdict, **adv_dict}
     
     # Builtup mask loss
-    if "builtupmap" in gt:
+    disabled = True
+    if "builtupmap" in gt and not disabled:
         y_bpred = output["builtupmap"] 
 
         builtupdict = {

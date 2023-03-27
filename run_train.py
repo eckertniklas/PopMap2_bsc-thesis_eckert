@@ -106,21 +106,26 @@ class Trainer:
         if args.resume is not None:
             self.resume(path=args.resume)
 
+
     def train(self):
         with tqdm(range(self.info["epoch"], self.args.num_epochs), leave=True) as tnr:
             tnr.set_postfix(training_loss=np.nan, validation_loss=np.nan, best_validation_loss=np.nan)
             for _ in tnr:
                 self.train_epoch(tnr)
 
+                # in domain validation
                 if (self.info["epoch"] + 1) % self.args.val_every_n_epochs == 0:
                     self.validate()
                     torch.cuda.empty_cache()
+                
+                # target domain testing
+                if (self.info["epoch"] + 1) % 5 == 0:
                     # self.test(plot=((self.info["epoch"]+1) % 4)==0, full_eval=((self.info["epoch"]+1) % 1)==0, zh_eval=True) 
-                    self.test(plot=((self.info["epoch"]+1) % 6)==0, full_eval=False, zh_eval=True)
+                    self.test(plot=((self.info["epoch"]+1) % 1)==0, full_eval=True, zh_eval=True) #ZH
                     torch.cuda.empty_cache()
-                    if ((self.info["epoch"]+1) % 1)==0:
-                        self.test_target(save=True)
-                        torch.cuda.empty_cache()
+                if (self.info["epoch"] + 1) % 1 == 0:
+                    self.test_target(save=True)
+                    torch.cuda.empty_cache()
 
                     if self.args.save_model in ['last', 'both']:
                         self.save_model('last')
@@ -133,9 +138,11 @@ class Trainer:
 
                 self.info["epoch"] += 1
 
+
     def train_epoch(self, tnr=None):
         self.train_stats = defaultdict(float)
 
+        # set model to train mode
         self.model.train()
 
         # get GPU memory usage
@@ -154,10 +161,9 @@ class Trainer:
                 
                 # compute loss
                 loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
-                                           lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense, lam_adv=1.0 if self.args.adversarial else 0.0)
+                                           lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense, lam_adv=args.lam_adv if self.args.adversarial else 0.0)
 
-                # detect NaN loss
-                # print(loss)
+                # detect NaN loss 
                 if torch.isnan(loss):
                     raise Exception("detected NaN loss..")
 
@@ -181,8 +187,8 @@ class Trainer:
 
                 # update alpha for the adversarial loss
                 if self.args.adversarial:
+                    # an annealing (to 1.0) schedule for alpha
                     p = float(i + self.info["epoch"] * len(self.dataloaders['train'])) / self.args.num_epochs / len(self.dataloaders['train'])
-                    # p = float(self.info["epoch"]) / args.num_epochs
                     self.info["alpha"] = 2. / (1. + np.exp(-10 * p)) - 1
 
                 # logging
@@ -201,6 +207,7 @@ class Trainer:
                     # reset metrics
                     self.train_stats = defaultdict(float)
 
+
     def validate(self):
         self.val_stats = defaultdict(float)
 
@@ -209,16 +216,17 @@ class Trainer:
         with torch.no_grad():
             pred, gt = [], []
             for sample in tqdm(self.dataloaders["val"], leave=False):
-                sample = to_cuda(sample)
 
+                # forward pass
+                sample = to_cuda(sample)
                 output = self.model(sample)
                 
                 # Colellect predictions and samples
                 pred.append(output["popcount"].view(-1)); gt.append(sample["y"].view(-1))
                 
                 # compute loss
-                loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam,
-                                           merge_aug=args.merge_aug, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
+                loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
+                                           lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense, lam_adv=args.lam_adv if self.args.adversarial else 0.0)
 
                 # accumulate stats
                 for key in loss_dict:
@@ -238,6 +246,7 @@ class Trainer:
                 if self.args.save_model in ['best', 'both']:
                     self.save_model('best')
 
+
     def test(self, plot=False, full_eval=False, zh_eval=True, save=False):
         self.test_stats = defaultdict(float)
 
@@ -254,32 +263,35 @@ class Trainer:
         s = 0
         pad = torch.ones(1, 100,100)
 
+        # Iterate though the test set and compute metrics
         with torch.no_grad():
             pred, gt = [], []
             pred2, gt2 = [], []
             pred4, gt4 = [], []
             pred10, gt10, gtSo2 = [], [], []
             for sample in tqdm(self.dataloaders["test"], leave=False):
-                sample = to_cuda(sample)
 
+                # forward pass
+                sample = to_cuda(sample)
                 output = self.model(sample)
                 
                 # Colellect predictions and samples
                 if full_eval:
                     pred.append(output["popcount"].view(-1)); gt.append(sample["y"].view(-1)) 
-                    loss, loss_dict = get_loss(output, sample, loss=args.loss, 
-                                            merge_aug=args.merge_aug, lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense)
+                    loss, loss_dict = get_loss(output, sample, loss=args.loss, merge_aug=args.merge_aug,
+                                               lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense, lam_adv=args.lam_adv if self.args.adversarial else 0.0)
 
                     for key in loss_dict:
                         self.test_stats[key] += loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key]
                 
-                #fine_eval
+                #fine_eval for Zurich
                 if zh_eval:
                     if sample["pop_avail"].any(): 
                         pred_zh = output["popdensemap"][sample["pop_avail"][:,0].bool()]
                         gt_zh = sample["Pop_X"][sample["pop_avail"][:,0].bool()]
                         PopNN_X = sample["PopNN_X"][sample["pop_avail"][:,0].bool()]
 
+                        # Collect all different aggregation scales  (1, 2, 4, 10)
                         pred.append(sum_pool10(pred_zh).view(-1))
                         gt.append(gt_zh.view(-1))
                         pred2.append(sum_pool20(pred_zh).view(-1))
@@ -291,29 +303,32 @@ class Trainer:
                         pred10.append(output["popcount"][sample["pop_avail"][:,0].bool()].view(-1))
                         gtSo2.append(sample["y"][sample["pop_avail"][:,0].bool()].view(-1))
 
+                        # Plot predictions for Zurich
                         i = 0
                         if plot:
                             for i in tqdm(range(len(gt_zh))):
-                                vmax = max([gt_zh[i].max(), pred_zh[i].max()*100]) 
-                                plot_and_save(gt_zh[i].cpu(), model_name=args.expN, title=gt_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="01_GT")
-                                plot_and_save(sum_pool10(pred_zh)[i].cpu(), model_name=args.expN, title=sum_pool10(pred_zh)[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="02_pred10")
-                                plot_and_save(PopNN_X[i].cpu(), model_name=args.expN, title=(PopNN_X[i].sum()/100).cpu().item(), vmin=0, vmax=vmax, idx=s, name="03_GTNN")
-                                plot_and_save(pred_zh[i].cpu()*100, model_name=args.expN, title=pred_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="04_pred100")
+                                vmax = max([gt_zh[i].max(), pred_zh[i].max()*100]).cpu().item()
+                                plot_and_save(gt_zh[i].cpu(), model_name=args.expN, title=gt_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="01_GT", folder=self.args.experiment_folder)
+                                plot_and_save(sum_pool10(pred_zh)[i].cpu(), model_name=args.expN, title=sum_pool10(pred_zh)[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="02_pred10", folder=self.args.experiment_folder)
+                                plot_and_save(PopNN_X[i].cpu(), model_name=args.expN, title=(PopNN_X[i].sum()/100).cpu().item(), vmin=0, vmax=vmax, idx=s, name="03_GTNN", folder=self.args.experiment_folder)
+                                plot_and_save(pred_zh[i].cpu()*100, model_name=args.expN, title=pred_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="04_pred100", folder=self.args.experiment_folder)
 
                                 inp = sample["input"][sample["pop_avail"][:,0].bool()]
                                 if args.Sentinel2:
-                                    plot_and_save(inp[i,:3].cpu().permute(1,2,0)*0.2+0.5, model_name=args.expN, title=self.args.expN, idx=s, name="05_S2", cmap=None)
+                                    plot_and_save(inp[i,:3].cpu().permute(1,2,0)*0.2+0.5, model_name=args.expN, title=self.args.expN, idx=s, name="05_S2", cmap=None, folder=self.args.experiment_folder)
                                     if args.Sentinel1:
-                                        plot_and_save(torch.cat([inp[i,3:5].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None)
+                                        plot_and_save(torch.cat([inp[i,3:5].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None, folder=self.args.experiment_folder)
                                 else:
-                                    plot_and_save(torch.cat([inp[i,:2].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None)
+                                    plot_and_save(torch.cat([inp[i,:2].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None, folder=self.args.experiment_folder)
 
                                 s += 1
                                 if s > 300:
                                     break
 
             if full_eval:
+                # average all stats
                 self.test_stats = {k: v / len(self.dataloaders['val']) for k, v in self.test_stats.items()}
+
                 # Compute non-averagable metrics
                 self.test_stats["Population:r2"] = r2(torch.cat(pred), torch.cat(gt))
                 wandb.log({**{k + '/test': v for k, v in self.test_stats.items()}, **self.info}, self.info["iter"])
@@ -328,6 +343,7 @@ class Trainer:
             
                 wandb.log({**{k + '/testZH': v for k, v in self.test_stats.items()}, **self.info}, self.info["iter"])
 
+
     def test_target(self, save=False):
         # Test on target domain
         self.model.eval()
@@ -338,7 +354,6 @@ class Trainer:
             # if test_dataloader:
             #     for i in range(3):
             #         sample = self.dataloaders["test_target"][0].dataset[i]
-
 
             for testdataloader in self.dataloaders["test_target"]:
                     
@@ -357,11 +372,8 @@ class Trainer:
                     output = self.model(sample, padding=False)
 
                     # add the output to the output map
-                    # output_map[yl:yl+output["popdensemap"].shape[1], xl:xl+output["popdensemap"].shape[2]][mask.cpu()] += output["popdensemap"][0][mask].cpu()
                     output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu()
-                    # output_map[xmin:xmax, ymin:ymax] += output["popdensemap"][0,overlap:-overlap,overlap:-overlap].cpu()
                     output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
-                    # output_map_count[xmin:xmax, ymin:ymax] += 1
 
                 # average over the number of times each pixel was visited
                 output_map[output_map_count>0] = output_map[output_map_count>0] / output_map_count[output_map_count>0]
@@ -376,8 +388,6 @@ class Trainer:
                 
             wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}, **self.info}, self.info["iter"])
         
-        
-
 
     @staticmethod
     def get_dataloaders(args): 
@@ -464,8 +474,8 @@ class Trainer:
 
         checkpoint = torch.load(path)
         self.model.load_state_dict(checkpoint['model'])
-        # self.optimizer.load_state_dict(checkpoint['optimizer'])
-        # self.scheduler.load_state_dict(checkpoint['scheduler'])
+        self.optimizer.load_state_dict(checkpoint['optimizer'])
+        self.scheduler.load_state_dict(checkpoint['scheduler'])
         self.info["epoch"] = checkpoint['epoch']
         self.info["iter"] = checkpoint['iter']
 

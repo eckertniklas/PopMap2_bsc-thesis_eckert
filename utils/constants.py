@@ -22,7 +22,14 @@ if os.name == "nt":  # locally
     current_dir_path = dirname(dirname((os.getcwd())))
 
 # current_dir_path = "/scratch2/metzgern/HAC/code/So2SatPOP/data"
-current_dir_path = "/scratch/metzgern/HAC/data"
+current_dir_paths = ["/scratch/metzgern/HAC/data", "asdf"]
+
+for name in current_dir_paths:
+    if os.path.isdir(name):
+        current_dir_path = name
+if current_dir_path is None:
+    raise Exception("No data folder found")
+# current_dir_path = "/scratch/metzgern/HAC/data"
 
 # paths to So2Sat POP Part1 folder
 all_patches_mixed_part1 = os.path.join(current_dir_path, 'So2Sat_POP_Part1')  # path to So2Sat POP Part 1 data folder

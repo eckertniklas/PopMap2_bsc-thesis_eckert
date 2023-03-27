@@ -31,6 +31,8 @@ parser.add_argument('-lr', '--learning_rate', help='', type=float, default=1e-4)
 parser.add_argument('-l', '--loss', nargs='+', default=["l1_loss"], help="list composed of 'l1_loss', 'log_l1_loss', 'mse_loss', 'log_mse_loss', 'focal_loss','tversky_loss")
 parser.add_argument('-la', '--lam', nargs='+', type=float, default=[1.0], help="list composed of loss weightings")
 parser.add_argument("-adv", "--adversarial", action='store_true', help="")
+parser.add_argument("-clasif", "--classifier", default="v1", help="")
+
 parser.add_argument('-wd', '--weightdecay', help='', type=float, default=0.0)
 parser.add_argument('-ls', '--lassoreg', help='Lasso style regularization of the preds.', type=float, default=0.0)
 parser.add_argument('-tv', '--tv', help='Total variation regularization of the preds.', type=float, default=0.0)
@@ -40,6 +42,7 @@ parser.add_argument('-lrg', '--lr_gamma', help='', type=float, default=1.0)
 parser.add_argument('-gc', '--gradient_clip', help='', type=float, default=0.01)
 parser.add_argument('--skip-first', action='store_true', help='Don\'t optimize during first epoch')
 parser.add_argument("-lm", "--lam_builtmask", help='', type=float, default=1000.)
+parser.add_argument("-ladv", "--lam_adv", help='', type=float, default=0.1)
 parser.add_argument("-ld", "--lam_dense", help='', type=float, default=1.)
 
 # misc

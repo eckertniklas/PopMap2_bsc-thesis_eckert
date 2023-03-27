@@ -32,8 +32,8 @@ class LabeledUnlabeledSampler(Sampler):
             unlabeled_indices: list of indices of unlabeled data points
             batch_size: batch size
         """
-        self.labeled_indices = labeled_indices
-        self.unlabeled_indices = unlabeled_indices
+        self.labeled_indices = torch.tensor(labeled_indices)
+        self.unlabeled_indices = torch.tensor(unlabeled_indices)
         self.batch_size = batch_size
 
     def __iter__(self):
@@ -52,11 +52,16 @@ class LabeledUnlabeledSampler(Sampler):
         length = len(self.labeled_indices) // labeled_batch_size
 
         # Sample labeled data points
-        labeled_batches = [random.sample(self.labeled_indices, labeled_batch_size) for _ in range(length)]
-        unlabeled_batches = [random.sample(self.unlabeled_indices, unlabeled_batch_size) for _ in range(length)]
-        
+        labeled_batches = self.labeled_indices[torch.randperm(len(self.labeled_indices))][:length*labeled_batch_size].view((length, labeled_batch_size))
+
+        # choose (with a multinomial and replacement) just as many unlabeled data points as labeled data points, doing basically over and undersampling on the unlabelled data
+        unlabeled_batches = (self.unlabeled_indices[
+            torch.multinomial(torch.arange(len(self.unlabeled_indices))/len(self.unlabeled_indices), length*unlabeled_batch_size, replacement=True) ]
+            .view((length, unlabeled_batch_size))
+        )
+
         # concatenate labeled and unlabeled indices
-        mixed_batches = torch.concat([torch.tensor(labeled_batches), torch.tensor(unlabeled_batches)],1).tolist()
+        mixed_batches = torch.concat([labeled_batches, unlabeled_batches], 1).tolist()
 
         # yield batches of labeled and unlabeled data
         return iter(batch for batches in mixed_batches for batch in batches)

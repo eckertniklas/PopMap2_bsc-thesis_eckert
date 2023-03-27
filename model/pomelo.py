@@ -16,7 +16,7 @@ class JacobsUNet(nn.Module):
     '''
     PomeloUNet
     '''
-    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1"):
+    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1", head="v1"):
         super(JacobsUNet, self).__init__()
 
         self.down = 3
@@ -33,14 +33,18 @@ class JacobsUNet(nn.Module):
         )
 
         # Build the segmentation head
-        self.head = nn.Conv2d(feature_dim, 4, kernel_size=1, padding=0)
-        # self.head = nn.Sequential(
-        #     nn.Conv2d(feature_dim, 32, kernel_size=3, padding=1), nn.ReLU(),
-        #     nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
-        #     nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
-        #     nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
-        #     nn.Conv2d(32, 4, kernel_size=1, padding=0)
-        # )
+        if head=="v1":
+            self.head = nn.Conv2d(feature_dim, 4, kernel_size=1, padding=0)
+        elif head=="v2":
+            self.head = nn.Sequential(
+                nn.Conv2d(feature_dim, 32, kernel_size=3, padding=1), nn.ReLU(),
+                nn.Conv2d(32, 4, kernel_size=1, padding=0)
+            )
+        elif head=="v3":
+            self.head = nn.Sequential(
+                nn.Conv2d(feature_dim, 32, kernel_size=3, padding=1), nn.ReLU(),
+                nn.Conv2d(32, 4, kernel_size=1, padding=0)
+            )
 
         # Build the domain classifier
         if classifier=="v1":

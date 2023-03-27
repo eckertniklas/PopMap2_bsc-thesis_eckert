@@ -32,6 +32,7 @@ parser.add_argument('-l', '--loss', nargs='+', default=["l1_loss"], help="list c
 parser.add_argument('-la', '--lam', nargs='+', type=float, default=[1.0], help="list composed of loss weightings")
 parser.add_argument("-adv", "--adversarial", action='store_true', help="")
 parser.add_argument("-clasif", "--classifier", default="v1", help="")
+parser.add_argument("-head", "--head", default="v1", help="")
 
 parser.add_argument('-wd', '--weightdecay', help='', type=float, default=0.0)
 parser.add_argument('-ls', '--lassoreg', help='Lasso style regularization of the preds.', type=float, default=0.0)

@@ -2,3 +2,4 @@ plot_outputs
 PopMapEnv
 gdal*
 vis
+*__pycache__

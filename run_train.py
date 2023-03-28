@@ -136,7 +136,6 @@ class Trainer:
                 if self.args.lr_gamma != 1.0: 
                     self.scheduler.step()
                     wandb.log({**{'log_lr': np.log10(self.scheduler.get_last_lr())}, **self.info}, self.info["iter"])
-                
 
                 self.info["epoch"] += 1
 

@@ -1,0 +1,92 @@
+
+The following have been reloaded with a version change:
+  1) cuda/11.1.1 => cuda/11.6.2
+
+/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/PopMapEnv/lib64/python3.8/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator MinMaxScaler from version 1.0.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/PopMapEnv/lib64/python3.8/site-packages/torch/utils/data/dataloader.py:554: UserWarning: This DataLoader will create 10 worker processes in total. Our suggested max number of worker in current system is 4, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
+  warnings.warn(_create_warning_msg(
+Downloading: "https://download.pytorch.org/models/vgg11-bbd30ac9.pth" to /cluster/home/metzgern/.cache/torch/hub/checkpoints/vgg11-bbd30ac9.pth
+Command Line Args:   --no-osm --satmode --num_epochs 100 --lam_builtmask 0.0 --batch_size 384 --lr_step 10 -lr 3e-4 --lr_step 15 --lr_gamma 0.75 --model JacobsUNet --feature_extractor vgg11 --loss l1_loss --lam 1000 --lam_adv 100.0 -S2 --feature_dim 16 --random_season --target_region pri2017 --adversarial --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults --head v1 --classifier v2
+Defaults:
+  --dataset:         So2Sat
+  --target_regions:  []
+  --weightdecay:     0.0
+  --lassoreg:        0.0
+  --tv:              0.0
+  --gradient_clip:   0.01
+  --lam_dense:       1.0
+  --num_workers:     10
+  --wandb_project:   POMELOv2
+  --logstep_train:   20
+  --val_every_n_epochs:1
+  --seed:            1610
+  --save-model:      both
+  --max_samples:     1000000000000000.0
+
+  0%|          | 0.00/507M [00:00<?, ?B/s]  0%|          | 56.0k/507M [00:00<27:05, 327kB/s]  0%|          | 208k/507M [00:00<10:05, 878kB/s]   0%|          | 536k/507M [00:00<04:48, 1.84MB/s]  0%|          | 1.18M/507M [00:00<02:58, 2.97MB/s]  1%|          | 2.85M/507M [00:00<01:13, 7.23MB/s]  1%|▏         | 6.52M/507M [00:00<00:31, 16.4MB/s]  2%|▏         | 12.3M/507M [00:00<00:17, 29.4MB/s]  3%|▎         | 15.3M/507M [00:01<00:20, 24.6MB/s]  4%|▍         | 19.8M/507M [00:01<00:16, 30.4MB/s]  5%|▍         | 23.0M/507M [00:01<00:16, 30.7MB/s]  6%|▌         | 28.9M/507M [00:01<00:14, 33.5MB/s]  7%|▋         | 33.1M/507M [00:01<00:13, 36.1MB/s]  8%|▊         | 39.0M/507M [00:01<00:11, 43.1MB/s]  9%|▊         | 43.6M/507M [00:01<00:13, 36.7MB/s] 10%|▉         | 48.6M/507M [00:01<00:11, 40.6MB/s] 10%|█         | 53.0M/507M [00:01<00:11, 41.9MB/s] 12%|█▏        | 59.0M/507M [00:02<00:11, 39.4MB/s] 13%|█▎        | 63.9M/507M [00:02<00:11, 42.2MB/s] 13%|█▎        | 68.1M/507M [00:02<00:10, 42.8MB/s] 15%|█▍        | 74.6M/507M [00:02<00:11, 41.0MB/s] 16%|█▌        | 79.4M/507M [00:02<00:10, 43.5MB/s] 17%|█▋        | 85.6M/507M [00:02<00:09, 48.8MB/s] 18%|█▊        | 90.4M/507M [00:02<00:10, 40.7MB/s] 19%|█▉        | 95.2M/507M [00:02<00:10, 43.0MB/s] 20%|█▉        | 99.7M/507M [00:03<00:09, 44.0MB/s] 21%|██        | 105M/507M [00:03<00:10, 39.9MB/s]  22%|██▏       | 110M/507M [00:03<00:09, 43.1MB/s] 23%|██▎       | 116M/507M [00:03<00:08, 45.9MB/s] 24%|██▍       | 121M/507M [00:03<00:10, 40.1MB/s] 25%|██▍       | 126M/507M [00:03<00:08, 44.8MB/s] 26%|██▌       | 131M/507M [00:03<00:08, 45.3MB/s] 27%|██▋       | 136M/507M [00:03<00:08, 46.8MB/s] 28%|██▊       | 140M/507M [00:04<00:09, 39.5MB/s] 29%|██▊       | 146M/507M [00:04<00:08, 42.7MB/s] 30%|██▉       | 151M/507M [00:04<00:08, 45.4MB/s] 31%|███       | 156M/507M [00:04<00:09, 39.4MB/s] 32%|███▏      | 161M/507M [00:04<00:08, 43.3MB/s] 33%|███▎      | 165M/507M [00:04<00:08, 43.3MB/s] 34%|███▎      | 171M/507M [00:04<00:08, 40.3MB/s] 35%|███▍      | 175M/507M [00:04<00:08, 41.3MB/s] 36%|███▌      | 181M/507M [00:05<00:07, 45.3MB/s] 37%|███▋      | 186M/507M [00:05<00:07, 47.0MB/s] 38%|███▊      | 190M/507M [00:05<00:08, 40.2MB/s] 39%|███▊      | 195M/507M [00:05<00:07, 43.1MB/s] 39%|███▉      | 200M/507M [00:05<00:07, 44.5MB/s] 40%|████      | 205M/507M [00:05<00:07, 41.7MB/s] 41%|████▏     | 210M/507M [00:05<00:07, 41.0MB/s] 42%|████▏     | 214M/507M [00:05<00:07, 42.2MB/s] 43%|████▎     | 219M/507M [00:06<00:06, 45.4MB/s] 44%|████▍     | 224M/507M [00:06<00:06, 44.7MB/s] 45%|████▌     | 229M/507M [00:06<00:06, 46.7MB/s] 46%|████▌     | 233M/507M [00:06<00:07, 39.4MB/s] 47%|████▋     | 238M/507M [00:06<00:06, 42.5MB/s] 48%|████▊     | 243M/507M [00:06<00:06, 43.3MB/s] 49%|████▉     | 247M/507M [00:06<00:06, 44.2MB/s] 50%|████▉     | 253M/507M [00:06<00:06, 39.9MB/s] 51%|█████     | 257M/507M [00:06<00:06, 42.0MB/s] 52%|█████▏    | 262M/507M [00:07<00:05, 44.1MB/s] 53%|█████▎    | 267M/507M [00:07<00:05, 44.9MB/s] 54%|█████▎    | 271M/507M [00:07<00:05, 46.0MB/s] 54%|█████▍    | 276M/507M [00:07<00:06, 39.1MB/s] 55%|█████▌    | 281M/507M [00:07<00:05, 42.1MB/s] 56%|█████▋    | 285M/507M [00:07<00:05, 43.2MB/s] 57%|█████▋    | 290M/507M [00:07<00:05, 43.5MB/s] 58%|█████▊    | 294M/507M [00:07<00:05, 43.6MB/s] 59%|█████▉    | 299M/507M [00:07<00:04, 45.5MB/s] 60%|█████▉    | 303M/507M [00:08<00:05, 39.4MB/s] 61%|██████    | 307M/507M [00:08<00:05, 39.6MB/s] 61%|██████▏   | 311M/507M [00:08<00:04, 41.5MB/s] 62%|██████▏   | 317M/507M [00:08<00:04, 42.7MB/s] 63%|██████▎   | 321M/507M [00:08<00:04, 43.5MB/s] 64%|██████▍   | 326M/507M [00:08<00:04, 45.5MB/s] 65%|██████▌   | 330M/507M [00:08<00:04, 40.6MB/s] 66%|██████▌   | 335M/507M [00:08<00:04, 44.0MB/s] 67%|██████▋   | 340M/507M [00:08<00:04, 42.0MB/s] 68%|██████▊   | 345M/507M [00:09<00:03, 45.4MB/s] 69%|██████▉   | 350M/507M [00:09<00:04, 40.9MB/s] 70%|██████▉   | 354M/507M [00:09<00:03, 41.5MB/s] 71%|███████   | 359M/507M [00:09<00:03, 45.0MB/s] 72%|███████▏  | 363M/507M [00:09<00:03, 42.6MB/s] 73%|███████▎  | 368M/507M [00:09<00:03, 44.7MB/s] 74%|███████▎  | 373M/507M [00:09<00:03, 41.0MB/s] 74%|███████▍  | 377M/507M [00:09<00:03, 42.7MB/s] 75%|███████▌  | 381M/507M [00:10<00:03, 39.7MB/s] 76%|███████▋  | 387M/507M [00:10<00:02, 44.6MB/s] 77%|███████▋  | 392M/507M [00:10<00:02, 42.0MB/s] 78%|███████▊  | 397M/507M [00:10<00:02, 44.4MB/s] 79%|███████▉  | 402M/507M [00:10<00:02, 42.9MB/s] 80%|████████  | 407M/507M [00:10<00:02, 46.6MB/s] 81%|████████  | 412M/507M [00:10<00:02, 41.7MB/s] 82%|████████▏ | 417M/507M [00:10<00:02, 44.6MB/s] 83%|████████▎ | 421M/507M [00:10<00:02, 41.7MB/s] 84%|████████▍ | 426M/507M [00:11<00:01, 43.8MB/s] 85%|████████▍ | 431M/507M [00:11<00:01, 40.7MB/s] 86%|████████▌ | 436M/507M [00:11<00:01, 44.2MB/s] 87%|████████▋ | 440M/507M [00:11<00:01, 42.5MB/s] 88%|████████▊ | 445M/507M [00:11<00:01, 45.4MB/s] 89%|████████▉ | 450M/507M [00:11<00:01, 40.8MB/s] 90%|████████▉ | 455M/507M [00:11<00:01, 43.6MB/s] 91%|█████████ | 459M/507M [00:11<00:01, 44.4MB/s] 91%|█████████▏| 464M/507M [00:12<00:01, 42.8MB/s] 93%|█████████▎| 469M/507M [00:12<00:00, 45.9MB/s] 93%|█████████▎| 473M/507M [00:12<00:00, 40.4MB/s] 94%|█████████▍| 478M/507M [00:12<00:00, 41.9MB/s] 95%|█████████▌| 483M/507M [00:12<00:00, 42.4MB/s] 96%|█████████▌| 487M/507M [00:12<00:00, 44.8MB/s] 97%|█████████▋| 492M/507M [00:12<00:00, 45.6MB/s] 98%|█████████▊| 496M/507M [00:12<00:00, 40.1MB/s] 99%|█████████▊| 500M/507M [00:12<00:00, 40.8MB/s]100%|█████████▉| 505M/507M [00:13<00:00, 43.8MB/s]100%|██████████| 507M/507M [00:13<00:00, 40.7MB/s]
+wandb: Currently logged in as: nandometzger. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.14.0
+wandb: Run data is saved locally in /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults/So2Sat/experiment_1_881/wandb/run-20230328_071204-l4xpqr8e
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run stoic-monkey-408
+wandb: ⭐️ View project at https://wandb.ai/nandometzger/POMELOv2
+wandb: 🚀 View run at https://wandb.ai/nandometzger/POMELOv2/runs/l4xpqr8e
+Model JacobsUNet ; #Params: 14494997
+  0%|          | 0/100 [00:00<?, ?it/s]  0%|          | 0/100 [00:00<?, ?it/s, best_validation_loss=nan, training_loss=nan, validation_loss=nan]
+  0%|          | 0/496 [00:00<?, ?it/s][A
+  0%|          | 0/496 [00:00<?, ?it/s, training_loss=nan][A/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/PopMapEnv/lib64/python3.8/site-packages/torch/utils/data/dataloader.py:554: UserWarning: This DataLoader will create 10 worker processes in total. Our suggested max number of worker in current system is 4, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
+  warnings.warn(_create_warning_msg(
+
+                                                          [A  0%|          | 0/100 [00:04<?, ?it/s, best_validation_loss=nan, training_loss=nan, validation_loss=nan]
+wandb: Waiting for W&B process to finish... (failed 1). Press Control-C to abort syncing.
+wandb: 🚀 View run stoic-monkey-408 at: https://wandb.ai/nandometzger/POMELOv2/runs/l4xpqr8e
+wandb: Synced 6 W&B file(s), 0 media file(s), 3 artifact file(s) and 1 other file(s)
+wandb: Find logs at: /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults/So2Sat/experiment_1_881/wandb/run-20230328_071204-l4xpqr8e/logs
+Traceback (most recent call last):
+  File "run_train.py", line 495, in <module>
+    trainer.train()
+  File "run_train.py", line 116, in train
+    self.train_epoch(tnr)
+  File "run_train.py", line 157, in train_epoch
+    for i, sample in enumerate(inner_tnr):
+  File "/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/PopMapEnv/lib64/python3.8/site-packages/tqdm/std.py", line 1178, in __iter__
+    for obj in iterable:
+  File "/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/PopMapEnv/lib64/python3.8/site-packages/torch/utils/data/dataloader.py", line 628, in __next__
+    data = self._next_data()
+  File "/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/PopMapEnv/lib64/python3.8/site-packages/torch/utils/data/dataloader.py", line 1333, in _next_data
+    return self._process_data(data)
+  File "/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/PopMapEnv/lib64/python3.8/site-packages/torch/utils/data/dataloader.py", line 1359, in _process_data
+    data.reraise()
+  File "/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/PopMapEnv/lib64/python3.8/site-packages/torch/_utils.py", line 543, in reraise
+    raise exception
+rasterio.errors.RasterioIOError: Caught RasterioIOError in DataLoader worker process 0.
+Original Traceback (most recent call last):
+  File "rasterio/_base.pyx", line 308, in rasterio._base.DatasetBase.__init__
+  File "rasterio/_base.pyx", line 219, in rasterio._base.open_dataset
+  File "rasterio/_err.pyx", line 221, in rasterio._err.exc_wrap_pointer
+rasterio._err.CPLE_OpenFailedError: /scratch/metzgern/HAC/data/So2Sat_POP_Part1/train/00179_22835_birmingham/sen2summer/Class_11/1kmN3322E3525_sen2summer.tif: No such file or directory
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/PopMapEnv/lib64/python3.8/site-packages/torch/utils/data/_utils/worker.py", line 302, in _worker_loop
+    data = fetcher.fetch(index)
+  File "/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/PopMapEnv/lib64/python3.8/site-packages/torch/utils/data/_utils/fetch.py", line 58, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/PopMapEnv/lib64/python3.8/site-packages/torch/utils/data/_utils/fetch.py", line 58, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/data/So2Sat.py", line 92, in __getitem__
+    X, Pop_X, PopNN_X, pop_avail, msb, msb_avail = self.data_generation(ID_temp)
+  File "/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/data/So2Sat.py", line 170, in data_generation
+    data.append(self.generate_data(ID_sen2, channels=3, data='sen2spring'))
+  File "/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/data/So2Sat.py", line 216, in generate_data
+    with rasterio.open(ID_temp, 'r') as ds:
+  File "/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/PopMapEnv/lib64/python3.8/site-packages/rasterio/env.py", line 451, in wrapper
+    return f(*args, **kwds)
+  File "/cluster/work/igp_psr/metzgern/HAC/code/repocode/PopMap2/PopMapEnv/lib64/python3.8/site-packages/rasterio/__init__.py", line 304, in open
+    dataset = DatasetReader(path, driver=driver, sharing=sharing, **kwargs)
+  File "rasterio/_base.pyx", line 310, in rasterio._base.DatasetBase.__init__
+rasterio.errors.RasterioIOError: /scratch/metzgern/HAC/data/So2Sat_POP_Part1/train/00179_22835_birmingham/sen2summer/Class_11/1kmN3322E3525_sen2summer.tif: No such file or directory
+

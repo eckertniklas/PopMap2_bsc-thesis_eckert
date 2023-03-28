@@ -409,8 +409,8 @@ class Trainer:
                 ])
             else:
                 data_transform = transforms.Compose([
-                    # RandomHorizontalVerticalFlip(p=0.5),
                     AddGaussianNoise(std=0.1, p=0.9),
+                    # RandomHorizontalVerticalFlip(p=0.5),
                     # transforms.RandomVerticalFlip(p=0.5),
                     # RandomRotationTransform(angles=[90, 180, 270], p=0.75),
                     # RandomGamma(),
@@ -486,7 +486,6 @@ class Trainer:
 if __name__ == '__main__':
     args = train_parser.parse_args()
     print(train_parser.format_values())
-
 
     trainer = Trainer(args)
 

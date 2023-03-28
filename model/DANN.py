@@ -96,6 +96,7 @@ class DomainClassifier_v4(nn.Module):
         x = self.domain_classifier2(x.view(x.size(0), -1)).view(-1)
         return x
     
+
 # define the Domain Classifier
 class DomainClassifier_v5(nn.Module):
     def __init__(self, feature_dim):
@@ -103,6 +104,22 @@ class DomainClassifier_v5(nn.Module):
 
         self.domain_classifier1 = nn.Sequential(
             nn.Conv2d(feature_dim, 32, kernel_size=1, padding=0), nn.ReLU(),
+            nn.Conv2d(32, 1, kernel_size=1, padding=0), nn.Sigmoid()
+        )
+
+    def forward(self, input_data):
+        x = self.domain_classifier1(input_data)
+        return x
+    
+
+# define the Domain Classifier
+class DomainClassifier_v6(nn.Module):
+    def __init__(self, feature_dim):
+        super(DomainClassifier_v6, self).__init__()
+
+        self.domain_classifier1 = nn.Sequential(
+            nn.Conv2d(feature_dim, 32, kernel_size=1, padding=0), nn.ReLU(),
+            nn.Conv2d(100, 100, kernel_size=1, padding=0), nn.ReLU(),
             nn.Conv2d(32, 1, kernel_size=1, padding=0), nn.Sigmoid()
         )
 

@@ -3,3 +3,4 @@ PopMapEnv
 gdal*
 vis
 *__pycache__
+euleroutputs/

@@ -72,21 +72,24 @@ class PopulationDataset_Reg(Dataset):
         if in_memory:
             print("Loading to memory for Dataset: ", mode)
             self.move_to_memory = True              
-            for idx in tqdm(range(len(self))):
-                self.all_samples[self.list_IDs[idx]] = self[idx]
+            for idx in tqdm(range(len(self.all_ids))):
+                # self.all_samples[self.list_IDs[idx]] = self[idx]
+                self.all_samples[self.all_ids[idx]] = self[idx]
             self.move_to_memory = False 
-                
+            print("Done Loading to memory for Dataset: ", mode)
 
     def __getitem__(self, idx):
         if self.in_memory and not self.move_to_memory:
-            sample = self.all_samples[self.list_IDs[idx]]
+            sample = self.all_samples[self.all_ids[idx]]
 
             if self.transform:
                 sample["input"] = self.transform(sample["input"])
 
             return sample
 
+        # query the data ID
         ID_temp = self.all_ids[idx]
+
         # Generate data
         if self.satmode:
             X, Pop_X, PopNN_X, pop_avail, msb, msb_avail = self.data_generation(ID_temp)
@@ -94,6 +97,8 @@ class PopulationDataset_Reg(Dataset):
             X, osm = self.data_generation(ID_temp)
 
         ID = ID_temp.split(os.sep)[-1].split('_sen2')[0]
+
+        # Generate labels if posssible
         if idx<len(self.labels):
             y = self.labels[idx]
             y_norm = self.normalize_reg_labels(y) 

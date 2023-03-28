@@ -56,12 +56,21 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_built
     # Adversarial loss
     if ~gt["source"].all():
         adv_dict = {}
-        bce = F.binary_cross_entropy(output["domain"], gt["source"].float() )
+
+        if len(output["domain"].shape)==4:
+            dims = output["domain"].shape
+            pred_domain = output["domain"][:,0].view(-1)
+            gt_domain = gt["source"].float().repeat(dims[-1]*dims[-2]).view(-1)
+        else:
+            pred_domain = output["domain"]
+            gt_domain = gt["source"].float()
+
+        bce = F.binary_cross_entropy(pred_domain, gt_domain )
         optimization_loss += lam_adv*bce
 
         # prepate for logging
         adv_dict["bce"] = bce
-        adv_dict.update(**class_metrics(output["domain"], gt["source"].float(), thresh=0.5))
+        adv_dict.update(**class_metrics(pred_domain, gt_domain, thresh=0.5))
         adv_dict = {"Adversarial/"+key: value for key,value in adv_dict.items()}
         auxdict = {**auxdict, **adv_dict}
     

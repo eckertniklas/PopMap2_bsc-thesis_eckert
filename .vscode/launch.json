@@ -358,7 +358,7 @@
                 "--max_samples", "5000",
                 "--num_epochs", "100",
                 "--lam_builtmask", "0.0",
-                "--batch_size", "128",
+                "--batch_size", "8",
                 "--lr_step", "10",
                 "-lr", "1e-4",
                 "--lr_step", "15", 
@@ -372,7 +372,8 @@
                 "--random_season",
                 "--target_region", "pri2017",
                 "--adversarial",
-                "--resume", "/home/pf/pfstaff/projects/metzgern_Sat2Pop/POMELOv2_results/So2Sat/experiment_386_968/best_model.pth"
+                // "--resume", "/home/pf/pfstaff/projects/metzgern_Sat2Pop/POMELOv2_results/So2Sat/experiment_386_968/best_model.pth",
+                "--classifier", "v5"
             ]
         }
     ]

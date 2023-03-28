@@ -6,7 +6,7 @@ import torch
 
 # import copy
 import segmentation_models_pytorch as smp
-from model.DANN import DomainClassifier, DomainClassifier1x1, DomainClassifier_v3, ReverseLayerF
+from model.DANN import DomainClassifier, DomainClassifier1x1, DomainClassifier_v3, DomainClassifier_v4, DomainClassifier_v5, ReverseLayerF
 from torch.nn.functional import upsample_nearest, interpolate
 
 from utils.utils import plot_2dmatrix
@@ -37,13 +37,20 @@ class JacobsUNet(nn.Module):
             self.head = nn.Conv2d(feature_dim, 4, kernel_size=1, padding=0)
         elif head=="v2":
             self.head = nn.Sequential(
-                nn.Conv2d(feature_dim, 32, kernel_size=3, padding=1), nn.ReLU(),
+                nn.Conv2d(feature_dim, 32, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(32, 4, kernel_size=1, padding=0)
             )
         elif head=="v3":
             self.head = nn.Sequential(
-                nn.Conv2d(feature_dim, 32, kernel_size=3, padding=1), nn.ReLU(),
-                nn.Conv2d(32, 4, kernel_size=1, padding=0)
+                nn.Conv2d(feature_dim, 100, kernel_size=3, padding=1), nn.ReLU(),
+                nn.Conv2d(100, 100, kernel_size=3, padding=1), nn.ReLU(),
+                nn.Conv2d(100, 4, kernel_size=1, padding=0)
+            )
+        elif head=="v4":
+            self.head = nn.Sequential(
+                nn.Conv2d(feature_dim, 100, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(100, 4, kernel_size=1, padding=0)
             )
 
         # Build the domain classifier
@@ -53,6 +60,10 @@ class JacobsUNet(nn.Module):
             self.domain_classifier = DomainClassifier1x1(feature_dim)
         elif classifier=="v3":
             self.domain_classifier = DomainClassifier_v3(feature_dim)
+        elif classifier=="v4":
+            self.domain_classifier = DomainClassifier_v4(feature_dim)
+        elif classifier=="v5":
+            self.domain_classifier = DomainClassifier_v5(feature_dim)
         # self.domain_classifier = DomainClassifier1x1(feature_dim)
 
         # calculate the number of parameters

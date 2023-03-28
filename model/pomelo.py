@@ -312,8 +312,7 @@ class ResBlocksDeep(nn.Module):
             # 9 
             Block(feature_dim, k1=k1a, k2=k2),
             Block(feature_dim, k1=k1b, k2=k2),
-            Block(feature_dim, k1=k1b, k2=k2),
-            # ...
+            Block(feature_dim, k1=k1b, k2=k2), 
         )
         self.head = nn.Conv2d(feature_dim, 4, kernel_size=1, padding=0)
 

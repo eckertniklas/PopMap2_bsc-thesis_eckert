@@ -29,6 +29,7 @@ for name in current_dir_paths:
         current_dir_path = name
 if current_dir_path is None:
     raise Exception("No data folder found")
+# current_dir_path = "/cluster/work/igp_psr/metzgern/HAC/data"
 # current_dir_path = "/scratch/metzgern/HAC/data"
 
 # paths to So2Sat POP Part1 folder

@@ -391,7 +391,7 @@ class Trainer:
         
 
     @staticmethod
-    def get_dataloaders(args): 
+    def get_dataloaders(args, force_recompute=False): 
 
         phases = ('train', 'val')
         if args.dataset == 'So2Sat':
@@ -419,7 +419,7 @@ class Trainer:
             
             # source domain samples
             val_size = 0.2 
-            f_names, labels = get_fnames_labs_reg(all_patches_mixed_train_part1, force_recompute=True)
+            f_names, labels = get_fnames_labs_reg(all_patches_mixed_train_part1, force_recompute=force_recompute)
 
             # remove elements that contain "zurich" as a substring
             if args.excludeZH:
@@ -438,10 +438,11 @@ class Trainer:
             if args.adversarial:
                 for reg in args.target_regions:
                     this_unlabeled_path = os.path.join(pop_map_root, os.path.join("EE", reg))
-                    f_names_unlab.extend(get_fnames_unlab_reg(this_unlabeled_path, force_recompute=False)) 
+                    f_names_unlab.extend(get_fnames_unlab_reg(this_unlabeled_path, force_recompute=force_recompute)) 
 
             datasets = {
-                "train": PopulationDataset_Reg(f_names_train, labels_train, f_names_unlab=f_names_unlab, mode="train", transform=data_transform,random_season=args.random_season, **params),
+                "train": PopulationDataset_Reg(f_names_train, labels_train, f_names_unlab=f_names_unlab, mode="train",
+                                                transform=data_transform,random_season=args.random_season, **params),
                 "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", transform=None, **params),
                 "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", transform=None, **params),
                 "test_target": [ Population_Dataset_target(reg, S1=args.Sentinel1, S2= args.Sentinel2, VIIRS=args.VIIRS,

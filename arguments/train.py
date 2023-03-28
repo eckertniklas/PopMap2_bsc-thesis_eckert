@@ -27,7 +27,7 @@ parser.add_argument('-fe', '--feature_extractor', type=str, help=' ', default="r
 #Training
 parser.add_argument('-e', '--num_epochs', help='', type=int, default=20)
 parser.add_argument('-lr', '--learning_rate', help='', type=float, default=1e-4)
-# parser.add_argument('-l', '--loss', help='', type=str, default="l1_loss", choices=["l1_loss", "log_l1_loss", "mse_loss", "log_mse_loss", "focal_loss","tversky_loss"])
+parser.add_argument("-exZH", "--excludeZH", action='store_true', help="")
 parser.add_argument('-l', '--loss', nargs='+', default=["l1_loss"], help="list composed of 'l1_loss', 'log_l1_loss', 'mse_loss', 'log_mse_loss', 'focal_loss','tversky_loss")
 parser.add_argument('-la', '--lam', nargs='+', type=float, default=[1.0], help="list composed of loss weightings")
 parser.add_argument("-adv", "--adversarial", action='store_true', help="")

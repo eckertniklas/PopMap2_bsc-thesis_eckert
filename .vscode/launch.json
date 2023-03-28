@@ -333,16 +333,17 @@
                 // "--lam", "1.0", "0.00001",
                 // "--lam", "1.0", "0.005",
                 // "--lam", "1000",
-                "--lam", "1",
-                "--lam_adv", "100",
+                "--lam", "100",
+                "--lam_adv", "1000",
                 // "-S1",
                 "-S2",
                 "--feature_dim", "16",
                 "--random_season",
-                "--target_region", "pri2017",
+                "--target_regions", "pri2017",
                 "--adversarial",
                 // "-tv", "1.0"
                 // "-VIIRS" 
+                "--excludeZH"
             ]
         },
         {
@@ -370,10 +371,11 @@
                 "-S2",
                 "--feature_dim", "16",
                 "--random_season",
-                "--target_region", "pri2017",
+                "--target_regions", "pri2017",
                 "--adversarial",
                 // "--resume", "/home/pf/pfstaff/projects/metzgern_Sat2Pop/POMELOv2_results/So2Sat/experiment_386_968/best_model.pth",
-                "--classifier", "v5"
+                "--classifier", "v5",
+                "--excludeZH"
             ]
         }
     ]

@@ -419,7 +419,15 @@ class Trainer:
             
             # source domain samples
             val_size = 0.2 
-            f_names, labels = get_fnames_labs_reg(all_patches_mixed_train_part1, force_recompute=False)
+            f_names, labels = get_fnames_labs_reg(all_patches_mixed_train_part1, force_recompute=True)
+
+            # remove elements that contain "zurich" as a substring
+            if args.excludeZH:
+                f_namesX = []
+                labelsX = []
+                [(f_namesX.append(f),labelsX.append(l)) for f,l in zip(f_names,labels) if "zurich" not in f]
+                f_names, labels = f_namesX, labelsX
+
             f_names, labels = f_names[:int(args.max_samples)] , labels[:int(args.max_samples)]
             s = int(len(f_names)*val_size)
             f_names_train, f_names_val, labels_train, labels_val = f_names[:-s], f_names[-s:], labels[:-s], labels[-s:]

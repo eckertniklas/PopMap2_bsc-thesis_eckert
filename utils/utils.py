@@ -96,6 +96,10 @@ def plot_and_save(img, mask=None, vmax=None, vmin=None, idx=None,
     plt.figure(figsize=(12, 8), dpi=260)
     if vmax is not None or vmin is not None:
         img = np.clip(img, vmin, vmax)
+    if img.dim()==3:
+        if img.shape[0]==3:
+            img = np.clip(img, 0.0, 1.0)
+
     plt.imshow(img, vmax=vmax, vmin=vmin, cmap=cmap)
     if colorbar:
         plt.colorbar()
@@ -127,17 +131,18 @@ def get_fnames_labs_reg(path, force_recompute=False):
 
         # Open the file and read the content in a list
         with open(fnames_file, 'r') as filehandle:
-                for line in filehandle:
-                    curr_place = line[:-1] # Remove linebreak which is the last character of the string
-                    f_names_all.append(curr_place)
+            for line in filehandle:
+                curr_place = line[:-1] # Remove linebreak which is the last character of the string
+                f_names_all.append(os.path.join(path, curr_place))
 
         with open(labs_file, 'r') as filehandle:
-                for line in filehandle:
-                    curr_place = line[:-1] # Remove linebreak which is the last character of the string
-                    labs_all.append(float(curr_place))
-    
+            for line in filehandle:
+                curr_place = line[:-1] # Remove linebreak which is the last character of the string
+                labs_all.append(float(curr_place))
+
     else:
         city_folders = glob.glob(os.path.join(path, "*"))
+        f_names_save_all = np.array([])
         f_names_all = np.array([])
         labs_all = np.array([])
         for each_city in tqdm(city_folders):
@@ -154,19 +159,28 @@ def get_fnames_labs_reg(path, force_recompute=False):
             for index in range(0, len(classes_paths)):
                 f_names = [classes_paths[index] + str(ids[index]) + '_sen2spring.tif']
                 f_names_all = np.append(f_names_all, f_names, axis=0)
+                f_names_save = [(classes_paths[index] + str(ids[index]) + '_sen2spring.tif').split(path+"/")[1]]
+                f_names_save_all = np.append(f_names_save_all, f_names_save, axis=0)
                 labs = [pop[index]]
                 labs_all = np.append(labs_all, labs, axis=0)
 
         # Write the found lists to the disk to later load it more quickly
         with open(fnames_file, 'w') as filehandle1:
             with open(labs_file, 'w') as filehandle2:
-                for fname, la in zip(f_names_all,labs_all):
+                for fname, la in zip(f_names_save_all, labs_all):
                     filehandle1.write(f'{fname}\n')
                     filehandle2.write(f'{la}\n')
+
+        f_names_all = f_names_all.tolist()
+        labs_all = labs_all.tolist()
 
     return f_names_all, labs_all
 
 def get_fnames_unlab_reg(parent_dir, force_recompute=False):
+    """
+    :param parent_dir: path to patch folder (sen2spring)
+    :return: gives the paths of all the tifs and its corresponding class labels
+    """
  
     data_path = os.path.join(parent_dir, "sen2spring")
     fnames_file = os.path.join(parent_dir, 'file_list.txt')
@@ -180,19 +194,22 @@ def get_fnames_unlab_reg(parent_dir, force_recompute=False):
         with open(fnames_file, 'r') as filehandle:
             for line in filehandle:
                 curr_place = line[:-1] # Remove linebreak which is the last character of the string
-                f_names_all.append(curr_place)
+                f_names_all.append(os.path.join(parent_dir, curr_place))
 
     else:
         # iterate though the data path and list names
         f_names_all = []
+        files_save_all = []
         for root, dirs, files in os.walk(data_path):
             for file in files:
                 if file.endswith(".tif"):
-                    f_names_all.append(os.path.join(root, file))
+                    f_name = os.path.join(root, file)
+                    f_names_all.append(f_name)
+                    files_save_all.append(f_name.split(parent_dir+"/")[1])
 
-            # Write the found lists to the disk to later load it more quickly
-            with open(fnames_file, 'w') as filehandle1:
-                for fname in f_names_all:
-                    filehandle1.write(f'{fname}\n')
+        # Write the found lists to the disk to later load it more quickly
+        with open(fnames_file, 'w') as filehandle1:
+            for fname in files_save_all:
+                filehandle1.write(f'{fname}\n')
 
     return f_names_all

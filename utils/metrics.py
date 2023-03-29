@@ -17,7 +17,7 @@ def get_test_metrics(pred, y, tag=""):
         "log_mse_loss": F.mse_loss(torch.log(pred+1), torch.log(y+1)),
         "predmean": pred.mean(),
         "GTmean": y.mean(),
-        "correlation": torch.corrcoef(torch.stack([pred, y]))[0,1]
+        "Correlation": torch.corrcoef(torch.stack([pred, y]))[0,1]
     }
     log_dict = {"Population/" + tag + "/"+key: value for key,value in log_dict.items()}
 

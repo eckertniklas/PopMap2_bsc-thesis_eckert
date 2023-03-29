@@ -30,7 +30,7 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_built
         "GTstd": y_gt.std(),
         "predmean": y_pred.mean(),
         "predstd": y_pred.std(),
-        "correlation": torch.corrcoef(torch.stack([y_pred, y_gt]))[0,1]
+        "mCorrelation": torch.corrcoef(torch.stack([y_pred, y_gt]))[0,1]
     }
 
     # augmented loss

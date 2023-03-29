@@ -54,7 +54,7 @@ class Trainer:
                 input_channels = input_channels,
                 feature_dim = args.feature_dim,
                 feature_extractor = args.feature_extractor,
-                classifier = args.classifier,
+                classifier = args.classifier if args.adversarial else None,
                 head = args.head
             ).cuda()
         elif args.model=="PomeloUNet":
@@ -121,11 +121,11 @@ class Trainer:
                     torch.cuda.empty_cache()
                 
                 # target domain testing
-                if (self.info["epoch"] + 1) % 5 == 0:
-                    # self.test(plot=((self.info["epoch"]+1) % 4)==0, full_eval=((self.info["epoch"]+1) % 1)==0, zh_eval=True) 
-                    self.test(plot=((self.info["epoch"]+1) % 1)==0, full_eval=True, zh_eval=True) #ZH
-                    torch.cuda.empty_cache()
                 if (self.info["epoch"] + 1) % 1 == 0:
+                    # self.test(plot=((self.info["epoch"]+1) % 4)==0, full_eval=((self.info["epoch"]+1) % 1)==0, zh_eval=True) 
+                    self.test(plot=((self.info["epoch"]+1) % 10)==0, full_eval=((self.info["epoch"]+1) % 1)==0, zh_eval=True) #ZH
+                    torch.cuda.empty_cache()
+                if (self.info["epoch"] + 1) % 5 == 0:
                     self.test_target(save=True)
                     torch.cuda.empty_cache()
 
@@ -307,7 +307,7 @@ class Trainer:
                         # Plot predictions for Zurich
                         i = 0
                         if plot:
-                            for i in tqdm(range(len(gt_zh))):
+                            for i in range(len(gt_zh)):
                                 vmax = max([gt_zh[i].max(), pred_zh[i].max()*100]).cpu().item()
                                 plot_and_save(gt_zh[i].cpu(), model_name=args.expN, title=gt_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="01_GT", folder=self.args.experiment_folder)
                                 plot_and_save(sum_pool10(pred_zh)[i].cpu(), model_name=args.expN, title=sum_pool10(pred_zh)[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="02_pred10", folder=self.args.experiment_folder)
@@ -331,7 +331,8 @@ class Trainer:
                 self.test_stats = {k: v / len(self.dataloaders['val']) for k, v in self.test_stats.items()}
 
                 # Compute non-averagable metrics
-                self.test_stats["Population:r2"] = r2(torch.cat(pred), torch.cat(gt))
+                self.test_stats["Population/r2"] = r2(torch.cat(pred), torch.cat(gt))
+                self.test_stats["Population/Correlation"] = r2(torch.cat(pred), torch.cat(gt))
                 wandb.log({**{k + '/test': v for k, v in self.test_stats.items()}, **self.info}, self.info["iter"])
 
             if zh_eval:
@@ -340,9 +341,9 @@ class Trainer:
                 self.test_stats4 = get_test_metrics(torch.cat(pred4), torch.cat(gt4), tag="400m")
                 self.test_stats10 = get_test_metrics(torch.cat(pred10), torch.cat(gt10), tag="1km")
                 self.test_statsGT = get_test_metrics(torch.cat(gt10), torch.cat(gtSo2), tag="GTCons")
-                self.test_stats = {**self.test_stats, **self.test_stats1, **self.test_stats2, **self.test_stats4, **self.test_stats10, **self.test_statsGT}
+                self.test_statsZH = {**self.test_stats1, **self.test_stats2, **self.test_stats4, **self.test_stats10, **self.test_statsGT}
             
-                wandb.log({**{k + '/testZH': v for k, v in self.test_stats.items()}, **self.info}, self.info["iter"])
+                wandb.log({**{k + '/testZH': v for k, v in self.test_statsZH.items()}, **self.info}, self.info["iter"])
 
 
     def test_target(self, save=False):

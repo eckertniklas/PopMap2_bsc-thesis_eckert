@@ -32,7 +32,7 @@ class JacobsUNet(nn.Module):
             nn.ReLU()
         )
 
-        # Build the segmentation head
+        # Build the regression head
         if head=="v1":
             self.head = nn.Conv2d(feature_dim, 4, kernel_size=1, padding=0)
         elif head=="v2":
@@ -52,6 +52,12 @@ class JacobsUNet(nn.Module):
                 nn.Conv2d(feature_dim, 100, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(100, 4, kernel_size=1, padding=0)
             )
+        elif head=="v5":
+            self.head = nn.Sequential(
+                nn.Conv2d(feature_dim, 32, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(32, 4, kernel_size=1, padding=0)
+            )
+
 
         # Build the domain classifier
         if classifier=="v1":
@@ -66,6 +72,11 @@ class JacobsUNet(nn.Module):
             self.domain_classifier = DomainClassifier_v5(feature_dim)
         elif classifier=="v6":
             self.domain_classifier = DomainClassifier_v6(feature_dim)
+        elif classifier=="v7":
+            self.domain_classifier = nn.Sequential(nn.Conv2d(feature_dim, 1, kernel_size=1, padding=0), nn.Sigmoid())
+        else:
+            self.domain_classifier = None
+        
         # self.domain_classifier = DomainClassifier1x1(feature_dim)
 
         # calculate the number of parameters
@@ -99,8 +110,11 @@ class JacobsUNet(nn.Module):
         out = self.head(features)
 
         # Foward the domain classifier
-        reverse_features = ReverseLayerF.apply(features, alpha)
-        domain = self.domain_classifier(reverse_features)
+        if self.domain_classifier is not None:
+            reverse_features = ReverseLayerF.apply(features, alpha)
+            domain = self.domain_classifier(reverse_features)
+        else:
+            domain = None
         
         # Population map
         # popdensemap = nn.functional.softplus(x[:,0])

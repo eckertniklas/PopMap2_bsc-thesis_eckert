@@ -321,7 +321,7 @@
                 // "--loss", "log_mse_loss", "l1_loss",
                 "--loss", "l1_loss",
                 "--lam", "1",
-                "--lam_adv", "100",
+                "--lam_adv", "1.0",
                 // "-S1",
                 "-S2",
                 "--feature_dim", "16",
@@ -365,7 +365,7 @@
                 "--random_season",
                 "--target_regions", "pri2017",
                 // "--adversarial",
-                "--excludeZH"
+                "--excludeZH",
             ]
         },
         {

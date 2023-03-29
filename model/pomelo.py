@@ -74,6 +74,11 @@ class JacobsUNet(nn.Module):
             self.domain_classifier = DomainClassifier_v6(feature_dim)
         elif classifier=="v7":
             self.domain_classifier = nn.Sequential(nn.Conv2d(feature_dim, 1, kernel_size=1, padding=0), nn.Sigmoid())
+        elif classifier=="v8":
+            self.domain_classifier = nn.Sequential(
+                nn.Conv2d(feature_dim, 32, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(32, 4, kernel_size=1, padding=0),  nn.Sigmoid()
+            )
         else:
             self.domain_classifier = None
         

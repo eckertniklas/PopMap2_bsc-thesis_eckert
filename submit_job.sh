@@ -1,9 +1,9 @@
 #!/bin/bash
 
 #SBATCH --time=16:00:00
-#SBATCH --ntasks=4
+#SBATCH --ntasks=8
 #SBATCH --output euleroutputs/outfile_%J.%I.txt
-#SBATCH --mem-per-cpu=10000
+#SBATCH --mem-per-cpu=5000
 #SBATCH --gpus=1
 #SBATCH --gres=gpumem:21g
 #SBATCH --mail-type=END,FAIL
@@ -17,11 +17,21 @@ source PopMapEnv/bin/activate
 #cuda/11.6.2
 module load eth_proxy 
 
-# python run_train.py --no-osm --satmode --num_epochs 100 --lam_builtmask 0.0 --batch_size 384 --lr_step 10 -lr 3e-4 --lr_step 15 --lr_gamma 0.75 \
-#     --model JacobsUNet --feature_extractor vgg11 --loss l1_loss --lam 1000 --lam_adv 100.0 -S2 --feature_dim 16 --random_season --target_region pri2017 --adversarial \
-#     --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults --head v1 --classifier v2
+# python run_train.py --no-osm --satmode --num_epochs 100 --lam_builtmask 0.0 --batch_size 186 --lr_step 10 -lr 1e-4 --lr_step 15 --lr_gamma 0.75 \
+#     --model JacobsUNet --feature_extractor vgg11 --loss l1_loss --lam 1 --lam_adv 100.0 -S2 --feature_dim 16 --random_season --target_regions pri2017 --adversarial \
+#     --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults --head v1 --classifier v5 --excludeZH #--in_memory
 
-python run_train.py --no-osm --satmode --num_epochs 100 --lam_builtmask 0.0 --batch_size 128 --lr_step 10 -lr 3e-4 --lr_step 15 --lr_gamma 0.75 \
-    --model JacobsUNet --feature_extractor vgg11 --loss l1_loss --lam 1000.0 --lam_adv 100.0 -S2 --feature_dim 16 --random_season --target_region pri2017 --adversarial \
-    --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults --classifier v5 --excludeZH
+
+python run_train.py --no-osm --satmode --num_epochs 100 --lam_builtmask 0.0 --batch_size 384 --lr_step 10 -lr 1e-4 --lr_step 15 --lr_gamma 0.75 \
+    --model JacobsUNet --feature_extractor vgg11 --loss l1_loss --lam 1.0 --lam_adv 100.0 -S2 --feature_dim 16 --random_season --target_regions pri2017 --adversarial \
+    --classifier v5 --excludeZH --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults
+
+
+# python run_train.py --no-osm --satmode --num_epochs 100 --lam_builtmask 0.0 --batch_size 384 --lr_step 10 -lr 1e-4 --lr_step 15 --lr_gamma 0.75 \
+#     --model JacobsUNet --feature_extractor vgg11 --loss l1_loss --lam 1.0 --lam_adv 0.0 -S2 --feature_dim 16 --random_season --target_regions pri2017 \
+#     --classifier v5 --excludeZH --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults
+    
+# python run_train.py --no-osm --satmode --num_epochs 100 --lam_builtmask 0.0 --batch_size 128 --lr_step 10 -lr 3e-4 --lr_step 15 --lr_gamma 0.75 \
+#     --model JacobsUNet --feature_extractor vgg11 --loss l1_loss --lam 1000.0 --lam_adv 100.0 -S2 --feature_dim 16 --random_season --target_regions pri2017 --adversarial \
+#     --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults --classifier v5 --excludeZH --in_memory
     

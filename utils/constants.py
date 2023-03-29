@@ -22,7 +22,10 @@ if os.name == "nt":  # locally
     current_dir_path = dirname(dirname((os.getcwd())))
 
 # current_dir_path = "/scratch2/metzgern/HAC/code/So2SatPOP/data"
-current_dir_paths = ["/scratch/metzgern/HAC/data", "/cluster/work/igp_psr/metzgern/HAC/data"]
+current_dir_paths = ["/scratch/metzgern/HAC/data",
+    "/cluster/work/igp_psr/metzgern/HAC/data",
+    "/cluster/scratch/metzgern"
+]
 
 for name in current_dir_paths:
     if os.path.isdir(name):

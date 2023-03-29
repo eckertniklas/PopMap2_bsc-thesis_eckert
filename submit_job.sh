@@ -28,6 +28,6 @@ module load eth_proxy
 
 
 python run_train.py --no-osm --satmode --num_epochs 100 --lam_builtmask 0.0 --batch_size 384 --lr_step 10 -lr 1e-4 --lr_step 15 --lr_gamma 0.75 \
-    --model JacobsUNet --feature_extractor vgg11 --loss l1_loss --lam 1.0 --lam_adv 0.01 -S2 --feature_dim 16 --random_season --target_regions pri2017 --excludeZH \
+    --model JacobsUNet --feature_extractor vgg11 --loss l1_loss --lam 1.0 --lam_adv 1.0 -S2 --feature_dim 16 --random_season --target_regions pri2017 --excludeZH \
     --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults --num_workers 30 --head v1 \
-    --adversarial --classifier v7 --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults
+    --adversarial --classifier v8 --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults

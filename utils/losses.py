@@ -59,8 +59,8 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_built
 
         if len(output["domain"].shape)==4:
             dims = output["domain"].shape
-            pred_domain = output["domain"][:,0].view(-1)
-            gt_domain = gt["source"].float().repeat(dims[-1]*dims[-2]).view(-1)
+            pred_domain = output["domain"][:,0].reshape(-1)
+            gt_domain = gt["source"].float().repeat(dims[-1]*dims[-2]).reshape(-1)
         else:
             pred_domain = output["domain"]
             gt_domain = gt["source"].float()

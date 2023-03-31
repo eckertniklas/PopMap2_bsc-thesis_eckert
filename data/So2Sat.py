@@ -55,7 +55,7 @@ class PopulationDataset_Reg(Dataset):
         self.all_ids = list_IDs + f_names_unlab
         self.labeled_indices = [i for i,name in enumerate(self.all_ids) if name in list_IDs]
         self.unlabeled_indices = [i for i,name in enumerate(self.all_ids) if name in f_names_unlab]
-
+ 
         self.y_stats = load_json(os.path.join(config_path, 'dataset_stats', 'label_stats.json'))
         self.y_stats['max'] = float(self.y_stats['max'])
         self.y_stats['min'] = float(self.y_stats['min'])

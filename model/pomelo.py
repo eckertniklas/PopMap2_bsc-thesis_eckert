@@ -11,6 +11,93 @@ from torch.nn.functional import upsample_nearest, interpolate
 
 from utils.utils import plot_2dmatrix
 
+class CustomUNet(smp.Unet):
+    def __init__(self, encoder_name, in_channels, classes, down=3):
+        # instanciate the base model
+        super().__init__(encoder_name, encoder_weights="imagenet",
+                        in_channels=in_channels, classes=classes, decoder_channels=(64,32,16), 
+                        decoder_use_batchnorm=False, encoder_depth=3)
+        decoder_channels = (256,128,64,32,16)[-down:]
+        # decoder_channels = (81,54,36,24,16)[-down:]
+
+        # Adjust the U-Net depth to 2
+        self.encoder = smp.encoders.get_encoder(
+            encoder_name,
+            in_channels=in_channels,
+            depth=down,
+            weights="imagenet",
+        )
+        # self.encoder.set_swish(memory_efficient=True)
+
+        self.decoder = smp.decoders.unet.model.UnetDecoder(
+            encoder_channels=self.encoder.out_channels,
+            decoder_channels=decoder_channels,
+            n_blocks=down,
+            use_batchnorm=False,
+            center=True if encoder_name.startswith("vgg") else False
+        )
+
+
+        if encoder_name.startswith("vgg"):
+            self.decoder.center = smp.decoders.unet.decoder.CenterBlock(
+                in_channels=self.encoder.out_channels[-1],
+                out_channels=self.encoder.out_channels[-1]
+            )
+        else:
+            self.decoder.center = nn.Identity()
+        # self.decoder.center = nn.Conv2d(self.decoder.center.weights.shape[0])
+        # self.decoder.aggregation_layer = self.decoder.aggregation_layer if len(self.decoder.blocks) > 1 else None
+        # self.decoder.final_conv = nn.Conv2d(self.decoder.blocks[0].out_channels, classes, kernel_size=1)
+
+        print("self.encoder.out_channels", self.encoder.out_channels)
+        self.name = "u-{}".format(encoder_name)
+        self.initialize()
+
+        for i,el in enumerate(self.encoder.get_stages()[:down+1]):
+            print("stage", i, ":",sum(p.numel() for p in el.parameters() if p.requires_grad) )
+
+        print("decoder:", sum(p.numel() for p in self.decoder.parameters() if p.requires_grad))
+            
+        # self.params_sum = sum(p.numel() for p in nn.Sequential(self.encoder.get_stages()[:down+1]).parameters() if p.requires_grad)
+
+        # a = torch.zeros((1,5,128,128))
+        # a[0,:,64,64] = 5000
+        # plot_2dmatrix(self(a)[0,0].abs()>0.0000001)
+
+
+    def forward(self, x):
+        """Sequentially pass `x` trough model`s e ncoder, decoder and heads"""
+
+        self.check_input_shape(x)
+
+        # encoder
+        # with torch.no_grad():
+        features = self.encoder(x)
+
+        classic_implementation = True
+        if classic_implementation:
+            decoder_output = self.decoder(*features)
+        else:
+            features = features[1:]  # remove first skip with same spatial resolution
+            features = features[::-1]  # reverse channels to start from head of encoder
+
+            head = features[0]
+            skips = features[1:]
+
+            x = self.decoder.center(head)
+            for i, decoder_block in enumerate(self.decoder.blocks):
+                skip = skips[i] if i < len(skips) else None
+                x = decoder_block(x, skip)
+            decoder_output = x
+
+        masks = self.segmentation_head(decoder_output)
+
+        if self.classification_head is not None:
+            labels = self.classification_head(features[-1])
+            return masks, labels
+
+        return masks
+
 
 class JacobsUNet(nn.Module):
     '''
@@ -19,18 +106,21 @@ class JacobsUNet(nn.Module):
     def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1", head="v1"):
         super(JacobsUNet, self).__init__()
 
-        self.down = 3
+        self.down = 5
         
         # Padding Params
         self.p = 14
         self.p2d = (self.p, self.p, self.p, self.p)
 
         # Build the main model
-        self.unetmodel = nn.Sequential(
-            smp.Unet( encoder_name=feature_extractor, encoder_weights="imagenet", decoder_channels=(64, 32, 16),
-                encoder_depth=self.down, in_channels=input_channels,  classes=feature_dim, decoder_use_batchnorm=False),
-            nn.ReLU()
-        )
+        if False:
+            self.unetmodel = nn.Sequential(
+                smp.Unet( encoder_name=feature_extractor, encoder_weights="imagenet", decoder_channels=(64, 32, 16),
+                    encoder_depth=self.down, in_channels=input_channels,  classes=feature_dim, decoder_use_batchnorm=False),
+                nn.ReLU()
+            )
+        else:
+            self.unetmodel = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=self.down)
 
         # Build the regression head
         if head=="v1":
@@ -58,7 +148,6 @@ class JacobsUNet(nn.Module):
                 nn.Conv2d(32, 4, kernel_size=1, padding=0)
             )
 
-
         # Build the domain classifier
         if classifier=="v1":
             self.domain_classifier = DomainClassifier(feature_dim)
@@ -81,8 +170,6 @@ class JacobsUNet(nn.Module):
             )
         else:
             self.domain_classifier = None
-        
-        # self.domain_classifier = DomainClassifier1x1(feature_dim)
 
         # calculate the number of parameters
         self.params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
@@ -155,25 +242,38 @@ class JacobsUNet(nn.Module):
 
 # Define a resblock
 class Block(nn.Module):
-    def __init__(self, dimension, k1=3, k2=1, activation=None):
+    def __init__(self, dimension, k1=3, k2=1, activation=None, squeeze=False):
         super(Block, self).__init__()
 
         # dim_in = dimension if dim_in is None else dim_in
-
-        self.net = nn.Sequential(
-            nn.Conv2d(dimension, dimension, kernel_size=k1, padding=(k1-1)//2), nn.ReLU(),
-            nn.Conv2d(dimension, dimension, kernel_size=k2, padding=(k2-1)//2),
-        )
+        if squeeze:
+            s = 2
+            self.net = nn.Sequential(
+                nn.MaxPool2d(2),
+                nn.Conv2d(dimension, dimension, kernel_size=k1, padding=(k1-1)//2), nn.ReLU(),
+                nn.Conv2d(dimension, dimension, kernel_size=k2, padding=(k2-1)//2),
+                nn.Upsample(scale_factor=2, mode='bilinear')
+            )
+        else:
+            self.net = nn.Sequential(
+                nn.Conv2d(dimension, dimension, kernel_size=k1, padding=(k1-1)//2), nn.ReLU(),
+                nn.Conv2d(dimension, dimension, kernel_size=k2, padding=(k2-1)//2),
+            )
         self.act = activation if activation is not None else nn.ReLU()
+
     def forward(self, x):
-        return self.act(self.net(x) + x)
+        identity = x
+        x = self.net(x)
+        x += identity
+        return self.act(x)
+        # return self.act(self.net(x) + x)
 
 
 class ResBlocks(nn.Module):
     '''
     PomeloUNet
     '''
-    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18"):
+    def __init__(self, input_channels, feature_dim):
         super(ResBlocks, self).__init__()
 
         # Padding Params
@@ -182,12 +282,13 @@ class ResBlocks(nn.Module):
 
         k1a = 3
         k1b = 3
-        k2 = 1
+        k2 = 3
 
         self.model = nn.Sequential(
             nn.Conv2d(input_channels, feature_dim, kernel_size=3, padding=1), nn.ReLU(),
             Block(feature_dim, k1=k1a, k2=k2),
             Block(feature_dim, k1=k1b, k2=k2),
+            # nn.MaxPool2d(8),
             Block(feature_dim, k1=k1b, k2=k2),
 
             Block(feature_dim, k1=k1a, k2=k2),
@@ -196,17 +297,41 @@ class ResBlocks(nn.Module):
 
             Block(feature_dim, k1=k1a, k2=k2),
             Block(feature_dim, k1=k1b, k2=k2),
+
+            # nn.Upsample(scale_factor=8, mode='bilinear'),
             Block(feature_dim, k1=k1b, k2=k2),
-            Block(feature_dim),
+            Block(feature_dim, k1=k1b, k2=k2),
         )
         self.head = nn.Conv2d(feature_dim, 4, kernel_size=1, padding=0)
 
+        a = torch.zeros((1,3,128,128))
+        a[0,:,64,64] = 500
+        plot_2dmatrix(self.model(a)[0,0])
+
         params_sum = sum(p.numel() for p in self.model.parameters() if p.requires_grad)    
                                   
-    def forward(self, inputs, train=False):
+    def forward(self, inputs, train=False, padding=True, alpha=0.1):
 
-        x = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
-        x = self.model(x)[:,:,self.p:-self.p,self.p:-self.p]
+        # Add padding
+        if padding:
+            x  = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
+            p = self.p
+        else:
+            x = inputs["input"]
+            p = None
+
+        # pad to make sure it is divisible by 32
+        if (x.shape[2] % 32) != 0:
+            p = (x.shape[2] % 64) // 2
+            x  = nn.functional.pad(inputs["input"], (p,p,p,p), mode='reflect') 
+
+        # x = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
+        x = self.model(x)
+
+        # revert padding
+        if p is not None:
+            x = x[:,:,p:-p,p:-p]
+
         x = self.head(x)
 
         # Population map
@@ -219,17 +344,21 @@ class ResBlocks(nn.Module):
 
         builtupmap = torch.sigmoid(x[:,2]) 
 
+        # plot_2dmatrix(popdensemap[0])
+        # plot_2dmatrix(inputs["input"][0]*0.2+0.5)
+
         return {"popcount": popcount, "popdensemap": popdensemap,
                 "builtdensemap": builtdensemap, "builtcount": builtcount,
                 "builtupmap": builtupmap}
 
 
-class UResBlocks(nn.Module):
+
+class ResBlocksSqueeze(nn.Module):
     '''
     PomeloUNet
     '''
-    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18"):
-        super(UResBlocks, self).__init__()
+    def __init__(self, input_channels, feature_dim):
+        super(ResBlocksSqueeze, self).__init__()
 
         # Padding Params
         self.p = 14
@@ -237,51 +366,57 @@ class UResBlocks(nn.Module):
 
         k1a = 3
         k1b = 3
-        k2 = 1
+        k2 = 3
 
-        self.enc1 = nn.Sequential(
+        self.model = nn.Sequential(
             nn.Conv2d(input_channels, feature_dim, kernel_size=3, padding=1), nn.ReLU(),
-            Block(feature_dim, k1=k1a, k2=k2)  )
-        
-        self.enc2 = nn.Sequential(
-            nn.MaxPool2d(kernel_size=2,stride=2),
-            nn.Conv2d(feature_dim, feature_dim*2, kernel_size=3, padding=1), nn.ReLU(),
-            Block(feature_dim*2, k1=k1a, k2=k2)  )
-        
-        self.enc3 = nn.Sequential(
-            nn.MaxPool2d(kernel_size=2,stride=2),
-            nn.Conv2d(feature_dim*2, feature_dim*2, kernel_size=3, padding=1), nn.ReLU(),
-            Block(feature_dim*2, k1=k1a, k2=k2),
-            nn.ConvTranspose2d(feature_dim*2, feature_dim*2, kernel_size=2, stride=(2,2), ) )
-        
-        self.dec2 = nn.Sequential(
-            nn.Conv2d(feature_dim*4, feature_dim*2, kernel_size=3, padding=1), nn.ReLU(),
-            Block(feature_dim*2, k1=k1b, k2=k2),
-            nn.ConvTranspose2d(feature_dim*2, feature_dim*2, kernel_size=2, stride=(2,2),) )
-        
-        self.dec1 = nn.Sequential(
-            nn.Conv2d(feature_dim + feature_dim*2, feature_dim, kernel_size=3, padding=1), nn.ReLU(),
-            Block(feature_dim, k1=k1b, k2=k2)  )
+            Block(feature_dim, k1=k1a, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            nn.MaxPool2d(4),
+            Block(feature_dim, k1=k1b, k2=k2),
 
+            Block(feature_dim, k1=k1a, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+
+            Block(feature_dim, k1=k1a, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            Block(feature_dim, k1=k1b, k2=k2),
+            nn.Upsample(scale_factor=4, mode='bilinear'),
+            Block(feature_dim),
+        )
         self.head = nn.Conv2d(feature_dim, 4, kernel_size=1, padding=0)
 
-        params_sum = sum(p.numel() for p in self.parameters() if p.requires_grad)
-    
+        a = torch.zeros((1,3,128,128))
+        a[0,:,64,64] = 500
+        plot_2dmatrix(self.model(a)[0,0].abs()>0.000001)
+
+        params_sum = sum(p.numel() for p in self.model.parameters() if p.requires_grad)    
+
                                   
-    def forward(self, inputs, train=False):
+    def forward(self, inputs, train=False, padding=True, alpha=0.1):
 
-        x = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
+        # Add padding
+        if padding:
+            x  = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
+            p = self.p
+        else:
+            x = inputs["input"]
+            p = None
 
-        f1 = self.enc1(x)
-        f2 = self.enc2(f1)
-        f2b = self.enc3(f2)
-        f1b = self.dec2(torch.cat([f2,f2b],1))
-        featend = self.dec1(torch.cat([f1,f1b],1))
+        # pad to make sure it is divisible by 32
+        if (x.shape[2] % 32) != 0:
+            p = (x.shape[2] % 64) // 2
+            x  = nn.functional.pad(inputs["input"], (p,p,p,p), mode='reflect') 
 
-        #unpad
-        featend = featend[:,:,self.p:-self.p,self.p:-self.p]
+        # x = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
+        x = self.model(x)
 
-        x = self.head(featend)
+        # revert padding
+        if p is not None:
+            x = x[:,:,p:-p,p:-p]
+
+        x = self.head(x)
 
         # Population map
         popdensemap = nn.functional.softplus(x[:,0])
@@ -293,6 +428,106 @@ class UResBlocks(nn.Module):
 
         builtupmap = torch.sigmoid(x[:,2]) 
 
+        # plot_2dmatrix(popdensemap[0])
+        # plot_2dmatrix(inputs["input"][0]*0.2+0.5)
+
+        return {"popcount": popcount, "popdensemap": popdensemap,
+                "builtdensemap": builtdensemap, "builtcount": builtcount,
+                "builtupmap": builtupmap}
+    
+
+class UResBlocks(nn.Module):
+    '''
+    PomeloUNet
+    '''
+    def __init__(self, input_channels, feature_dim):
+        super(UResBlocks, self).__init__()
+
+        # Padding Params
+        self.p = 14
+        self.p2d = (self.p, self.p, self.p, self.p)
+
+        k1a = 3
+        k1b = 3
+        k2 = 1
+
+        s2 = 2
+        self.enc1 = nn.Sequential(
+            # nn.Conv2d(input_channels, feature_dim, kernel_size=5, padding=2, stride=2), nn.ReLU(),
+            nn.Conv2d(input_channels, feature_dim, kernel_size=7, padding=(7-1)//2, stride=s2), nn.ReLU(),
+            Block(feature_dim, k1=k1a, k2=k1b),
+            # Block(feature_dim, k1=k1b, k2=k2)
+        )
+
+        s1 = 2
+        self.enc2 = nn.Sequential(
+            nn.MaxPool2d(kernel_size=s1, stride=s1, padding=(s1-1)//2),
+            nn.Conv2d(feature_dim, feature_dim*2, kernel_size=3, padding=1), nn.ReLU(),
+            Block(feature_dim*2, k1=k1a, k2=k2),
+            Block(feature_dim*2, k1=k2, k2=k2),
+            nn.Upsample(scale_factor=s1, mode='nearest')
+        )
+        
+        self.dec2 = nn.Sequential(
+            nn.Conv2d(feature_dim*(1+2), feature_dim, kernel_size=3, padding=1), nn.ReLU(),
+            Block(feature_dim, k1=k1b, k2=k2),
+            nn.Upsample(scale_factor=s2, mode='nearest')
+        )
+        self.dec1 = nn.Sequential(
+            nn.Conv2d(feature_dim + input_channels, feature_dim//2, kernel_size=3, padding=1), nn.ReLU(),
+            Block(feature_dim//2, k1=k1b, k2=k2)
+        )
+
+        self.head = nn.Conv2d(feature_dim//2, 4, kernel_size=1, padding=0)
+
+        params_sum = sum(p.numel() for p in self.parameters() if p.requires_grad)
+    
+        a = torch.zeros((1,3,128,128))
+        a[0,:,64,64] = 500
+        plot_2dmatrix(self.backbone(a)[0,0].abs()>0.00000001)
+        # plot_2dmatrix(self.backbone(a)[0,0])
+
+    def backbone(self, x):
+        f1 = self.enc1(x)
+        f2 = self.enc2(f1)
+        f1b = self.dec2(torch.cat([f2,f1],1))
+        featend = self.dec1(torch.cat([f1b, x],1))
+        return featend
+
+    def forward(self, inputs, train=False, padding=True, alpha=0.1):
+
+        # Add padding
+        if padding:
+            x  = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
+            p = self.p
+        else:
+            x = inputs["input"]
+            p = None
+
+        # pad to make sure it is divisible by 32
+        if (x.shape[2] % 32) != 0:
+            p = (x.shape[2] % 64) //2
+            x  = nn.functional.pad(inputs["input"], (p,p,p,p), mode='reflect') 
+        
+        # forward backbone
+        featend = self.backbone(x)
+
+        # revert padding
+        if p is not None:
+            featend = featend[:,:,p:-p,p:-p]
+
+        x = self.head(featend)
+
+        # Population map
+        popdensemap = nn.functional.softplus(x[:,0])
+        popcount = popdensemap.sum((1,2))
+
+        # Building map
+        builtdensemap = nn.functional.softplus(x[:,1])
+        builtcount = builtdensemap.sum((1,2))
+
+        builtupmap = torch.sigmoid(x[:,2])
+
         return {"popcount": popcount, "popdensemap": popdensemap,
                 "builtdensemap": builtdensemap, "builtcount": builtcount,
                 "builtupmap": builtupmap}
@@ -301,7 +536,7 @@ class ResBlocksDeep(nn.Module):
     '''
     PomeloUNet
     '''
-    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", k1a=3, k1b=3):
+    def __init__(self, input_channels, feature_dim, k1a=3, k1b=3):
         super(ResBlocksDeep, self).__init__()
 
         # Padding Params
@@ -351,7 +586,7 @@ class ResBlocksDeep(nn.Module):
         params_sum = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
     
                                   
-    def forward(self, inputs, train=False):
+    def forward(self, inputs, train=False, alpha=0.1):
 
         x = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
         x = self.model(x)[:,:,self.p:-self.p,self.p:-self.p]
@@ -403,7 +638,7 @@ class PomeloUNet(nn.Module):
         self.gumbeltau = torch.nn.Parameter(torch.tensor([2/3]), requires_grad=True)
         
 
-    def forward(self, inputs):
+    def forward(self, inputs, train=False, alpha=0.1):
 
         #Encoding
         encoding = self.PomeloEncoder(inputs)

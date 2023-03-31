@@ -186,7 +186,12 @@
                 "--lassoreg", "0.0",
                 "-S1",
                 "-S2",
-                "-VIIRS"
+                "-VIIRS",
+                "--feature_dim", "64",
+                "--random_season",
+                "--target_regions", "pri2017", 
+                "--excludeZH",
+                "--save-dir", "/scratch2/metzgern/HAC/POMELOv2_results" 
             ]
         },
         {
@@ -225,9 +230,11 @@
                 "--lam", "1.0", //"10.0",
                 // "-S1",
                 "-S2",
-                "--feature_dim", "48"
-                // "-tv", "1.0"
-                // "-VIIRS" 
+                "--feature_dim", "48",
+                "--random_season",
+                "--target_regions", "pri2017", 
+                "--excludeZH",
+                "--save-dir", "/scratch2/metzgern/HAC/POMELOv2_results" 
             ]
         },
         {
@@ -262,9 +269,11 @@
                 "--lam", "1.0", //"10.0",
                 // "-S1",
                 "-S2",
-                "--feature_dim", "96"
-                // "-tv", "1.0"
-                // "-VIIRS" 
+                "--feature_dim", "96",
+                "--random_season",
+                "--target_regions", "pri2017", 
+                "--excludeZH",
+                "--save-dir", "/scratch2/metzgern/HAC/POMELOv2_results" 
             ]
         },
         {
@@ -278,22 +287,24 @@
                 "--no-osm",
                 "--satmode",
                 // "--max_samples", "5000",
-                "--num_epochs", "1500",
+                "--num_epochs", "100",
                 "--lam_builtmask", "0.0",
-                "--batch_size", "128",
+                "--batch_size", "384",
                 "--lr_step", "10",
-                "-lr", "1e-3",
-                "--lr_step", "15",
+                "-lr", "1e-4",
+                "--lr_step", "10",
                 // "--in_memory"
                 "--lr_gamma", "0.75",
-                // "--weightdecay", "0.000001", 
                 "--model", "UResBlocks",  
-                // "--loss", "log_mse_loss", 
+                "--loss", "l1_loss", 
                 "--lam", "1.0", //"10.0",
                 // "-S1",
                 "-S2",
-                "--feature_dim", "16" 
-                // "-VIIRS" 
+                "--feature_dim", "64",
+                "--random_season",
+                "--target_regions", "pri2017", 
+                "--excludeZH",
+                "--save-dir", "/scratch2/metzgern/HAC/POMELOv2_results" 
             ]
         },
         {
@@ -312,7 +323,7 @@
                 "--batch_size", "384",
                 "--lr_step", "10",
                 "-lr", "1e-4",
-                "--lr_step", "15",
+                "--lr_step", "10",
                 // "--in_memory"
                 "--lr_gamma", "0.75",
                 "--model", "JacobsUNet",
@@ -338,6 +349,87 @@
             "request": "launch",
             "program": "run_train.py",
             "console": "integratedTerminal",
+            "justMyCode": false,
+            "args":[
+                "--no-osm",
+                "--satmode",
+                // "--max_samples", "5000",
+                "--num_epochs", "100",
+                "--lam_builtmask", "0.0",
+                // "--batch_size", "192",
+                "--batch_size", "384",
+                "--lr_step", "10",
+                "-lr", "1e-4",
+                "--lr_step", "10",
+                // "--in_memory"
+                "--lr_gamma", "0.75",
+                "--model", "JacobsUNet",
+                // "--feature_extractor", "tu-efficientnet_lite0", //"tu-mobilenetv3_rw",
+                // "--feature_extractor", "resnet18", //"tu-mobilenetv3_rw",
+                // "--feature_extractor", "resnet18", //"tu-mobilenetv3_rw",
+                // "--feature_extractor", "mobileone_s2", //"tu-mobilenetv3_rw",
+                "--feature_extractor", "vgg11", //"tu-mobilenetv3_rw",
+                // "--feature_extractor", "efficientnet-b2", //"tu-mobilenetv3_rw",
+                // "--feature_extractor", "vgg11", //"tu-mobilenetv3_rw",
+                // "-S1",
+                // "--loss", "log_mse_loss", "l1_loss",
+                "--loss", "l1_loss",
+                "--lam", "1",
+                // "--lam_adv", "100",
+                // "-S1",
+                "-S2",
+                "--feature_dim", "16",
+                "--random_season",
+                "--target_regions", "pri2017",
+                // "--adversarial",
+                "--excludeZH",
+                "--save-dir", "/scratch2/metzgern/HAC/POMELOv2_results"
+            ]
+        },
+        {
+            "name": "train, ResBlocks2",
+            "type": "python",
+            "request": "launch",
+            "program": "run_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                "--no-osm",
+                "--satmode",
+                // "--max_samples", "5000",
+                "--num_epochs", "100",
+                "--lam_builtmask", "0.0",
+                // "--batch_size", "192",
+                "--batch_size", "384",
+                "--lr_step", "10",
+                "-lr", "1e-3",
+                "--lr_step", "15",
+                // "--in_memory"
+                "--lr_gamma", "0.75",
+                "--model", "ResBlocks",
+                // "--feature_extractor", "vgg11",
+                // "-S1",
+                // "--loss", "log_mse_loss", "l1_loss",
+                "--loss", "l1_loss",
+                "--lam", "1",
+                // "--lam_adv", "100",
+                // "-S1",
+                "-S2",
+                "--feature_dim", "16",
+                "--random_season",
+                "--target_regions", "pri2017",
+                // "--adversarial",
+                "--excludeZH",
+                "--num_workers", "5",
+                "--save-dir", "/scratch2/metzgern/HAC/POMELOv2_results"
+            ]
+        },
+        {
+            "name": "train, UResBlocks",
+            "type": "python",
+            "request": "launch",
+            "program": "run_train.py",
+            "console": "integratedTerminal",
             "justMyCode": true,
             "args":[
                 "--no-osm",
@@ -352,8 +444,8 @@
                 "--lr_step", "15",
                 // "--in_memory"
                 "--lr_gamma", "0.75",
-                "--model", "JacobsUNet",
-                "--feature_extractor", "vgg11",
+                "--model", "UResBlocks",
+                // "--feature_extractor", "vgg11",
                 // "-S1",
                 // "--loss", "log_mse_loss", "l1_loss",
                 "--loss", "l1_loss",
@@ -366,8 +458,10 @@
                 "--target_regions", "pri2017",
                 // "--adversarial",
                 "--excludeZH",
+                "--num_workers", "5",
+                "--save-dir", "/scratch2/metzgern/HAC/POMELOv2_results"
             ]
-        },
+        },   
         {
             "name": "train, smp, debug",
             "type": "python",

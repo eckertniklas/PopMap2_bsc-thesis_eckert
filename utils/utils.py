@@ -90,15 +90,13 @@ def plot_and_save(img, mask=None, vmax=None, vmin=None, idx=None,
 
     if mask is not None:
         img = np.ma.masked_where(mask, img)
-
-    # convert img tensor to uint8
     
     plt.figure(figsize=(12, 8), dpi=260)
     if vmax is not None or vmin is not None:
         img = np.clip(img, vmin, vmax)
     if img.dim()==3:
-        if img.shape[0]==3:
-            img = np.clip(img, 0.0, 1.0)
+        if img.shape[2]==3:
+            img = np.clip(img, 0.000000001, 0.999999999)
 
     plt.imshow(img, vmax=vmax, vmin=vmin, cmap=cmap)
     if colorbar:

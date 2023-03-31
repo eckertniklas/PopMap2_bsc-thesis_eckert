@@ -17,7 +17,7 @@ from tqdm import tqdm
 from sklearn import model_selection
 
 from arguments import train_parser
-from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep
+from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep, ResBlocksSqueeze
 from data.So2Sat import PopulationDataset_Reg
 from data.PopulationDataset_target import Population_Dataset_target
 from utils.losses import get_loss, r2
@@ -68,7 +68,11 @@ class Trainer:
                 input_channels = input_channels,
                 feature_dim = args.feature_dim,
             ).cuda()
-
+        elif args.model=="ResBlocksSqueeze":
+            self.model = ResBlocksSqueeze(
+                input_channels = input_channels,
+                feature_dim = args.feature_dim,
+            ).cuda()
         elif args.model=="UResBlocks":
             self.model = UResBlocks(
                 input_channels = input_channels,
@@ -123,7 +127,7 @@ class Trainer:
                 # target domain testing
                 if (self.info["epoch"] + 1) % 1 == 0:
                     # self.test(plot=((self.info["epoch"]+1) % 4)==0, full_eval=((self.info["epoch"]+1) % 1)==0, zh_eval=True) 
-                    self.test(plot=((self.info["epoch"]+1) % 10)==0, full_eval=((self.info["epoch"]+1) % 1)==0, zh_eval=True) #ZH
+                    self.test(plot=((self.info["epoch"]+1) % 5)==0, full_eval=((self.info["epoch"]+1) % 10)==0, zh_eval=True) #ZH
                     torch.cuda.empty_cache()
                 if (self.info["epoch"] + 1) % 5 == 0:
                     self.test_target(save=True)
@@ -149,7 +153,7 @@ class Trainer:
         # get GPU memory usage
         handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
         info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
-        self.train_stats["gpu_used"] = info.used
+        self.train_stats["gpu_used"] = info.used / 1e9 # in GB
 
         with tqdm(self.dataloaders['train'], leave=False) as inner_tnr:
             inner_tnr.set_postfix(training_loss=np.nan)
@@ -237,7 +241,7 @@ class Trainer:
             self.val_stats = {k: v / len(self.dataloaders['val']) for k, v in self.val_stats.items()}
 
             # Compute non-averagable metrics
-            self.val_stats["Population:r2"] = r2(torch.cat(pred), torch.cat(gt))
+            self.val_stats["Population/r2"] = r2(torch.cat(pred), torch.cat(gt))
 
             wandb.log({**{k + '/val': v for k, v in self.val_stats.items()}, **self.info}, self.info["iter"])
             
@@ -267,6 +271,7 @@ class Trainer:
         # Iterate though the test set and compute metrics
         with torch.no_grad():
             pred, gt = [], []
+            pred1, gt1 = [], []
             pred2, gt2 = [], []
             pred4, gt4 = [], []
             pred10, gt10, gtSo2 = [], [], []
@@ -293,8 +298,8 @@ class Trainer:
                         PopNN_X = sample["PopNN_X"][sample["pop_avail"][:,0].bool()]
 
                         # Collect all different aggregation scales  (1, 2, 4, 10)
-                        pred.append(sum_pool10(pred_zh).view(-1))
-                        gt.append(gt_zh.view(-1))
+                        pred1.append(sum_pool10(pred_zh).view(-1))
+                        gt1.append(gt_zh.view(-1))
                         pred2.append(sum_pool20(pred_zh).view(-1))
                         gt2.append(sum_pool2(gt_zh).view(-1))
                         pred4.append(sum_pool40(pred_zh).view(-1))
@@ -308,22 +313,23 @@ class Trainer:
                         i = 0
                         if plot:
                             for i in range(len(gt_zh)):
-                                vmax = max([gt_zh[i].max(), pred_zh[i].max()*100]).cpu().item()
-                                plot_and_save(gt_zh[i].cpu(), model_name=args.expN, title=gt_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="01_GT", folder=self.args.experiment_folder)
-                                plot_and_save(sum_pool10(pred_zh)[i].cpu(), model_name=args.expN, title=sum_pool10(pred_zh)[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="02_pred10", folder=self.args.experiment_folder)
-                                plot_and_save(PopNN_X[i].cpu(), model_name=args.expN, title=(PopNN_X[i].sum()/100).cpu().item(), vmin=0, vmax=vmax, idx=s, name="03_GTNN", folder=self.args.experiment_folder)
-                                plot_and_save(pred_zh[i].cpu()*100, model_name=args.expN, title=pred_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="04_pred100", folder=self.args.experiment_folder)
+                                if s>230:
+                                    vmax = max([gt_zh[i].max(), pred_zh[i].max()*100]).cpu().item()
+                                    plot_and_save(gt_zh[i].cpu(), model_name=args.expN, title=gt_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="01_GT", folder=self.args.experiment_folder)
+                                    plot_and_save(sum_pool10(pred_zh)[i].cpu(), model_name=args.expN, title=sum_pool10(pred_zh)[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="02_pred10", folder=self.args.experiment_folder)
+                                    # plot_and_save(PopNN_X[i].cpu(), model_name=args.expN, title=(PopNN_X[i].sum()/100).cpu().item(), vmin=0, vmax=vmax, idx=s, name="03_GTNN", folder=self.args.experiment_folder)
+                                    plot_and_save(pred_zh[i].cpu()*100, model_name=args.expN, title=pred_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="04_pred100", folder=self.args.experiment_folder)
 
-                                inp = sample["input"][sample["pop_avail"][:,0].bool()]
-                                if args.Sentinel2:
-                                    plot_and_save(inp[i,:3].cpu().permute(1,2,0)*0.2+0.5, model_name=args.expN, title=self.args.expN, idx=s, name="05_S2", cmap=None, folder=self.args.experiment_folder)
-                                    if args.Sentinel1:
-                                        plot_and_save(torch.cat([inp[i,3:5].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None, folder=self.args.experiment_folder)
-                                else:
-                                    plot_and_save(torch.cat([inp[i,:2].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None, folder=self.args.experiment_folder)
+                                    inp = sample["input"][sample["pop_avail"][:,0].bool()]
+                                    if args.Sentinel2:
+                                        plot_and_save(inp[i,:3].cpu().permute(1,2,0)*0.2+0.5, model_name=args.expN, title=self.args.expN, idx=s, name="05_S2", cmap=None, folder=self.args.experiment_folder)
+                                        if args.Sentinel1:
+                                            plot_and_save(torch.cat([inp[i,3:5].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None, folder=self.args.experiment_folder)
+                                    else:
+                                        plot_and_save(torch.cat([inp[i,:2].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None, folder=self.args.experiment_folder)
 
                                 s += 1
-                                if s > 300:
+                                if s > 270:
                                     break
 
             if full_eval:
@@ -336,7 +342,7 @@ class Trainer:
                 wandb.log({**{k + '/test': v for k, v in self.test_stats.items()}, **self.info}, self.info["iter"])
 
             if zh_eval:
-                self.test_stats1 = get_test_metrics(torch.cat(pred), torch.cat(gt), tag="100m")
+                self.test_stats1 = get_test_metrics(torch.cat(pred1), torch.cat(gt1), tag="100m")
                 self.test_stats2 = get_test_metrics(torch.cat(pred2), torch.cat(gt2), tag="200m")
                 self.test_stats4 = get_test_metrics(torch.cat(pred4), torch.cat(gt4), tag="400m")
                 self.test_stats10 = get_test_metrics(torch.cat(pred10), torch.cat(gt10), tag="1km")
@@ -411,7 +417,7 @@ class Trainer:
             else:
                 data_transform = transforms.Compose([
                     AddGaussianNoise(std=0.1, p=0.9),
-                    # RandomHorizontalVerticalFlip(p=0.5),
+                    RandomHorizontalVerticalFlip(p=0.5),
                     # transforms.RandomVerticalFlip(p=0.5),
                     # RandomRotationTransform(angles=[90, 180, 270], p=0.75),
                     # RandomGamma(),
@@ -465,8 +471,8 @@ class Trainer:
             raise NotImplementedError(f'Dataset {args.dataset}')
         
         return {"train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, sampler=custom_sampler, shuffle=shuffle, drop_last=True),
-                "val":  DataLoader(datasets["val"], batch_size=args.batch_size*2, num_workers=args.num_workers, shuffle=False, drop_last=False),
-                "test":  DataLoader(datasets["test"], batch_size=args.batch_size*2, num_workers=args.num_workers, shuffle=False, drop_last=False),
+                "val":  DataLoader(datasets["val"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False),
+                "test":  DataLoader(datasets["test"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False),
                 "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False) for datasets["test_target"] in datasets["test_target"] ]
                 }
 

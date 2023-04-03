@@ -39,6 +39,12 @@ class Trainer:
     def __init__(self, args: argparse.Namespace):
         self.args = args
 
+        # check if we are doing domain adaptation
+        if args.adversarial or args.CORAL or args.MMD:
+            self.args.da = True
+        else:
+            self.args.da = False
+
         # set up dataloaders
         self.dataloaders = self.get_dataloaders(args)
         
@@ -46,16 +52,17 @@ class Trainer:
         seed_all(args.seed)
 
         # define input channels based on the number of input modalities
-        input_channels = args.Sentinel1*2 + args.Sentinel2*3 + args.VIIRS*1
+        input_channels = args.Sentinel1*2  + args.NIR*1 + args.Sentinel2*3 + args.VIIRS*1
 
         # define architecture
         if args.model=="JacobsUNet":
             self.model = JacobsUNet( 
-                input_channels = input_channels,
-                feature_dim = args.feature_dim,
-                feature_extractor = args.feature_extractor,
-                classifier = args.classifier if args.adversarial else None,
-                head = args.head
+                input_channels=input_channels,
+                feature_dim=args.feature_dim,
+                feature_extractor=args.feature_extractor,
+                classifier=args.classifier if args.adversarial else None,
+                head=args.head,
+                down=args.down,
             ).cuda()
         elif args.model=="PomeloUNet":
             self.model = PomeloUNet( 
@@ -166,7 +173,11 @@ class Trainer:
                 
                 # compute loss
                 loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
-                                           lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense, lam_adv=args.lam_adv if self.args.adversarial else 0.0)
+                                           lam_builtmask=args.lam_builtmask,
+                                           lam_adv=args.lam_adv if self.args.adversarial else 0.0,
+                                           lam_coral=args.lam_coral if self.args.CORAL else 0.0,
+                                           lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
+                                           )
 
                 # detect NaN loss 
                 if torch.isnan(loss):
@@ -188,7 +199,7 @@ class Trainer:
                 
                 # update info
                 self.info["iter"] += 1
-                self.info["sampleitr"] += self.args.batch_size//2 if self.args.adversarial else self.args.batch_size
+                self.info["sampleitr"] += self.args.batch_size//2 if self.args.da else self.args.batch_size
 
                 # update alpha for the adversarial loss
                 if self.args.adversarial:
@@ -231,7 +242,11 @@ class Trainer:
                 
                 # compute loss
                 loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
-                                           lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense, lam_adv=args.lam_adv if self.args.adversarial else 0.0)
+                                           lam_builtmask=args.lam_builtmask,
+                                           lam_adv=args.lam_adv if self.args.adversarial else 0.0,
+                                           lam_coral=args.lam_coral if self.args.CORAL else 0.0,
+                                           lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
+                                           )
 
                 # accumulate stats
                 for key in loss_dict:
@@ -285,7 +300,11 @@ class Trainer:
                 if full_eval:
                     pred.append(output["popcount"].view(-1)); gt.append(sample["y"].view(-1)) 
                     loss, loss_dict = get_loss(output, sample, loss=args.loss, merge_aug=args.merge_aug,
-                                               lam_builtmask=args.lam_builtmask, lam_dense=args.lam_dense, lam_adv=args.lam_adv if self.args.adversarial else 0.0)
+                                                lam_builtmask=args.lam_builtmask,
+                                                lam_adv=args.lam_adv if self.args.adversarial else 0.0,
+                                                lam_coral=args.lam_coral if self.args.CORAL else 0.0,
+                                                lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
+                                               )
 
                     for key in loss_dict:
                         self.test_stats[key] += loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key]
@@ -403,7 +422,7 @@ class Trainer:
         phases = ('train', 'val')
         if args.dataset == 'So2Sat':
             params = {'dim': (img_rows, img_cols), "satmode": args.satmode, 'in_memory': args.in_memory,
-                      'S1': args.Sentinel1, 'S2': args.Sentinel2, 'VIIRS': args.VIIRS}
+                      'S1': args.Sentinel1, 'S2': args.Sentinel2, 'VIIRS': args.VIIRS, 'NIR': args.NIR}
 
             if not args.Sentinel1: 
                 data_transform = transforms.Compose([
@@ -442,7 +461,7 @@ class Trainer:
 
             # target domain samples
             f_names_unlab = []
-            if args.adversarial:
+            if args.da:
                 for reg in args.target_regions:
                     this_unlabeled_path = os.path.join(pop_map_root, os.path.join("EE", reg))
                     f_names_unlab.extend(get_fnames_unlab_reg(this_unlabeled_path, force_recompute=force_recompute)) 
@@ -452,7 +471,7 @@ class Trainer:
                                                 transform=data_transform,random_season=args.random_season, **params),
                 "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", transform=None, **params),
                 "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", transform=None, **params),
-                "test_target": [ Population_Dataset_target(reg, S1=args.Sentinel1, S2= args.Sentinel2, VIIRS=args.VIIRS,
+                "test_target": [ Population_Dataset_target(reg, S1=args.Sentinel1, S2= args.Sentinel2, VIIRS=args.VIIRS, NIR=args.NIR,
                                                            patchsize=ips, overlap=overlap) for reg in args.target_regions ]
             }
             

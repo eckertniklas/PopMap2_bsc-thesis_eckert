@@ -3,9 +3,13 @@ import torch
 
 from utils.utils import plot_2dmatrix
 from collections import defaultdict
+from utils.CORAL import coral
+from utils.MMD import default_mmd as mmd
 
 
-def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_builtmask=1., lam_dense=1., lam_adv=1.):
+
+def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_builtmask=1.,
+             lam_adv=0.0, lam_coral=0.0, lam_mmd=0.0):
     auxdict = defaultdict(float)
 
     # TODO: if domain adversarial loss is used, split the prediction and output into labeled and unlabeled
@@ -55,24 +59,43 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_built
 
     # Adversarial loss
     if ~gt["source"].all():
-        adv_dict = {}
+        if lam_adv>0.0:
 
-        if len(output["domain"].shape)==4:
-            dims = output["domain"].shape
-            pred_domain = output["domain"][:,0].reshape(-1)
-            gt_domain = gt["source"].float().repeat(dims[-1]*dims[-2]).reshape(-1)
-        else:
-            pred_domain = output["domain"]
-            gt_domain = gt["source"].float()
+            # TODO check implementation of domain adversarial loss
+            adv_dict = {}
 
-        bce = F.binary_cross_entropy(pred_domain, gt_domain )
-        optimization_loss += lam_adv*bce
+            if len(output["domain"].shape)==4:
+                dims = output["domain"].shape
+                pred_domain = output["domain"][:,0].reshape(-1)
+                gt_domain = gt["source"].float().repeat(dims[-1]*dims[-2]).reshape(-1)
+            else:
+                pred_domain = output["domain"]
+                gt_domain = gt["source"].float()
 
-        # prepate for logging
-        adv_dict["bce"] = bce
-        adv_dict.update(**class_metrics(pred_domain, gt_domain, thresh=0.5))
-        adv_dict = {"Adversarial/"+key: value for key,value in adv_dict.items()}
-        auxdict = {**auxdict, **adv_dict}
+            bce = F.binary_cross_entropy(pred_domain, gt_domain )
+            optimization_loss += lam_adv*bce
+
+            # prepate for logging
+            adv_dict["bce"] = bce
+            adv_dict.update(**class_metrics(pred_domain, gt_domain, thresh=0.5))
+            adv_dict = {"Adversarial/"+key: value for key,value in adv_dict.items()}
+            auxdict = {**auxdict, **adv_dict}
+
+        if lam_coral>0.0:
+            source_features = output["decoder_features"][gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
+            target_features = output["decoder_features"][~gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
+            coral_dict = {"coral_loss": coral(source_features.T, target_features.T)}
+            optimization_loss += lam_coral*coral_dict["coral_loss"]
+            coral_dict = {"Domainadaptation/"+key: value for key,value in coral_dict.items()}
+            auxdict = {**auxdict, **coral_dict}
+
+        if lam_mmd>0.0:
+            source_features = output["decoder_features"][gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
+            target_features = output["decoder_features"][~gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
+            mmd_dict = {"mmd_loss": mmd(source_features.T, target_features.T)}
+            optimization_loss += lam_mmd*mmd_dict["mmd_loss"]
+            mmd_dict = {"Domainadaptation/"+key: value for key,value in mmd_dict.items()}
+            auxdict = {**auxdict, **mmd_dict}
     
     # Builtup mask loss
     disabled = True

@@ -34,7 +34,7 @@ class PopulationDataset_Reg(Dataset):
     Population Dataset for Standard Regression Task
     """
     def __init__(self, list_IDs, labels, f_names_unlab=[], dim=(img_rows, img_cols), transform=None, test=False, mode=None, satmode=False, in_memory=False,
-                 S1=False, S2=True, VIIRS=True, random_season=False): 
+                 S1=False, S2=True, VIIRS=True, NIR=False, random_season=False): 
 
         self.dim = dim
         self.labels = labels
@@ -48,6 +48,7 @@ class PopulationDataset_Reg(Dataset):
         self.move_to_memory = False
         self.S1 = S1
         self.S2 = S2
+        self.NIR =NIR
         self.VIIRS = VIIRS
         self.random_season = random_season                 
         self.satmode = satmode
@@ -59,7 +60,7 @@ class PopulationDataset_Reg(Dataset):
         self.y_stats = load_json(os.path.join(config_path, 'dataset_stats', 'label_stats.json'))
         self.y_stats['max'] = float(self.y_stats['max'])
         self.y_stats['min'] = float(self.y_stats['min'])
-        self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats.json'))
+        self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified.json'))
         for mkey in self.dataset_stats.keys():
             if isinstance(self.dataset_stats[mkey], dict):
                 for key,val in self.dataset_stats[mkey].items():
@@ -172,7 +173,10 @@ class PopulationDataset_Reg(Dataset):
                 
                 data = []
                 if self.S2:
-                    data.append(self.generate_data(ID_sen2, channels=3, data='sen2spring'))
+                    if self.NIR:
+                        data.append(self.generate_data(ID_sen2, channels=4, data='sen2spring'))
+                    else:
+                        data.append(self.generate_data(ID_sen2, channels=3, data='sen2spring'))
                 if self.S1:
                     data.append(self.generate_data(ID_sen1, channels=2 , data='sen1'))
                 if self.VIIRS:
@@ -220,10 +224,11 @@ class PopulationDataset_Reg(Dataset):
         # load dataset statistics and patches 
         with rasterio.open(ID_temp, 'r') as ds: 
             if 'sen2' in data:
-                if ds.shape!=(img_rows, img_cols):
-                    image = ds.read((4,3,2), out_shape=(ds.count, img_rows, img_cols), resampling=Resampling.cubic)
-                else:
+                if channels==3:
                     image = ds.read((4,3,2)) 
+                    # image = ds.read((4,3,2), out_shape=(ds.count, img_rows, img_cols), resampling=Resampling.cubic)
+                elif channels==4:
+                    image = ds.read((4,3,2,8)) 
             elif data == 'lcz':
                 image = ds.read(out_shape=(ds.count, img_rows, img_cols))
             elif "Pop" in data:
@@ -234,12 +239,17 @@ class PopulationDataset_Reg(Dataset):
                 image = ds.read(out_shape=(ds.count, img_rows, img_cols), resampling=Resampling.average)
 
         if "sen2" in data:
-            image = np.where(image > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], image)
-            new_arr = ((image.transpose((1,2,0)) - self.dataset_stats["sen2spring"]['mean'] ) / self.dataset_stats["sen2spring"]['std']).transpose((2,0,1))
+            if channels==3:
+                image = np.where(image > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], image)
+                new_arr = ((image.transpose((1,2,0)) - self.dataset_stats["sen2spring"]['mean'] ) / self.dataset_stats["sen2spring"]['std']).transpose((2,0,1))
+            elif channels==4:
+                image = np.where(image > self.dataset_stats["sen2springNIR"]['p2'][:,None,None], self.dataset_stats["sen2springNIR"]['p2'][:,None,None], image)
+                new_arr = ((image.transpose((1,2,0)) - self.dataset_stats["sen2springNIR"]['mean'] ) / self.dataset_stats["sen2springNIR"]['std']).transpose((2,0,1))
+
         elif "sen1" in data:
             new_arr = ((image.transpose((1,2,0)) - self.dataset_stats[data]['mean'] ) / self.dataset_stats[data]['std']).transpose((2,0,1))
         elif data=="viirs":
-            image = np.where(image < 0, 0, image)
+            image = np.where(image < 0, 0.0, image)
             new_arr = ((image.transpose((1,2,0)) - self.dataset_stats[data]['mean'] ) / self.dataset_stats[data]['std']).transpose((2,0,1))
         elif data=="lu":
             new_arr = ((image.transpose((1,2,0)) - self.dataset_stats[data]['mean'] ) / self.dataset_stats[data]['std']).transpose((2,0,1))

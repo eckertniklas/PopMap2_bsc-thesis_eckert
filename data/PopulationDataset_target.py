@@ -24,11 +24,12 @@ class Population_Dataset_target(Dataset):
     Population dataset for target domain
     Use this dataset to evaluate the model on the target domain and compare it the census data
     """
-    def __init__(self, region, S1=False, S2=True, VIIRS=True, patchsize=1024, overlap=32, fourseasons=False) -> None:
+    def __init__(self, region, S1=False, S2=True, VIIRS=True, NIR=False, patchsize=1024, overlap=32, fourseasons=False) -> None:
         super().__init__()
         self.region = region
         self.S1 = S1
         self.S2 = S2
+        self.NIR = NIR
         self.VIIRS = VIIRS
         self.patchsize = patchsize
         self.overlap = overlap
@@ -62,7 +63,7 @@ class Population_Dataset_target(Dataset):
         self.VIIRS_file = os.path.join(covar_root,  os.path.join("viirs", region +"_viirs.tif"))
 
         # load the dataset stats
-        self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats.json'))
+        self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified.json'))
         for mkey in self.dataset_stats.keys():
             if isinstance(self.dataset_stats[mkey], dict):
                 for key,val in self.dataset_stats[mkey].items():
@@ -158,13 +159,22 @@ class Population_Dataset_target(Dataset):
             data.append(new_arr)
         if self.S2:
             S2_file = self.S2_file[season]
-            with rasterio.open(S2_file, "r") as src:
-                raw_data = src.read((4,3,2), window=((x,x+self.patchsize),(y,y+self.patchsize))) 
-            this_mask = raw_data.sum(axis=0) != 0
-            mask = mask & this_mask
-            # raw_data = np.where(raw_data > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], raw_data)
-            new_arr = ((raw_data.transpose((1,2,0)) - self.dataset_stats["sen2spring"]['mean'] ) / self.dataset_stats["sen2spring"]['std']).transpose((2,0,1))
-            data.append(new_arr)
+            if self.NIR:
+                with rasterio.open(S2_file, "r") as src:
+                    raw_data = src.read((4,3,2,8), window=((x,x+self.patchsize),(y,y+self.patchsize))) 
+                this_mask = raw_data.sum(axis=0) != 0
+                mask = mask & this_mask
+                raw_data = np.where(raw_data > self.dataset_stats["sen2springNIR"]['p2'][:,None,None], self.dataset_stats["sen2springNIR"]['p2'][:,None,None], raw_data)
+                new_arr = ((raw_data.transpose((1,2,0)) - self.dataset_stats["sen2springNIR"]['mean'] ) / self.dataset_stats["sen2springNIR"]['std']).transpose((2,0,1))
+                data.append(new_arr)
+            else:
+                with rasterio.open(S2_file, "r") as src:
+                    raw_data = src.read((4,3,2), window=((x,x+self.patchsize),(y,y+self.patchsize))) 
+                this_mask = raw_data.sum(axis=0) != 0
+                mask = mask & this_mask
+                raw_data = np.where(raw_data > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], raw_data)
+                new_arr = ((raw_data.transpose((1,2,0)) - self.dataset_stats["sen2spring"]['mean'] ) / self.dataset_stats["sen2spring"]['std']).transpose((2,0,1))
+                data.append(new_arr)
         if self.VIIRS:
             with rasterio.open(self.VIIRS_file, "r") as src:
                 raw_data = src.read(window=((x,x+self.patchsize),(y,y+self.patchsize))) 

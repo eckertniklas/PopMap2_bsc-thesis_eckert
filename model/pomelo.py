@@ -3,6 +3,7 @@
 import torchvision.models as models
 import torch.nn as nn
 import torch
+import torch.nn.functional as F
 
 # import copy
 import segmentation_models_pytorch as smp
@@ -16,9 +17,12 @@ class CustomUNet(smp.Unet):
         # instanciate the base model
         super().__init__(encoder_name, encoder_weights="imagenet",
                         in_channels=in_channels, classes=classes, decoder_channels=(64,32,16), 
-                        decoder_use_batchnorm=False, encoder_depth=3)
-        decoder_channels = (256,128,64,32,16)[-down:]
-        # decoder_channels = (81,54,36,24,16)[-down:]
+                        decoder_use_batchnorm=False, encoder_depth=3, activation=nn.ReLU)
+        # self.decoder_channels = (256,256,128,128,64)[-down:]
+        self.decoder_channels = (256,128,64,32,16)[-down:]
+        # self.decoder_channels = (81,54,36,24,16)[-down:]
+        self.latent_dim = sum(self.decoder_channels)
+        self.fsub = 16
 
         # Adjust the U-Net depth to 2
         self.encoder = smp.encoders.get_encoder(
@@ -31,12 +35,15 @@ class CustomUNet(smp.Unet):
 
         self.decoder = smp.decoders.unet.model.UnetDecoder(
             encoder_channels=self.encoder.out_channels,
-            decoder_channels=decoder_channels,
+            decoder_channels=self.decoder_channels,
             n_blocks=down,
             use_batchnorm=False,
             center=True if encoder_name.startswith("vgg") else False
         )
 
+        # if encoder_name.startswith("resnet"):
+            # replace first layer with 3x3 conv instead of 7x7
+            # self.encoder.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1, bias=False)
 
         if encoder_name.startswith("vgg"):
             self.decoder.center = smp.decoders.unet.decoder.CenterBlock(
@@ -52,29 +59,30 @@ class CustomUNet(smp.Unet):
         print("self.encoder.out_channels", self.encoder.out_channels)
         self.name = "u-{}".format(encoder_name)
         self.initialize()
-
+    
         for i,el in enumerate(self.encoder.get_stages()[:down+1]):
             print("stage", i, ":",sum(p.numel() for p in el.parameters() if p.requires_grad) )
-
         print("decoder:", sum(p.numel() for p in self.decoder.parameters() if p.requires_grad))
+        print("segmentation_head:", sum(p.numel() for p in self.segmentation_head.parameters() if p.requires_grad))
             
-        # self.params_sum = sum(p.numel() for p in nn.Sequential(self.encoder.get_stages()[:down+1]).parameters() if p.requires_grad)
 
         # a = torch.zeros((1,5,128,128))
         # a[0,:,64,64] = 5000
         # plot_2dmatrix(self(a)[0,0].abs()>0.0000001)
 
 
-    def forward(self, x):
+    def forward(self, x, return_features=True):
         """Sequentially pass `x` trough model`s e ncoder, decoder and heads"""
 
         self.check_input_shape(x)
+
+        bs,_,h,w = x.shape
 
         # encoder
         # with torch.no_grad():
         features = self.encoder(x)
 
-        classic_implementation = True
+        classic_implementation = False
         if classic_implementation:
             decoder_output = self.decoder(*features)
         else:
@@ -85,10 +93,21 @@ class CustomUNet(smp.Unet):
             skips = features[1:]
 
             x = self.decoder.center(head)
+
+            decoder_features = []
             for i, decoder_block in enumerate(self.decoder.blocks):
                 skip = skips[i] if i < len(skips) else None
                 x = decoder_block(x, skip)
+
+                if return_features:
+                    xup = F.interpolate(x, size=(h//self.fsub,w//self.fsub), mode='nearest') # TODO: interpolate to other size
+                    decoder_features.append(xup.view(bs,x.size(1),-1))
+                    # xup = F.interpolate(x.permute(1,0,2,3), size=(h,w), mode='nearest')
+                    # decoder_features.append(xup.view(bs*x.size(1),-1))
             decoder_output = x
+
+            if return_features:
+                decoder_features = torch.concatenate(decoder_features,1)
 
         masks = self.segmentation_head(decoder_output)
 
@@ -96,17 +115,17 @@ class CustomUNet(smp.Unet):
             labels = self.classification_head(features[-1])
             return masks, labels
 
-        return masks
+        return masks, decoder_features
 
 
 class JacobsUNet(nn.Module):
     '''
     PomeloUNet
     '''
-    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1", head="v1"):
+    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1", head="v1", down=5):
         super(JacobsUNet, self).__init__()
 
-        self.down = 5
+        self.down = down
         
         # Padding Params
         self.p = 14
@@ -115,11 +134,17 @@ class JacobsUNet(nn.Module):
         # Build the main model
         if False:
             self.unetmodel = nn.Sequential(
+                # Batch
                 smp.Unet( encoder_name=feature_extractor, encoder_weights="imagenet", decoder_channels=(64, 32, 16),
                     encoder_depth=self.down, in_channels=input_channels,  classes=feature_dim, decoder_use_batchnorm=False),
                 nn.ReLU()
             )
         else:
+            # self.unetmodel = nn.Sequential(
+            #     # nn.BatchNorm2d(4),
+            #     CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=self.down),
+            #     # nn.ReLU()
+            # )
             self.unetmodel = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=self.down)
 
         # Build the regression head
@@ -149,6 +174,7 @@ class JacobsUNet(nn.Module):
             )
 
         # Build the domain classifier
+        latent_dim = self.unetmodel.latent_dim
         if classifier=="v1":
             self.domain_classifier = DomainClassifier(feature_dim)
         elif classifier=="v2":
@@ -165,8 +191,8 @@ class JacobsUNet(nn.Module):
             self.domain_classifier = nn.Sequential(nn.Conv2d(feature_dim, 1, kernel_size=1, padding=0), nn.Sigmoid())
         elif classifier=="v8":
             self.domain_classifier = nn.Sequential(
-                nn.Conv2d(feature_dim, 32, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(32, 4, kernel_size=1, padding=0),  nn.Sigmoid()
+                nn.Conv2d(self.unetmodel.latent_dim, 100, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(100, 4, kernel_size=1, padding=0),  nn.Sigmoid()
             )
         else:
             self.domain_classifier = None
@@ -176,7 +202,6 @@ class JacobsUNet(nn.Module):
 
                                   
     def forward(self, inputs, train=False, padding=True, alpha=0.1):
-        
 
         # Add padding
         if padding:
@@ -192,7 +217,7 @@ class JacobsUNet(nn.Module):
             x  = nn.functional.pad(inputs["input"], (p,p,p,p), mode='reflect') 
 
         # Forward the main model
-        features = self.unetmodel(x)
+        features, decoder_features = self.unetmodel(x)
 
         # revert padding
         if p is not None:
@@ -203,7 +228,7 @@ class JacobsUNet(nn.Module):
 
         # Foward the domain classifier
         if self.domain_classifier is not None:
-            reverse_features = ReverseLayerF.apply(features, alpha)
+            reverse_features = ReverseLayerF.apply(decoder_features.unsqueeze(3), alpha)
             domain = self.domain_classifier(reverse_features)
         else:
             domain = None
@@ -236,7 +261,8 @@ class JacobsUNet(nn.Module):
 
         return {"popcount": popcount, "popdensemap": popdensemap,
                 "builtdensemap": builtdensemap, "builtcount": builtcount,
-                "builtupmap": builtupmap, "domain": domain, "features": features}
+                "builtupmap": builtupmap, "domain": domain, "features": features,
+                "decoder_features": decoder_features}
 
 
 

@@ -85,6 +85,19 @@ def plot_2dmatrix(matrix, fig=1, vmin=None, vmax=None):
 
 def plot_and_save(img, mask=None, vmax=None, vmin=None, idx=None,
     model_name='model_name', title=None, name='latest_figure', colorbar=True, cmap="viridis", folder='vis'):
+    """
+    :param img: image to plot
+    :param mask: mask to apply to image
+    :param vmax: max value for colorbar
+    :param vmin: min value for colorbar
+    :param idx: index of image
+    :param model_name: name of model
+    :param title: title of plot
+    :param name: name of plot
+    :param colorbar: whether to plot colorbar or not
+    :param cmap: colormap
+    :param folder: folder to save plot
+    """
 
     folder = os.path.join(folder, "vis")
 

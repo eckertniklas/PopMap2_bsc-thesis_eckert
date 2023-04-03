@@ -7,14 +7,16 @@ import numpy as np
 import torch
 from torch import is_tensor, optim
 from torch.nn.utils import clip_grad_norm_
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ChainDataset, ConcatDataset
 from torchvision.transforms import Normalize
 from torchvision import transforms
 from utils.transform import RandomRotationTransform, RandomHorizontalVerticalFlip, RandomBrightness, RandomGamma, AddGaussianNoise
 from tqdm import tqdm
 
-
+import itertools
+import random
 from sklearn import model_selection
+import wandb
 
 from arguments import train_parser
 from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep, ResBlocksSqueeze
@@ -28,7 +30,6 @@ from utils.utils import get_fnames_labs_reg, get_fnames_unlab_reg, plot_2dmatrix
 from utils.datasampler import LabeledUnlabeledSampler
 from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1, pop_map_root, inference_patch_size, overlap
 from utils.constants import inference_patch_size as ips
-import wandb
 
 import nvidia_smi
 nvidia_smi.nvmlInit()
@@ -40,7 +41,7 @@ class Trainer:
         self.args = args
 
         # check if we are doing domain adaptation
-        if args.adversarial or args.CORAL or args.MMD:
+        if args.adversarial or args.CORAL or args.MMD or args.supmode=="weaksup":
             self.args.da = True
         else:
             self.args.da = False
@@ -97,7 +98,7 @@ class Trainer:
         print("Model", args.model, "; #Params:", args.pytorch_total_params)
 
         # set up experiment folder
-        self.experiment_folder, self.args.expN, self.args.randN = new_log(os.path.join(args.save_dir, args.dataset), args)
+        self.experiment_folder, self.args.expN, self.args.randN = new_log(os.path.join(args.save_dir, "So2Sat"), args)
         self.args.experiment_folder = self.experiment_folder
 
         # wandb config
@@ -162,15 +163,42 @@ class Trainer:
         info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
         self.train_stats["gpu_used"] = info.used / 1e9 # in GB
 
-        with tqdm(self.dataloaders['train'], leave=False) as inner_tnr:
+        # check if we are in unsupervised or supervised mode and adjust dataloader accordingly
+        dataloader = self.dataloaders['train'] if self.args.supmode=="unsup" else self.dataloaders['train_chained']
+        total = None if self.args.supmode=="unsup" else self.dataloaders["train_chained_len"]
+        # weak_data_iter = None if self.args.supmode=="unsup" else iter(dataloader2)
+
+        with tqdm(dataloader, leave=False, total=total) as inner_tnr:
             inner_tnr.set_postfix(training_loss=np.nan)
+
             for i, sample in enumerate(inner_tnr):
                 self.optimizer.zero_grad()
 
+                optim_loss = 0
+
+                # TODO: check if sample is weakly target supervised or source supervised
+                if self.args.supmode=="weaksup":
+                    # unsupervised mode
+                    sample, sample_weak = sample
+                    # print("census_idx:", sample_weak["census_idx"].item()) 
+                    if sample is None:
+                        break
+
+                    # forward pass and loss computation
+                    sample_weak = to_cuda(sample_weak)
+                    output = self.model(sample_weak, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., padding=False)
+                    loss, loss_dict = get_loss(output, sample_weak, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
+                                            lam_builtmask=args.lam_builtmask,
+                                            lam_adv=args.lam_adv if self.args.adversarial else 0.0,
+                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
+                                            lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
+                                            )
+                    optim_loss += loss
+                    
                 # forward pass
                 sample = to_cuda(sample)
                 output = self.model(sample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0.)
-                
+            
                 # compute loss
                 loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
                                            lam_builtmask=args.lam_builtmask,
@@ -350,7 +378,8 @@ class Trainer:
                                 s += 1
                                 if s > 270:
                                     break
-
+            
+            # Compute metrics for full test set
             if full_eval:
                 # average all stats
                 self.test_stats = {k: v / len(self.dataloaders['val']) for k, v in self.test_stats.items()}
@@ -360,6 +389,7 @@ class Trainer:
                 self.test_stats["Population/Correlation"] = r2(torch.cat(pred), torch.cat(gt))
                 wandb.log({**{k + '/test': v for k, v in self.test_stats.items()}, **self.info}, self.info["iter"])
 
+            #fine_eval for Zurich
             if zh_eval:
                 self.test_stats1 = get_test_metrics(torch.cat(pred1), torch.cat(gt1), tag="100m")
                 self.test_stats2 = get_test_metrics(torch.cat(pred2), torch.cat(gt2), tag="200m")
@@ -419,81 +449,98 @@ class Trainer:
     @staticmethod
     def get_dataloaders(args, force_recompute=False): 
 
-        phases = ('train', 'val')
-        if args.dataset == 'So2Sat':
-            params = {'dim': (img_rows, img_cols), "satmode": args.satmode, 'in_memory': args.in_memory,
-                      'S1': args.Sentinel1, 'S2': args.Sentinel2, 'VIIRS': args.VIIRS, 'NIR': args.NIR}
+        input_defs = {'S1': args.Sentinel1, 'S2': args.Sentinel2, 'VIIRS': args.VIIRS, 'NIR': args.NIR}
+        params = {'dim': (img_rows, img_cols), "satmode": args.satmode, 'in_memory': args.in_memory, **input_defs}
 
-            if not args.Sentinel1: 
-                data_transform = transforms.Compose([
-                    AddGaussianNoise(std=0.1, p=0.9),
-                    # transforms.RandomHorizontalFlip(p=0.5),
-                    # transforms.RandomVerticalFlip(p=0.5),
-                    # RandomRotationTransform(angles=[90, 180, 270], p=0.75),
-                    # RandomGamma(),
-                    # RandomBrightness()
-                ])
-            else:
-                data_transform = transforms.Compose([
-                    AddGaussianNoise(std=0.1, p=0.9),
-                    RandomHorizontalVerticalFlip(p=0.5),
-                    # transforms.RandomVerticalFlip(p=0.5),
-                    # RandomRotationTransform(angles=[90, 180, 270], p=0.75),
-                    # RandomGamma(),
-                    # RandomBrightness()
-                ])
-            
-            # source domain samples
-            val_size = 0.2 
-            f_names, labels = get_fnames_labs_reg(all_patches_mixed_train_part1, force_recompute=force_recompute)
-
-            # remove elements that contain "zurich" as a substring
-            if args.excludeZH:
-                f_namesX = []
-                labelsX = []
-                [(f_namesX.append(f),labelsX.append(l)) for f,l in zip(f_names,labels) if "zurich" not in f]
-                f_names, labels = f_namesX, labelsX
-
-            f_names, labels = f_names[:int(args.max_samples)] , labels[:int(args.max_samples)]
-            s = int(len(f_names)*val_size)
-            f_names_train, f_names_val, labels_train, labels_val = f_names[:-s], f_names[-s:], labels[:-s], labels[-s:]
-            f_names_test, labels_test = get_fnames_labs_reg(all_patches_mixed_test_part1, force_recompute=False)
-
-            # target domain samples
-            f_names_unlab = []
-            if args.da:
-                for reg in args.target_regions:
-                    this_unlabeled_path = os.path.join(pop_map_root, os.path.join("EE", reg))
-                    f_names_unlab.extend(get_fnames_unlab_reg(this_unlabeled_path, force_recompute=force_recompute)) 
-
-            datasets = {
-                "train": PopulationDataset_Reg(f_names_train, labels_train, f_names_unlab=f_names_unlab, mode="train",
-                                                transform=data_transform,random_season=args.random_season, **params),
-                "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", transform=None, **params),
-                "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", transform=None, **params),
-                "test_target": [ Population_Dataset_target(reg, S1=args.Sentinel1, S2= args.Sentinel2, VIIRS=args.VIIRS, NIR=args.NIR,
-                                                           patchsize=ips, overlap=overlap) for reg in args.target_regions ]
-            }
-            
-            if len(args.target_regions)>0 and len(datasets["train"].unlabeled_indices)>0:
-                custom_sampler = LabeledUnlabeledSampler(
-                    labeled_indices=datasets["train"].labeled_indices,
-                    unlabeled_indices=datasets["train"].unlabeled_indices,
-                    batch_size=args.batch_size
-                )
-                shuffle = False
-            else:
-                custom_sampler = None
-                shuffle = True
-
+        if not args.Sentinel1: 
+            data_transform = transforms.Compose([
+                AddGaussianNoise(std=0.1, p=0.9),
+                # transforms.RandomHorizontalFlip(p=0.5),
+                # transforms.RandomVerticalFlip(p=0.5),
+                # RandomRotationTransform(angles=[90, 180, 270], p=0.75),
+                # RandomGamma(),
+                # RandomBrightness()
+            ])
         else:
-            raise NotImplementedError(f'Dataset {args.dataset}')
+            data_transform = transforms.Compose([
+                AddGaussianNoise(std=0.1, p=0.9),
+                # RandomHorizontalVerticalFlip(p=0.5),
+                # transforms.RandomVerticalFlip(p=0.5),
+                # RandomRotationTransform(angles=[90, 180, 270], p=0.75),
+                # RandomGamma(),
+                # RandomBrightness()
+            ])
         
-        return {"train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, sampler=custom_sampler, shuffle=shuffle, drop_last=True),
-                "val":  DataLoader(datasets["val"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False),
-                "test":  DataLoader(datasets["test"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False),
-                "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False) for datasets["test_target"] in datasets["test_target"] ]
-                }
+        # source domain samples
+        val_size = 0.2 
+        f_names, labels = get_fnames_labs_reg(all_patches_mixed_train_part1, force_recompute=force_recompute)
+
+        # remove elements that contain "zurich" as a substring
+        if args.excludeZH:
+            f_namesX = []
+            labelsX = []
+            [(f_namesX.append(f),labelsX.append(l)) for f,l in zip(f_names,labels) if "zurich" not in f]
+            f_names, labels = f_namesX, labelsX
+
+        # limit the number of samples for debugging
+        f_names, labels = f_names[:int(args.max_samples)] , labels[:int(args.max_samples)]
+        s = int(len(f_names)*val_size)
+        f_names_train, f_names_val, labels_train, labels_val = f_names[:-s], f_names[-s:], labels[:-s], labels[-s:]
+        f_names_test, labels_test = get_fnames_labs_reg(all_patches_mixed_test_part1, force_recompute=False)
+
+        # target domain samples
+        if args.da:
+            f_names_unlab = []
+            for reg in args.target_regions:
+                f_names_unlab.extend(get_fnames_unlab_reg(os.path.join(pop_map_root, os.path.join("EE", reg)), force_recompute=force_recompute))
+        else:
+            f_names_unlab = []
+
+        # create the raw source dataset
+        train_dataset = PopulationDataset_Reg(f_names_train, labels_train, f_names_unlab=f_names_unlab, mode="train",
+                                            transform=data_transform,random_season=args.random_season, **params)
+        datasets = {
+            "train": train_dataset,
+            "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", transform=None, **params),
+            "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", transform=None, **params),
+            "test_target": [ Population_Dataset_target(reg, patchsize=ips, overlap=overlap, **input_defs) for reg in args.target_regions ]
+        }
+        
+        # create the datasampler for the source/target domain mixup
+        custom_sampler, shuffle = None, True 
+        if len(args.target_regions)>0 and len(datasets["train"].unlabeled_indices)>0:
+            custom_sampler = LabeledUnlabeledSampler( labeled_indices=datasets["train"].labeled_indices, unlabeled_indices=datasets["train"].unlabeled_indices,
+                                                       batch_size=args.batch_size  )
+            shuffle = False
+
+        # create the dataloaders
+        dataloaders =  {
+            "train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, sampler=custom_sampler, shuffle=shuffle, drop_last=True),
+            "val":  DataLoader(datasets["val"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False),
+            "test":  DataLoader(datasets["test"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False),
+            "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False) for datasets["test_target"] in datasets["test_target"] ]
+        }
+        
+
+        # add weakly supervised samples to the trainind_dataset
+        if args.supmode=="weaksup":
+            weak_batchsize = 1
+            # create the weakly supervised dataset
+            weak_datasets = []
+            for reg in args.target_regions:
+                weak_datasets.append(
+                    Population_Dataset_target(reg, mode="weaksup", patchsize=None, overlap=None, fourseasons=args.random_season, **input_defs)  )
+            
+            # stack the weakly supervised datasets into a single dataset and dataloader
+            datasets["weak_target_dataset"] = ConcatDataset(weak_datasets)
+            dataloaders["weak_target_dataloader"] = DataLoader(datasets["weak_target_dataset"], batch_size=weak_batchsize, num_workers=args.num_workers, shuffle=True)
+
+            # create a chained dataloader that alternates between the source and target domain samples
+            dataloaders["train_chained"] = zip(dataloaders["train"], itertools.cycle(dataloaders["weak_target_dataloader"]))
+            dataloaders["train_chained_len"] = len(dataloaders["train"])# + len(dataloaders["weak_target_dataloader"])
+
+        
+        return dataloaders
 
     def save_model(self, prefix=''):
         torch.save({
@@ -508,6 +555,7 @@ class Trainer:
         if not os.path.isfile(path):
             raise RuntimeError(f'No checkpoint found at \'{path}\'')
 
+        # load checkpoint
         checkpoint = torch.load(path)
         self.model.load_state_dict(checkpoint['model'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])

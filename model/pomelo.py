@@ -41,10 +41,13 @@ class CustomUNet(smp.Unet):
             center=True if encoder_name.startswith("vgg") else False
         )
 
-        # if encoder_name.startswith("resnet"):
-            # replace first layer with 3x3 conv instead of 7x7
-            # self.encoder.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        # replace first layer with 3x3 conv instead of 7x7
+        if encoder_name.startswith("resnet"):
+            conv1w = self.encoder.conv1.weight # old kernel
+            self.encoder.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, stride=2, padding=1, bias=False)
+            self.encoder.conv1.weight = nn.Parameter(conv1w[:,:,2:-2,2:-2])
 
+        # adapt size of the center block for vgg
         if encoder_name.startswith("vgg"):
             self.decoder.center = smp.decoders.unet.decoder.CenterBlock(
                 in_channels=self.encoder.out_channels[-1],
@@ -52,24 +55,33 @@ class CustomUNet(smp.Unet):
             )
         else:
             self.decoder.center = nn.Identity()
-        # self.decoder.center = nn.Conv2d(self.decoder.center.weights.shape[0])
-        # self.decoder.aggregation_layer = self.decoder.aggregation_layer if len(self.decoder.blocks) > 1 else None
-        # self.decoder.final_conv = nn.Conv2d(self.decoder.blocks[0].out_channels, classes, kernel_size=1)
 
         print("self.encoder.out_channels", self.encoder.out_channels)
         self.name = "u-{}".format(encoder_name)
         self.initialize()
-    
+
+        # print number of parameters that are actually used
+        self.num_effective_params(down=down, verbose=True)
+
+    def num_effective_params(self, down=5, verbose=False):
+        stages_param_count = 0
+
+        # encoder params
         for i,el in enumerate(self.encoder.get_stages()[:down+1]):
-            print("stage", i, ":",sum(p.numel() for p in el.parameters() if p.requires_grad) )
-        print("decoder:", sum(p.numel() for p in self.decoder.parameters() if p.requires_grad))
-        print("segmentation_head:", sum(p.numel() for p in self.segmentation_head.parameters() if p.requires_grad))
+            this_stage_sum = sum(p.numel() for p in el.parameters() if p.requires_grad)
+            stages_param_count += this_stage_sum
+            if verbose:
+                print("stage", i, ":", this_stage_sum)
+        
+        # decoder and segmentation head
+        decoder_sum = sum(p.numel() for p in self.decoder.parameters() if p.requires_grad)
+        segmentation_sum = sum(p.numel() for p in self.segmentation_head.parameters() if p.requires_grad)
+        if verbose:
+            print("decoder:", decoder_sum)
+            print("segmentation_head:", segmentation_sum)
+            print("Total # of effective Parameters:", stages_param_count+decoder_sum+segmentation_sum)
+        return stages_param_count+decoder_sum+segmentation_sum
             
-
-        # a = torch.zeros((1,5,128,128))
-        # a[0,:,64,64] = 5000
-        # plot_2dmatrix(self(a)[0,0].abs()>0.0000001)
-
 
     def forward(self, x, return_features=True):
         """Sequentially pass `x` trough model`s e ncoder, decoder and heads"""
@@ -191,8 +203,14 @@ class JacobsUNet(nn.Module):
             self.domain_classifier = nn.Sequential(nn.Conv2d(feature_dim, 1, kernel_size=1, padding=0), nn.Sigmoid())
         elif classifier=="v8":
             self.domain_classifier = nn.Sequential(
-                nn.Conv2d(self.unetmodel.latent_dim, 100, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(100, 4, kernel_size=1, padding=0),  nn.Sigmoid()
+                nn.Linear(self.unetmodel.latent_dim, 100), nn.ReLU(),
+                nn.Linear(100, 1),  nn.Sigmoid()
+            )
+        elif classifier=="v9":
+            self.domain_classifier = nn.Sequential(
+                nn.Linear(self.unetmodel.latent_dim, 128), nn.ReLU(),
+                nn.Linear(64, 64),  nn.ReLU(),
+                nn.Linear(100, 1),  nn.Sigmoid()
             )
         else:
             self.domain_classifier = None
@@ -203,25 +221,32 @@ class JacobsUNet(nn.Module):
                                   
     def forward(self, inputs, train=False, padding=True, alpha=0.1):
 
+        data = inputs["input"]
         # Add padding
+        px1,px2,py1,py2 = None, None, None, None
         if padding:
-            x  = nn.functional.pad(inputs["input"], self.p2d, mode='reflect')
-            p = self.p
+            data  = nn.functional.pad(data, self.p2d, mode='reflect')
+            px1,px2,py1,py2 = self.p, self.p, self.p, self.p
         else:
-            x = inputs["input"]
-            p = None
-
-        # pad to make sure it is divisible by 32
-        if (x.shape[2] % 32) != 0:
-            p = (x.shape[2] % 64) //2
-            x  = nn.functional.pad(inputs["input"], (p,p,p,p), mode='reflect') 
+            # pad to make sure it is divisible by 32
+            if (data.shape[2] % 32) != 0:
+                px1 = (64 - data.shape[2] % 64) //2
+                px2 = (64 - data.shape[2] % 64) - px1
+                # data = nn.functional.pad(data, (px1,0,px2,0), mode='reflect') 
+                data = nn.functional.pad(data, (0,0,px1,px2,), mode='reflect') 
+            if (data.shape[3] % 32) != 0:
+                py1 = (64 - data.shape[3] % 64) //2
+                py2 = (64 - data.shape[3] % 64) - py1
+                data = nn.functional.pad(data, (py1,py2,0,0), mode='reflect')
 
         # Forward the main model
-        features, decoder_features = self.unetmodel(x)
+        features, decoder_features = self.unetmodel(data)
 
         # revert padding
-        if p is not None:
-            features = features[:,:,p:-p,p:-p]
+        if px1 is not None:
+            features = features[:,:,px1:-px2,:]
+        if py1 is not None:
+            features = features[:,:,:,py1:-py2]
 
         # Foward the segmentation head
         out = self.head(features)
@@ -229,14 +254,18 @@ class JacobsUNet(nn.Module):
         # Foward the domain classifier
         if self.domain_classifier is not None:
             reverse_features = ReverseLayerF.apply(decoder_features.unsqueeze(3), alpha)
-            domain = self.domain_classifier(reverse_features)
+            # reverse_features = ReverseLayerF.apply(decoder_features, alpha)
+            domain = self.domain_classifier(reverse_features.permute(0,2,3,1).reshape(-1, reverse_features.size(1))).view(reverse_features.size(0),-1)
         else:
             domain = None
         
         # Population map
         # popdensemap = nn.functional.softplus(x[:,0])
         popdensemap = nn.functional.relu(out[:,0])
-        popcount = popdensemap.sum((1,2))
+        if "admin_mask" in inputs.keys():
+            popcount = (popdensemap * (inputs["admin_mask"]==inputs["census_idx"])).sum((1,2))
+        else:
+            popcount = popdensemap.sum((1,2))
 
         # Building map
         builtdensemap = nn.functional.softplus(out[:,1])

@@ -369,31 +369,18 @@
                 "--satmode",
                 // "--max_samples", "5000",
                 "--num_epochs", "100",
-                "--lam_builtmask", "0.0",
                 // "--batch_size", "192",
                 "--batch_size", "128",
-                "--lr_step", "10",
-                // "-lr", "7.5e-5",
                 "-lr", "1e-4",
-                "--lr_step", "10",
-                // "--in_memory"
-                "--lr_gamma", "0.75",
                 "--model", "JacobsUNet",
-                // "--feature_extractor", "tu-efficientnet_lite0", //"tu-mobilenetv3_rw",
-                // "--feature_extractor", "resnet18", //"tu-mobilenetv3_rw",
-                // "--feature_extractor", "resnet18", //"tu-mobilenetv3_rw",
-                // "--feature_extractor", "mobileone_s2", //"tu-mobilenetv3_rw",
-                "--feature_extractor", "vgg11", //"tu-mobilenetv3_rw",
-                // "--feature_extractor", "efficientnet-b2", //"tu-mobilenetv3_rw",
-                // "--feature_extractor", "vgg11", //"tu-mobilenetv3_rw",
-                // "-S1",
-                // "--loss", "log_mse_loss", "l1_loss",
+                "--feature_extractor", "resnet18", //"tu-mobilenetv3_rw",
                 "--loss", "l1_loss",
                 "--lam", "1",
                 // "--lam_adv", "100",
+                "-S2",
                 "-S1",
+                "-NIR",
                 "-dw","2",
-                // "-S2",
                 "--feature_dim", "16",
                 "--random_season",
                 "--target_regions", "pri2017",
@@ -402,7 +389,7 @@
                 // "--CORAL",
                 // "--lam_coral", "1.0",
                 "--excludeZH",
-                "--save-dir", "/scratch2/metzgern/HAC/POMELOv2_results"
+                "--supmode", "weaksup"
             ]
         },
         {
@@ -512,10 +499,12 @@
                 "--target_regions", "pri2017",
                 // "--adversarial",
                 // "--CORAL",
-                "--MMD",
+                // "--MMD",
                 // "--resume", "/home/pf/pfstaff/projects/metzgern_Sat2Pop/POMELOv2_results/So2Sat/experiment_386_968/best_model.pth",
                 // "--classifier", "v5",
-                "--excludeZH"
+                "--excludeZH",
+                "--classifier", "v8",
+                "--supmode", "weaksup"
             ]
         }
     ]

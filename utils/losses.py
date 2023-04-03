@@ -10,15 +10,27 @@ from utils.MMD import default_mmd as mmd
 
 def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_builtmask=1.,
              lam_adv=0.0, lam_coral=0.0, lam_mmd=0.0):
+    """
+    Compute the loss for the model
+    input:
+        output: dict of model outputs
+        gt: dict of ground truth
+        loss: list of losses to be used
+        lam: list of weights for each loss
+        merge_aug: bool, if True, merge the losses to create fake administrative territories
+        lam_builtmask: float, weight for the built mask loss
+        lam_adv: float, weight for the adversarial loss
+        lam_coral: float, weight for the coral loss
+        lam_mmd: float, weight for the mmd loss
+    output:
+        loss: float, the loss
+        auxdict: dict, auxiliary losses
+    """
     auxdict = defaultdict(float)
-
-    # TODO: if domain adversarial loss is used, split the prediction and output into labeled and unlabeled
-    # TODO: calculate the adversarial loss and add it to the optimization loss
     
     # prepare vars1.0
     y_pred = output["popcount"][gt["source"]]
     y_gt = gt["y"][gt["source"]]
-
 
     # Population loss and metrics
     popdict = {
@@ -54,46 +66,56 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_built
         # optimization_loss = popdict[loss]
         optimization_loss = sum([popdict[lo]*la for lo,la in zip(loss,lam)])
 
+    # prepare for logging
     popdict = {"Population/"+key: value for key,value in popdict.items()}
     auxdict = {**auxdict, **popdict}
 
     # Adversarial loss
     if ~gt["source"].all():
+
+        # Adversarial Domain adaptation loss
         if lam_adv>0.0:
-
-            # TODO check implementation of domain adversarial loss
-            adv_dict = {}
-
+            # prepare vars
             if len(output["domain"].shape)==4:
                 dims = output["domain"].shape
                 pred_domain = output["domain"][:,0].reshape(-1)
                 gt_domain = gt["source"].float().repeat(dims[-1]*dims[-2]).reshape(-1)
+            if len(output["domain"].shape)==2:
+                num_subsamples = output["domain"].size(1)
+                pred_domain = output["domain"].view(-1)
+                gt_domain = gt["source"].float().unsqueeze(1).repeat(1,num_subsamples).view(-1)
             else:
                 pred_domain = output["domain"]
                 gt_domain = gt["source"].float()
 
-            bce = F.binary_cross_entropy(pred_domain, gt_domain )
-            optimization_loss += lam_adv*bce
+            # calculate loss
+            adv_dict = {"bce": F.binary_cross_entropy(pred_domain, gt_domain )}
+            optimization_loss += lam_adv*adv_dict["bce"]
 
             # prepate for logging
-            adv_dict["bce"] = bce
             adv_dict.update(**class_metrics(pred_domain, gt_domain, thresh=0.5))
-            adv_dict = {"Adversarial/"+key: value for key,value in adv_dict.items()}
+            adv_dict = {"Domainadaptation/adv/"+key: value for key,value in adv_dict.items()}
             auxdict = {**auxdict, **adv_dict}
-
+        
+        # CORAL Domain adaptation loss
         if lam_coral>0.0:
             source_features = output["decoder_features"][gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
             target_features = output["decoder_features"][~gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
             coral_dict = {"coral_loss": coral(source_features.T, target_features.T)}
             optimization_loss += lam_coral*coral_dict["coral_loss"]
+
+            # prepate for logging
             coral_dict = {"Domainadaptation/"+key: value for key,value in coral_dict.items()}
             auxdict = {**auxdict, **coral_dict}
 
+        # MMD Domain adaptation loss
         if lam_mmd>0.0:
             source_features = output["decoder_features"][gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
             target_features = output["decoder_features"][~gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
             mmd_dict = {"mmd_loss": mmd(source_features.T, target_features.T)}
             optimization_loss += lam_mmd*mmd_dict["mmd_loss"]
+
+            # prepate for logging
             mmd_dict = {"Domainadaptation/"+key: value for key,value in mmd_dict.items()}
             auxdict = {**auxdict, **mmd_dict}
     
@@ -102,6 +124,7 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_built
     if "builtupmap" in gt and not disabled:
         y_bpred = output["builtupmap"] 
 
+        # 
         builtupdict = {
             **{
                 "bce": BCE(output["builtupmap"], gt["builtupmap"]),
@@ -117,11 +140,13 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_built
         # Building density calculation
         builtdensedict = {}
 
+        # prepare for logging
         builtupdict = {"builtup:"+key: value for key,value in builtupdict.items()}
         builtdensedict = {"builtdense:"+key: value for key,value in builtdensedict.items()}
         auxdict = {**auxdict, **builtupdict}
         auxdict = {**auxdict, **builtdensedict}
-        
+    
+    # prepare for logging
     auxdict["optimization_loss"] =  optimization_loss
     auxdict = {key:value.detach().item() for key,value in auxdict.items()}
 

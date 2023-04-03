@@ -72,6 +72,7 @@ default_mmd = MMDLoss()
 
 
 if __name__ == "__main__":
+    # Test the MMD loss
 
     from utils import plot_2dmatrix
         

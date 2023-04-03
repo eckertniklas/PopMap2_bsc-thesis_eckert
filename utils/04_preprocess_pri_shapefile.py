@@ -105,12 +105,17 @@ def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mod
             burned1 = features.rasterize(shapes=shapes, fill=0, out=out_arr, transform=out.transform)
             out.write_band(1, burned1)
 
+        # bring to torch for parallel implementation
+        burned1 = torch.tensor(burned1, dtype=torch.int32)
+        if gpu_mode:
+            burned1 = burned1.cuda()
+
         thisdb["bbox"] = ""
         thisdb["count"] = 0
         
         # precalculate all the bounding boxes
         for i in tqdm(thisdb["idx"]):
-            mask = burned==i
+            mask = burned1==i
             count = mask.sum()
             if count==0:
                 xmin, xmax = 0, 0
@@ -138,9 +143,9 @@ def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mod
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("sh_path", default="/scratch/metzgern/HAC/data/PopMapData/raw/boundaries/pri", type=str, help="Shapefile with boundaries and census")
-    parser.add_argument("output_tif_file", default="/scratch/metzgern/HAC/data/PopMapData/processed/pri/boundaries.tif", type=str, help="")
-    parser.add_argument("output_census_file", default="/scratch/metzgern/HAC/data/PopMapData/processed/pri/census.csv", type=str, help="")
+    parser.add_argument("sh_path", default="/scratch/metzgern/HAC/data/PopMapData/raw/boundaries/pri2017", type=str, help="Shapefile with boundaries and census")
+    parser.add_argument("output_tif_file", default="/scratch/metzgern/HAC/data/PopMapData/processed/pri2017/boundaries.tif", type=str, help="")
+    parser.add_argument("output_census_file", default="/scratch/metzgern/HAC/data/PopMapData/processed/pri2017/census.csv", type=str, help="")
     parser.add_argument("template_file", default="/scratch/metzgern/HAC/data/PopMapData/raw/EE/pri/S1/pri_S1.tif", type=str, help="")
     args = parser.parse_args()
 

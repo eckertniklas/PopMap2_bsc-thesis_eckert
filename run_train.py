@@ -186,15 +186,15 @@ class Trainer:
 
                     # forward pass and loss computation
                     sample_weak = to_cuda(sample_weak)
-                    output = self.model(sample_weak, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., padding=False)
-                    loss, loss_dict = get_loss(output, sample_weak, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
+                    output_weak = self.model(sample_weak, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., padding=False)
+                    loss_weak, loss_dict_weak = get_loss(output_weak, sample_weak, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
                                             lam_builtmask=args.lam_builtmask,
                                             lam_adv=args.lam_adv if self.args.adversarial else 0.0,
                                             lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                             lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
                                             )
-                    optim_loss += loss
-                    
+                    optim_loss += loss_weak
+
                 # forward pass
                 sample = to_cuda(sample)
                 output = self.model(sample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0.)
@@ -206,6 +206,7 @@ class Trainer:
                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                            lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
                                            )
+                optim_loss += loss
 
                 # detect NaN loss 
                 if torch.isnan(loss):
@@ -217,13 +218,16 @@ class Trainer:
 
                 # backprop
                 if self.info["epoch"] > 0 or not self.args.skip_first:
-                    loss.backward()
+                    optim_loss.backward()
 
                     # gradient clipping
                     if self.args.gradient_clip > 0.:
                         clip_grad_norm_(self.model.parameters(), self.args.gradient_clip)
 
                     self.optimizer.step()
+                
+                if i>total:
+                    break
                 
                 # update info
                 self.info["iter"] += 1
@@ -448,6 +452,14 @@ class Trainer:
 
     @staticmethod
     def get_dataloaders(args, force_recompute=False): 
+        """
+        Get dataloaders for the source and target domains
+        Inputs:
+            args: command line arguments
+            force_recompute: if True, recompute the dataloaders even if they already exist
+        Outputs:
+            dataloaders: dictionary of dataloaders
+                """
 
         input_defs = {'S1': args.Sentinel1, 'S2': args.Sentinel2, 'VIIRS': args.VIIRS, 'NIR': args.NIR}
         params = {'dim': (img_rows, img_cols), "satmode": args.satmode, 'in_memory': args.in_memory, **input_defs}
@@ -533,16 +545,29 @@ class Trainer:
             
             # stack the weakly supervised datasets into a single dataset and dataloader
             datasets["weak_target_dataset"] = ConcatDataset(weak_datasets)
-            dataloaders["weak_target_dataloader"] = DataLoader(datasets["weak_target_dataset"], batch_size=weak_batchsize, num_workers=args.num_workers, shuffle=True)
+            dataloaders["weak_target_dataloader"] = DataLoader(datasets["weak_target_dataset"], batch_size=weak_batchsize, num_workers=0, shuffle=True)
+
+            def create_dataloader2():
+                return DataLoader(datasets["weak_target_dataset"], batch_size=weak_batchsize, num_workers=args.num_workers, shuffle=True)
+            dataloaders["create_dataloader2"] = create_dataloader2
+            dataloader2_iter = iter(create_dataloader2())
 
             # create a chained dataloader that alternates between the source and target domain samples
-            dataloaders["train_chained"] = zip(dataloaders["train"], itertools.cycle(dataloaders["weak_target_dataloader"]))
+            # dataloaders["train_chained"] = zip(dataloaders["train"], itertools.cycle(dataloaders["weak_target_dataloader"]))
+
+            dataloaders["train_chained"] = zip(itertools.cycle(dataloaders["train"]), itertools.cycle(dataloaders["weak_target_dataloader"]))
+            # dataloaders["train_chained"] = zip(itertools.cycle(dataloaders["train"]), itertools.cycle(dataloader2_iter))
+
             dataloaders["train_chained_len"] = len(dataloaders["train"])# + len(dataloaders["weak_target_dataloader"])
 
         
         return dataloaders
 
     def save_model(self, prefix=''):
+        """
+        Input:
+            prefix: string to prepend to the filename
+        """
         torch.save({
             'model': self.model.state_dict(),
             'epoch': self.info["epoch"] + 1,
@@ -552,6 +577,10 @@ class Trainer:
         }, os.path.join(self.experiment_folder, f'{prefix}_model.pth'))
 
     def resume(self, path):
+        """
+        Input:
+            path: path to the checkpoint
+        """
         if not os.path.isfile(path):
             raise RuntimeError(f'No checkpoint found at \'{path}\'')
 

@@ -141,8 +141,8 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_built
         builtdensedict = {}
 
         # prepare for logging
-        builtupdict = {"builtup:"+key: value for key,value in builtupdict.items()}
-        builtdensedict = {"builtdense:"+key: value for key,value in builtdensedict.items()}
+        builtupdict = {"builtup/"+key: value for key,value in builtupdict.items()}
+        builtdensedict = {"builtdense/"+key: value for key,value in builtdensedict.items()}
         auxdict = {**auxdict, **builtupdict}
         auxdict = {**auxdict, **builtdensedict}
     

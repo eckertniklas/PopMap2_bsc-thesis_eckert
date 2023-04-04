@@ -65,7 +65,8 @@ class Population_Dataset_target(Dataset):
             # weaksup data specific preparation
             # read the census file
             self.coarse_census = pd.read_csv(self.coarse_census_file)
-            max_pix = 1e7
+            max_pix = 2e6
+            print("Kicking out ", (self.coarse_census["count"]>=max_pix).sum(), "samples with more than ", int(max_pix), " pixels")
             self.coarse_census = self.coarse_census[self.coarse_census["count"]<max_pix].reset_index()
             # redefine indexing
 

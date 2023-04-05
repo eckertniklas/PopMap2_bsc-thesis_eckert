@@ -8,7 +8,7 @@ from utils.MMD import default_mmd as mmd
 
 
 
-def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_builtmask=1.,
+def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_builtmask=0.0,
              lam_adv=0.0, lam_coral=0.0, lam_mmd=0.0):
     """
     Compute the loss for the model
@@ -46,7 +46,7 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_built
         "GTstd": y_gt.std(),
         "predmean": y_pred.mean(),
         "predstd": y_pred.std(),
-        "mCorrelation": torch.corrcoef(torch.stack([y_pred, y_gt]))[0,1]
+        "mCorrelation": torch.corrcoef(torch.stack([y_pred, y_gt]))[0,1] if len(y_pred)>1 else torch.tensor(0.0),
     }
 
     # augmented loss
@@ -120,31 +120,31 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_built
             auxdict = {**auxdict, **mmd_dict}
     
     # Builtup mask loss
-    disabled = True
-    if "builtupmap" in gt and not disabled:
-        y_bpred = output["builtupmap"] 
+    # disabled = True
+    # if "builtupmap" in gt and not disabled:
+    #     y_bpred = output["builtupmap"] 
 
-        # 
-        builtupdict = {
-            **{
-                "bce": BCE(output["builtupmap"], gt["builtupmap"]),
-                "focal_loss": focal_loss(output["builtupmap"].view(-1), gt["builtupmap"].view(-1)),
-                "tversky_loss": tversky_loss(output["builtupmap"].view(-1), gt["builtupmap"].view(-1))
-            },
-            **class_metrics(output["builtupmap"], gt["builtupmap"], thresh=0.5)
-        }
+    #     # 
+    #     builtupdict = {
+    #         **{
+    #             "bce": BCE(output["builtupmap"], gt["builtupmap"]),
+    #             "focal_loss": focal_loss(output["builtupmap"].view(-1), gt["builtupmap"].view(-1)),
+    #             "tversky_loss": tversky_loss(output["builtupmap"].view(-1), gt["builtupmap"].view(-1))
+    #         },
+    #         **class_metrics(output["builtupmap"], gt["builtupmap"], thresh=0.5)
+    #     }
 
-        if lam_builtmask>0.0:
-            optimization_loss += lam_builtmask*builtupdict["bce"]
+    #     if lam_builtmask>0.0:
+    #         optimization_loss += lam_builtmask*builtupdict["bce"]
 
-        # Building density calculation
-        builtdensedict = {}
+    #     # Building density calculation
+    #     builtdensedict = {}
 
-        # prepare for logging
-        builtupdict = {"builtup/"+key: value for key,value in builtupdict.items()}
-        builtdensedict = {"builtdense/"+key: value for key,value in builtdensedict.items()}
-        auxdict = {**auxdict, **builtupdict}
-        auxdict = {**auxdict, **builtdensedict}
+    #     # prepare for logging
+    #     builtupdict = {"builtup/"+key: value for key,value in builtupdict.items()}
+    #     builtdensedict = {"builtdense/"+key: value for key,value in builtdensedict.items()}
+    #     auxdict = {**auxdict, **builtupdict}
+    #     auxdict = {**auxdict, **builtdensedict}
     
     # prepare for logging
     auxdict["optimization_loss"] =  optimization_loss

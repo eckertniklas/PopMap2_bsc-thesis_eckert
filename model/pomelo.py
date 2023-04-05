@@ -83,7 +83,7 @@ class CustomUNet(smp.Unet):
         return stages_param_count+decoder_sum+segmentation_sum
             
 
-    def forward(self, x, return_features=True):
+    def forward(self, x, return_features=True, encoder_no_grad=False):
         """Sequentially pass `x` trough model`s e ncoder, decoder and heads"""
 
         self.check_input_shape(x)
@@ -91,35 +91,37 @@ class CustomUNet(smp.Unet):
         bs,_,h,w = x.shape
 
         # encoder
-        # with torch.no_grad():
-        features = self.encoder(x)
-
-        classic_implementation = False
-        if classic_implementation:
-            decoder_output = self.decoder(*features)
+        if encoder_no_grad:
+            with torch.no_grad():
+                features = self.encoder(x)
         else:
-            features = features[1:]  # remove first skip with same spatial resolution
-            features = features[::-1]  # reverse channels to start from head of encoder
+            features = self.encoder(x)
 
-            head = features[0]
-            skips = features[1:]
+        # decoder
+        # classic_implementation = False
+        # if classic_implementation:
+            # decoder_output = self.decoder(*features)
+        # else:
+        features = features[1:]  # remove first skip with same spatial resolution
+        features = features[::-1]  # reverse channels to start from head of encoder
 
-            x = self.decoder.center(head)
+        head = features[0]
+        skips = features[1:]
 
-            decoder_features = []
-            for i, decoder_block in enumerate(self.decoder.blocks):
-                skip = skips[i] if i < len(skips) else None
-                x = decoder_block(x, skip)
+        x = self.decoder.center(head)
 
-                if return_features:
-                    xup = F.interpolate(x, size=(h//self.fsub,w//self.fsub), mode='nearest') # TODO: interpolate to other size
-                    decoder_features.append(xup.view(bs,x.size(1),-1))
-                    # xup = F.interpolate(x.permute(1,0,2,3), size=(h,w), mode='nearest')
-                    # decoder_features.append(xup.view(bs*x.size(1),-1))
-            decoder_output = x
+        decoder_features = []
+        for i, decoder_block in enumerate(self.decoder.blocks):
+            skip = skips[i] if i < len(skips) else None
+            x = decoder_block(x, skip)
 
             if return_features:
-                decoder_features = torch.concatenate(decoder_features,1)
+                xup = F.interpolate(x, size=(h//self.fsub,w//self.fsub), mode='nearest') # TODO: interpolate to other size
+                decoder_features.append(xup.view(bs,x.size(1),-1))
+        decoder_output = x
+
+        if return_features:
+            decoder_features = torch.concatenate(decoder_features,1)
 
         masks = self.segmentation_head(decoder_output)
 
@@ -144,20 +146,7 @@ class JacobsUNet(nn.Module):
         self.p2d = (self.p, self.p, self.p, self.p)
 
         # Build the main model
-        if False:
-            self.unetmodel = nn.Sequential(
-                # Batch
-                smp.Unet( encoder_name=feature_extractor, encoder_weights="imagenet", decoder_channels=(64, 32, 16),
-                    encoder_depth=self.down, in_channels=input_channels,  classes=feature_dim, decoder_use_batchnorm=False),
-                nn.ReLU()
-            )
-        else:
-            # self.unetmodel = nn.Sequential(
-            #     # nn.BatchNorm2d(4),
-            #     CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=self.down),
-            #     # nn.ReLU()
-            # )
-            self.unetmodel = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=self.down)
+        self.unetmodel = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=self.down)
 
         # Build the regression head
         if head=="v1":
@@ -219,12 +208,53 @@ class JacobsUNet(nn.Module):
         self.params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
 
                                   
-    def forward(self, inputs, train=False, padding=True, alpha=0.1):
+    def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True):
 
         data = inputs["input"]
+
+        # Add padding
+        data, (px1,px2,py1,py2) = self.add_padding(data, padding)
+
+        # Forward the main model
+        features, decoder_features = self.unetmodel(data, return_features=return_features)
+
+        # revert padding
+        features = self.revert_padding(features, (px1,px2,py1,py2))
+
+        # Forward the head
+        out = self.head(features)
+
+        # Foward the domain classifier
+        if self.domain_classifier is not None:
+            reverse_features = ReverseLayerF.apply(decoder_features.unsqueeze(3), alpha) # apply gradient reversal layer
+            domain = self.domain_classifier(reverse_features.permute(0,2,3,1).reshape(-1, reverse_features.size(1))).view(reverse_features.size(0),-1)
+        else:
+            domain = None
+        
+        # Population map and total count
+        popdensemap = nn.functional.relu(out[:,0])
+        if "admin_mask" in inputs.keys():
+            popcount = (popdensemap * (inputs["admin_mask"]==inputs["census_idx"])).sum((1,2))
+        else:
+            popcount = popdensemap.sum((1,2))
+
+        # Building map
+        builtdensemap = nn.functional.softplus(out[:,1])
+        builtcount = builtdensemap.sum((1,2))
+
+        # Builtup mask
+        builtupmap = torch.sigmoid(out[:,2])
+
+
+        return {"popcount": popcount, "popdensemap": popdensemap,
+                "builtdensemap": builtdensemap, "builtcount": builtcount,
+                "builtupmap": builtupmap, "domain": domain, "features": features,
+                "decoder_features": decoder_features}
+
+    def add_padding(self, data, force=True):
         # Add padding
         px1,px2,py1,py2 = None, None, None, None
-        if padding:
+        if force:
             data  = nn.functional.pad(data, self.p2d, mode='reflect')
             px1,px2,py1,py2 = self.p, self.p, self.p, self.p
         else:
@@ -239,60 +269,15 @@ class JacobsUNet(nn.Module):
                 py2 = (64 - data.shape[3] % 64) - py1
                 data = nn.functional.pad(data, (py1,py2,0,0), mode='reflect')
 
-        # Forward the main model
-        features, decoder_features = self.unetmodel(data)
-
-        # revert padding
-        if px1 is not None:
-            features = features[:,:,px1:-px2,:]
-        if py1 is not None:
-            features = features[:,:,:,py1:-py2]
-
-        # Foward the segmentation head
-        out = self.head(features)
-
-        # Foward the domain classifier
-        if self.domain_classifier is not None:
-            reverse_features = ReverseLayerF.apply(decoder_features.unsqueeze(3), alpha)
-            # reverse_features = ReverseLayerF.apply(decoder_features, alpha)
-            domain = self.domain_classifier(reverse_features.permute(0,2,3,1).reshape(-1, reverse_features.size(1))).view(reverse_features.size(0),-1)
-        else:
-            domain = None
-        
-        # Population map
-        # popdensemap = nn.functional.softplus(x[:,0])
-        popdensemap = nn.functional.relu(out[:,0])
-        if "admin_mask" in inputs.keys():
-            popcount = (popdensemap * (inputs["admin_mask"]==inputs["census_idx"])).sum((1,2))
-        else:
-            popcount = popdensemap.sum((1,2))
-
-        # Building map
-        builtdensemap = nn.functional.softplus(out[:,1])
-        builtcount = builtdensemap.sum((1,2))
-
-        # Builtup mask
-        # builtupmap = torch.sigmoid(x[:,2]) 
-        # if train:
-        #     # builtupmap = (torch.nn.functional.softmax(x[:,2:4], dim=1)[:,0]>0.5).float()
-        #     builtupmap = torch.nn.functional.softmax(x[:,2:4], dim=1)[:,0]
-        #     # builtupmap = torch.nn.functional.gumbel_softmax(x[:,2:4], tau=self.gumbeltau, hard=True, eps=1e-10, dim=1)[:,0]
-        # else:
-        #     # builtupmap = (torch.nn.functional.softmax(x[:,2:4], dim=1)[:,0]>0.5).float()
-
-        builtupmap = torch.sigmoid(out[:,2]) 
-        # builtupmap = torch.nn.functional.softmax(x[:,2:4], dim=1)[:,0]
-        # Sparsify
-        # popdensemap = builtupmap * popdensemap
-
-        # p = torch.sigmoid(x[:,2]) 
-
-
-        return {"popcount": popcount, "popdensemap": popdensemap,
-                "builtdensemap": builtdensemap, "builtcount": builtcount,
-                "builtupmap": builtupmap, "domain": domain, "features": features,
-                "decoder_features": decoder_features}
-
+        return data, (px1,px2,py1,py2)
+    
+    def revert_padding(self, data, padding):
+        px1,px2,py1,py2 = padding
+        if px1 is not None or px2 is not None:
+            data = data[:,:,px1:-px2,:]
+        if py1 is not None or py2 is not None:
+            data = data[:,:,:,py1:-py2]
+        return data
 
 
 # Define a resblock
@@ -359,13 +344,13 @@ class ResBlocks(nn.Module):
         )
         self.head = nn.Conv2d(feature_dim, 4, kernel_size=1, padding=0)
 
-        a = torch.zeros((1,3,128,128))
+        a = torch.zeros((1,6,128,128))
         a[0,:,64,64] = 500
         plot_2dmatrix(self.model(a)[0,0])
 
         params_sum = sum(p.numel() for p in self.model.parameters() if p.requires_grad)    
                                   
-    def forward(self, inputs, train=False, padding=True, alpha=0.1):
+    def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=False):
 
         # Add padding
         if padding:

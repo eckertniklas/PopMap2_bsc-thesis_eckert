@@ -55,7 +55,7 @@ parser.add_argument("-ld", "--lam_dense", help='', type=float, default=1.)
 
 # misc
 parser.add_argument('--save-dir', default='/scratch2/metzgern/HAC/POMELOv2_results', help='Path to directory where models and logs should be saved')
-parser.add_argument('-w', '--num_workers', help='', type=int, default=1)
+parser.add_argument('-w', '--num_workers', help='', type=int, default=6)
 parser.add_argument("-wp", "--wandb_project", help='', type=str, default="POMELOv2")
 parser.add_argument('-lt', '--logstep_train', help='', type=int, default=20)
 parser.add_argument('-val', '--val_every_n_epochs', help='', type=int, default=1)

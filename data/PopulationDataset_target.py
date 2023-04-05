@@ -153,6 +153,7 @@ class Population_Dataset_target(Dataset):
 
         return main_indices
 
+
     def metadata(self):
         return self._meta
 
@@ -164,6 +165,7 @@ class Population_Dataset_target(Dataset):
             return len(self.patch_indices)
         elif self.mode=="weaksup":
             return len(self.coarse_census)
+
 
     def __getitem__(self, index: int) -> Dict[str, torch.FloatTensor]:
         """
@@ -179,26 +181,29 @@ class Population_Dataset_target(Dataset):
         elif self.mode=="weaksup":
             return self.__getadminitem__(index)
 
+
     def __getadminitem__(self, index: int) -> Dict[str, torch.FloatTensor]:
         # get the indices of the patch
         census_sample = self.coarse_census.loc[index]
-    
+        
+        # get the coordinates of the patch
         xmin, xmax, ymin, ymax = tuple(map(int, census_sample["bbox"].strip('()').split(',')))
+
+        # get the season for the S2 data
         season = random.choice(['spring', 'autumn', 'winter', 'summer']) if self.fourseasons else "spring"
 
+        # get the data
         data, _ = self.data_generation(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0)
-        # admin_mask = self.cr_regions[xmin:xmax, ymin:ymax]==census_sample["idx"]
-
-        y = torch.from_numpy(np.asarray(census_sample["POP20"])).type(torch.FloatTensor)
-        y_norm = torch.from_numpy(np.asarray(self.normalize_reg_labels(census_sample["POP20"]) )).type(torch.FloatTensor)
-        data = torch.from_numpy(data).type(torch.FloatTensor)
-        # admin_mask = (torch.from_numpy(self.cr_regions[xmin:xmax, ymin:ymax]).cuda()==census_sample["idx"]).type(torch.FloatTensor)
-        admin_mask = torch.from_numpy(self.cr_regions[xmin:xmax, ymin:ymax]).type(torch.FloatTensor)
 
         # return dictionary
-        return {'input': data, 'img_coords': (xmin,ymin), 'valid_coords':  (xmin, xmax, ymin, ymax),
-                'season': self.inv_season_dict[season], 'admin_mask': admin_mask, 'season_str': season,
-                'source': True, "census_idx": census_sample["idx"], 'y': y, 'y_norm': y_norm}
+        return {'input': torch.from_numpy(data).type(torch.FloatTensor),
+                'y': torch.from_numpy(np.asarray(census_sample["POP20"])).type(torch.FloatTensor),
+                'admin_mask': torch.from_numpy(self.cr_regions[xmin:xmax, ymin:ymax]).type(torch.FloatTensor),
+                'img_coords': (xmin,ymin), 'valid_coords':  (xmin, xmax, ymin, ymax),
+                'season': self.inv_season_dict[season],# 'season_str': [season],
+                'source': True, "census_idx": census_sample["idx"],
+                }
+
 
     def __gettestitem__(self, index: int) -> Dict[str, torch.FloatTensor]:
         # get the indices of the patch
@@ -237,35 +242,47 @@ class Population_Dataset_target(Dataset):
         data = []
         mask = np.zeros((patchsize_x, patchsize_y), dtype=bool)
         mask[overlap:patchsize_x-overlap, overlap:patchsize_y-overlap] = True
+        fake = False
 
         # get the input data
         if self.S2:
             S2_file = self.S2_file[season]
             if self.NIR:
-                with rasterio.open(S2_file, "r") as src:
-                    raw_data = src.read((4,3,2,8), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
+                if fake:
+                    raw_data = np.random.randint(0, 10000, size=(4,patchsize_x,patchsize_y))
+                else:
+                    with rasterio.open(S2_file, "r") as src:
+                        raw_data = src.read((4,3,2,8), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
                 this_mask = raw_data.sum(axis=0) != 0
                 mask = mask & this_mask
                 raw_data = np.where(raw_data > self.dataset_stats["sen2springNIR"]['p2'][:,None,None], self.dataset_stats["sen2springNIR"]['p2'][:,None,None], raw_data)
                 new_arr = ((raw_data.transpose((1,2,0)) - self.dataset_stats["sen2springNIR"]['mean'] ) / self.dataset_stats["sen2springNIR"]['std']).transpose((2,0,1))
                 data.append(new_arr)
             else:
-                with rasterio.open(S2_file, "r") as src:
-                    raw_data = src.read((4,3,2), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
+                if fake:
+                    raw_data = np.random.randint(0, 10000, size=(3,patchsize_x,patchsize_y))
+                    with rasterio.open(S2_file, "r") as src:
+                        raw_data = src.read((4,3,2), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
                 this_mask = raw_data.sum(axis=0) != 0
                 mask = mask & this_mask
                 raw_data = np.where(raw_data > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], raw_data)
                 new_arr = ((raw_data.transpose((1,2,0)) - self.dataset_stats["sen2spring"]['mean'] ) / self.dataset_stats["sen2spring"]['std']).transpose((2,0,1))
                 data.append(new_arr)
         if self.S1:
-            with rasterio.open(self.S1_file, "r") as src:
-                raw_data = src.read(window=((x,x+patchsize_x),(y,y+patchsize_y))) 
+            if fake:
+                raw_data = np.random.randint(0, 10000, size=(2,patchsize_x,patchsize_y))
+            else:
+                with rasterio.open(self.S1_file, "r") as src:
+                    raw_data = src.read(window=((x,x+patchsize_x),(y,y+patchsize_y))) 
             # raw_data = np.where(raw_data > self.dataset_stats["sen1"]['p2'][:,None,None], self.dataset_stats["sen1"]['p2'][:,None,None], raw_data)
             new_arr = ((raw_data.transpose((1,2,0)) - self.dataset_stats["sen1"]['mean'] ) / self.dataset_stats["sen1"]['std']).transpose((2,0,1))
             data.append(new_arr)
         if self.VIIRS:
-            with rasterio.open(self.VIIRS_file, "r") as src:
-                raw_data = src.read(window=((x,x+patchsize_x),(y,y+patchsize_y))) 
+            if fake:
+                raw_data = np.random.randint(0, 10000, size=(1,patchsize_x,patchsize_y))
+            else:
+                with rasterio.open(self.VIIRS_file, "r") as src:
+                    raw_data = src.read(window=((x,x+patchsize_x),(y,y+patchsize_y))) 
             raw_data = np.where(raw_data < 0, 0, raw_data)
             new_arr = ((raw_data.transpose((1,2,0)) - self.dataset_stats["viirs"]['mean'] ) / self.dataset_stats["viirs"]['std']).transpose((2,0,1))
             data.append(new_arr)
@@ -391,3 +408,37 @@ class Population_Dataset_target(Dataset):
         with rasterio.open(output_file, "w", **self._meta) as dest:
             dest.write(preds,1)
         pass
+
+
+if __name__=="__main__":
+
+    #test the dataset
+    from torch.utils.data import DataLoader, ChainDataset, ConcatDataset
+
+    input_defs = {'S1': True, 'S2': True, 'VIIRS': False, 'NIR': True}
+
+    dataset = Population_Dataset_target("pri2017", mode="weaksup", patchsize=None, overlap=None, fourseasons=True, **input_defs) 
+    
+    dataloader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=True, drop_last=True)
+
+
+    # with tqdm(dataloader, leave=False) as inner_tnr:
+    #     for i, sample in enumerate(inner_tnr):
+
+    #         print(i, sample['input'].shape)
+    
+    for e in tqdm(range(10), leave=True):
+        # unsupervised mode
+        dataloader_iterator = iter(dataloader)
+        
+        for i in tqdm(range(5000)):
+
+            sample = dataset[i%len(dataset)]
+            print(i,sample['input'].shape)
+            # try:
+            #     sample_weak = next(dataloader_iterator)
+            # except StopIteration:
+            #     dataloader_iterator = iter(dataloader)
+            #     sample_weak = next(dataloader_iterator)
+
+

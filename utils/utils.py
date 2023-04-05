@@ -29,6 +29,25 @@ def to_cuda(sample):
             sampleout[key] = val
     return sampleout
 
+def to_cuda_inplace(sample):
+    # sampleout = {}
+    for key, val in sample.items():
+        if isinstance(val, torch.Tensor):
+            sample[key] = val.cuda()
+        elif isinstance(val, list):
+            new_val = []
+            for e in val:
+                if isinstance(e, torch.Tensor):
+                    new_val.append(e.cuda())
+                else:
+                    new_val.append(val)
+            sample[key] = new_val
+        else:
+            sample[key] = val
+    return sample
+
+def detach_tensors_in_dict(input_dict):
+    return {key: value.detach() if torch.is_tensor(value) else value for key, value in input_dict.items()}
 
 def seed_all(seed):
     # Fix all random seeds

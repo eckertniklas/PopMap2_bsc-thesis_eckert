@@ -493,7 +493,7 @@
                 // "--classifier", "v5",
                 "-exZH",
                 // "--classifier", "v8",
-                // "--supmode", "weaksup"
+                "--supmode", "weaksup"
             ]
         }
     ]

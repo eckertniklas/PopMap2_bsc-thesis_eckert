@@ -14,7 +14,8 @@ from typing import Dict, Tuple
 
 from utils.constants import pop_map_root, pop_map_covariates, config_path
 
-from utils.utils import plot_2dmatrix
+from utils.plot import plot_2dmatrix
+
 
 def load_json(file):
     with open(file, 'r') as f:
@@ -201,7 +202,7 @@ class Population_Dataset_target(Dataset):
                 'admin_mask': torch.from_numpy(self.cr_regions[xmin:xmax, ymin:ymax]).type(torch.FloatTensor),
                 'img_coords': (xmin,ymin), 'valid_coords':  (xmin, xmax, ymin, ymax),
                 'season': self.inv_season_dict[season],# 'season_str': [season],
-                'source': True, "census_idx": census_sample["idx"],
+                'source': torch.tensor(True), "census_idx": census_sample["idx"],
                 }
 
 

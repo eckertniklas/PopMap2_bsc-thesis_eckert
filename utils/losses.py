@@ -1,15 +1,15 @@
 import torch.nn.functional as F
 import torch
 
-from utils.utils import plot_2dmatrix
+from utils.plot import plot_2dmatrix
 from collections import defaultdict
 from utils.CORAL import coral
 from utils.MMD import default_mmd as mmd
 
 
 
-def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_builtmask=0.0,
-             lam_adv=0.0, lam_coral=0.0, lam_mmd=0.0):
+def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
+             lam_adv=0.0, lam_coral=0.0, lam_mmd=0.0, tag=""):
     """
     Compute the loss for the model
     input:
@@ -67,7 +67,10 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_built
         optimization_loss = sum([popdict[lo]*la for lo,la in zip(loss,lam)])
 
     # prepare for logging
-    popdict = {"Population/"+key: value for key,value in popdict.items()}
+    if tag=="":
+        popdict = {"Population"+"/"+key: value for key,value in popdict.items()}
+    else:
+        popdict = {"Population/"+tag+"/"+key: value for key,value in popdict.items()}
     auxdict = {**auxdict, **popdict}
 
     # Adversarial loss
@@ -118,34 +121,7 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False, lam_built
             # prepate for logging
             mmd_dict = {"Domainadaptation/"+key: value for key,value in mmd_dict.items()}
             auxdict = {**auxdict, **mmd_dict}
-    
-    # Builtup mask loss
-    # disabled = True
-    # if "builtupmap" in gt and not disabled:
-    #     y_bpred = output["builtupmap"] 
-
-    #     # 
-    #     builtupdict = {
-    #         **{
-    #             "bce": BCE(output["builtupmap"], gt["builtupmap"]),
-    #             "focal_loss": focal_loss(output["builtupmap"].view(-1), gt["builtupmap"].view(-1)),
-    #             "tversky_loss": tversky_loss(output["builtupmap"].view(-1), gt["builtupmap"].view(-1))
-    #         },
-    #         **class_metrics(output["builtupmap"], gt["builtupmap"], thresh=0.5)
-    #     }
-
-    #     if lam_builtmask>0.0:
-    #         optimization_loss += lam_builtmask*builtupdict["bce"]
-
-    #     # Building density calculation
-    #     builtdensedict = {}
-
-    #     # prepare for logging
-    #     builtupdict = {"builtup/"+key: value for key,value in builtupdict.items()}
-    #     builtdensedict = {"builtdense/"+key: value for key,value in builtdensedict.items()}
-    #     auxdict = {**auxdict, **builtupdict}
-    #     auxdict = {**auxdict, **builtdensedict}
-    
+        
     # prepare for logging
     auxdict["optimization_loss"] =  optimization_loss
     auxdict = {key:value.detach().item() for key,value in auxdict.items()}
@@ -190,7 +166,6 @@ def r2(pred, gt, eps=1e-8):
     return r2
 
 
-
 def negative_binomial_loss(y_true, y_pred):
     """
     Negative binomial loss function.
@@ -211,11 +186,7 @@ def negative_binomial_loss(y_true, y_pred):
 
     # Separate the parameters
     n, p = torch.unbind(y_pred, dim=1)
-    
-    # # Add one dimension to make the right shape
-    # n = tf.expand_dims(n, -1)
-    # p = tf.expand_dims(p, -1)
-    
+        
     # Calculate the negative log likelihood
     nll = (
         torch.lgamma(n) 
@@ -226,33 +197,6 @@ def negative_binomial_loss(y_true, y_pred):
     )                  
 
     return nll
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def focal_loss(pred, gt, alpha=0.5, gamma=2):

@@ -10,7 +10,8 @@ import segmentation_models_pytorch as smp
 from model.DANN import DomainClassifier, DomainClassifier1x1, DomainClassifier_v3, DomainClassifier_v4, DomainClassifier_v5, DomainClassifier_v6, ReverseLayerF
 from torch.nn.functional import upsample_nearest, interpolate
 
-from utils.utils import plot_2dmatrix
+from utils.plot import plot_2dmatrix, plot_and_save
+
 
 class CustomUNet(smp.Unet):
     def __init__(self, encoder_name, in_channels, classes, down=3):

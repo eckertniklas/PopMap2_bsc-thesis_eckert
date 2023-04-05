@@ -21,14 +21,14 @@ import wandb
 import gc
 
 from arguments import train_parser
-from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep, ResBlocksSqueeze
 from data.So2Sat import PopulationDataset_Reg
 from data.PopulationDataset_target import Population_Dataset_target
 from utils.losses import get_loss, r2
 from utils.metrics import get_test_metrics
-from utils.utils import new_log, to_cuda, to_cuda_inplace, detach_tensors_in_dict, seed_all
+from utils.utils import new_log, to_cuda, to_cuda_inplace, detach_tensors_in_dict, seed_all, get_model_kwargs, model_dict
 
-from utils.utils import get_fnames_labs_reg, get_fnames_unlab_reg, plot_2dmatrix, plot_and_save
+from utils.utils import get_fnames_labs_reg, get_fnames_unlab_reg
+from utils.plot import plot_2dmatrix, plot_and_save
 from utils.datasampler import LabeledUnlabeledSampler
 from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1, pop_map_root, inference_patch_size, overlap
 from utils.constants import inference_patch_size as ips
@@ -42,16 +42,11 @@ class Trainer:
     def __init__(self, args: argparse.Namespace):
         self.args = args
 
-        # check if we are doing domain adaptation
-        if args.adversarial or args.CORAL or args.MMD or args.supmode=="weaksup":
+        # check if we are doing domain adaptation or not
+        if args.adversarial or args.CORAL or args.MMD:
             self.args.da = True
-            if args.adversarial or args.CORAL or args.MMD:
-                self.args.need_features = True
-            else:
-                self.args.need_features = False
         else:
             self.args.da = False
-            self.args.need_features = False
 
         # set up dataloaders
         self.dataloaders = self.get_dataloaders(args)
@@ -63,42 +58,11 @@ class Trainer:
         input_channels = args.Sentinel1*2  + args.NIR*1 + args.Sentinel2*3 + args.VIIRS*1
 
         # define architecture
-        if args.model=="JacobsUNet":
-            self.model = JacobsUNet( 
-                input_channels=input_channels,
-                feature_dim=args.feature_dim,
-                feature_extractor=args.feature_extractor,
-                classifier=args.classifier if args.adversarial else None,
-                head=args.head,
-                down=args.down,
-            ).cuda()
-        elif args.model=="PomeloUNet":
-            self.model = PomeloUNet( 
-                input_channels = input_channels,
-                feature_dim = args.feature_dim,
-                feature_extractor=args.feature_extractor
-            ).cuda()
-        elif args.model=="ResBlocks":
-            self.model = ResBlocks(
-                input_channels = input_channels,
-                feature_dim = args.feature_dim,
-            ).cuda()
-        elif args.model=="ResBlocksSqueeze":
-            self.model = ResBlocksSqueeze(
-                input_channels = input_channels,
-                feature_dim = args.feature_dim,
-            ).cuda()
-        elif args.model=="UResBlocks":
-            self.model = UResBlocks(
-                input_channels = input_channels,
-                feature_dim = args.feature_dim,
-            ).cuda()
-
-        elif args.model=="ResBlocksDeep":
-            self.model = ResBlocksDeep(
-                input_channels = input_channels,
-                feature_dim = args.feature_dim,
-            ).cuda()
+        if args.model in model_dict:
+            model_kwargs = get_model_kwargs(args, args.model)
+            self.model = model_dict[args.model](**model_kwargs).cuda()
+        else:
+            raise ValueError(f"Unknown model: {args.model}")
 
         # number of params
         args.pytorch_total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
@@ -129,6 +93,9 @@ class Trainer:
 
 
     def train(self):
+        """
+        Main training loop
+        """
         with tqdm(range(self.info["epoch"], self.args.num_epochs), leave=True) as tnr:
             tnr.set_postfix(training_loss=np.nan, validation_loss=np.nan, best_validation_loss=np.nan)
             for _ in tnr:
@@ -144,7 +111,7 @@ class Trainer:
                     # self.test(plot=((self.info["epoch"]+1) % 4)==0, full_eval=((self.info["epoch"]+1) % 1)==0, zh_eval=True) 
                     self.test(plot=((self.info["epoch"]+1) % 5)==0, full_eval=((self.info["epoch"]+1) % 10)==0, zh_eval=True) #ZH
                     torch.cuda.empty_cache()
-                if (self.info["epoch"] + 1) % 1 == 0:
+                if (self.info["epoch"] + 1) % 1*self.args.val_every_n_epochs == 0:
                     self.test_target(save=True)
                     torch.cuda.empty_cache()
 
@@ -155,12 +122,14 @@ class Trainer:
                 if self.args.lr_gamma != 1.0: 
                     self.scheduler.step()
                     wandb.log({**{'log_lr': np.log10(self.scheduler.get_last_lr())}, **self.info}, self.info["iter"])
-
+                
                 self.info["epoch"] += 1
 
-    # from memory_profiler import profile
-    # @profile
+
     def train_epoch(self, tnr=None):
+        """
+        Train for one epoch
+        """
         self.train_stats = defaultdict(float)
 
         # set model to train mode
@@ -173,63 +142,62 @@ class Trainer:
 
         # check if we are in unsupervised or supervised mode and adjust dataloader accordingly
         dataloader = self.dataloaders['train']
+        total = len(dataloader) if self.args.supmode=="unsup" else len(self.dataloaders["weak_target_dataset"])
 
-        with tqdm(dataloader, leave=False) as inner_tnr:
+        with tqdm(dataloader, leave=False, total=total) as inner_tnr:
             inner_tnr.set_postfix(training_loss=np.nan)
 
+            # iterate over samples of one epoch
             for i, sample in enumerate(inner_tnr):
                 self.optimizer.zero_grad()
+                optim_loss = 0.0
+                loss_dict_weak = {}
 
-                #  check if sample is weakly target supervised or source supervised
+                #  check if sample is weakly target supervised or source supervised 
                 if self.args.supmode=="weaksup":
-                    # weakselfsupervised mode
-                    
-                    apply_weak = True
-                    if apply_weak:
-                        sample_weak = {key:torch.tensor(value).unsqueeze(0) for key,value in
-                                    self.dataloaders["weak_target_dataset"][self.dataloaders["weak_indices"][i%len(self.dataloaders["weak_indices"])]].items()}
+                    sample_weak = {key:value.unsqueeze(0) if torch.is_tensor(value) else value for key,value in
+                                self.dataloaders["weak_target_dataset"][self.dataloaders["weak_indices"][i%len(self.dataloaders["weak_indices"])]].items()}
 
-                        # forward pass and loss computation 
-                        sample_weak = to_cuda(sample_weak)
-                        output_weak = self.model(sample_weak, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0.,  return_features=False, padding=False)
-                        loss_weak, loss_dict_weak = get_loss(output_weak, sample_weak, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug, 
-                                                lam_adv=args.lam_adv if self.args.adversarial else 0.0,
-                                                lam_coral=args.lam_coral if self.args.CORAL else 0.0,
-                                                lam_mmd=args.lam_mmd if self.args.MMD else 0.0,  )
-                    else:
-                        loss_weak = 0
-                        loss_dict_weak = {}
-                else:
-                    loss_weak = 0
-                    loss_dict_weak = {}
+                    # forward pass and loss computation 
+                    sample_weak = to_cuda_inplace(sample_weak)
+                    output_weak = self.model(sample_weak, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=False, padding=False)
+                    loss_weak, loss_dict_weak = get_loss(output_weak, sample_weak, tag="weak", loss=args.loss, lam=args.lam, merge_aug=args.merge_aug, 
+                                            lam_adv=args.lam_adv if self.args.adversarial else 0.0,
+                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
+                                            lam_mmd=args.lam_mmd if self.args.MMD else 0.0)
+                    
+                    # Detach tensors
+                    loss_dict_weak = detach_tensors_in_dict(loss_dict_weak)
+
+                    # update loss
+                    optim_loss += loss_weak * self.args.lam_weak
 
                 # forward pass
                 sample = to_cuda_inplace(sample)
-                output = self.model(sample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.need_features)
+                output = self.model(sample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
             
                 # compute loss
                 loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
                                            lam_adv=args.lam_adv if self.args.adversarial else 0.0,
                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
-                                           lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
-                                           )
-                optim_loss = loss + loss_weak
-                # optim_loss = loss
+                                           lam_mmd=args.lam_mmd if self.args.MMD else 0.0 )
+                
+                # update loss
+                optim_loss += loss
+
+                # Detach tensors
+                loss_dict = detach_tensors_in_dict(loss_dict)
+
+                # accumulate statistics 
+                for key in loss_dict:
+                    self.train_stats[key] += loss_dict[key].cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key]
+                for key in loss_dict_weak:
+                    self.train_stats[key] += loss_dict_weak[key].cpu().item() if torch.is_tensor(loss_dict_weak[key]) else loss_dict_weak[key]
 
                 # detect NaN loss 
                 if torch.isnan(loss):
                     raise Exception("detected NaN loss..")
                 
-                # Detach tensors
-                loss_dict = detach_tensors_in_dict(loss_dict)
-                loss_dict_weak = detach_tensors_in_dict(loss_dict_weak)
-
-                # accumulate statistics 
-                for key in loss_dict:
-                    self.train_stats[key] += loss_dict[key].cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key]
-                # for key in loss_dict_weak:
-                #     self.train_stats[key] += loss_dict_weak[key].cpu().item() if torch.is_tensor(loss_dict_weak[key]) else loss_dict_weak[key] 
-
                 # backprop and stuff
                 if self.info["epoch"] > 0 or not self.args.skip_first:
                     optim_loss.backward()
@@ -239,15 +207,8 @@ class Trainer:
                         clip_grad_norm_(self.model.parameters(), self.args.gradient_clip)
 
                     self.optimizer.step()
-                
-                optim_loss = optim_loss.detach()
+                    optim_loss = optim_loss.detach()
 
-                # if we are in supervised mode, we need to update the weak data iterator when it runs out of data
-                if self.args.supmode=="weaksup":
-                    if self.dataloaders["weak_indices"][i%len(self.dataloaders["weak_indices"])] == self.dataloaders["weak_indices"][-1]:  
-                        random.shuffle(self.dataloaders["weak_indices"])
-                    # self.dataloaders["weak_iter"] = itertools.cycle(self.dataloaders["weak_indices"])
-                
                 # update info
                 self.info["iter"] += 1
                 self.info["sampleitr"] += self.args.batch_size//2 if self.args.da else self.args.batch_size
@@ -258,23 +219,28 @@ class Trainer:
                     p = float(i + self.info["epoch"] * len(self.dataloaders['train'])) / self.args.num_epochs / len(self.dataloaders['train'])
                     self.info["alpha"] = 2. / (1. + np.exp(-10 * p)) - 1
 
-                # logging
+                # if we are in supervised mode, we need to update the weak data iterator when it runs out of data
+                if self.args.supmode=="weaksup":
+                    if self.dataloaders["weak_indices"][i%len(self.dataloaders["weak_indices"])] == self.dataloaders["weak_indices"][-1]:  
+                        random.shuffle(self.dataloaders["weak_indices"])
+                        break
+
+                # logging and stuff
                 if (i + 1) % min(self.args.logstep_train, len(self.dataloaders['train'])) == 0:
                     self.train_stats = {k: v / self.args.logstep_train for k, v in self.train_stats.items()}
 
+                    # print logs to console via tqdm
                     inner_tnr.set_postfix(training_loss=self.train_stats['optimization_loss'])
                     if tnr is not None:
                         tnr.set_postfix(training_loss=self.train_stats['optimization_loss'],
                                         validation_loss=self.val_stats['optimization_loss'],
                                         best_validation_loss=self.best_optimization_loss)
 
-                    # upload logs
+                    # upload logs to wandb
                     wandb.log({**{k + '/train': v for k, v in self.train_stats.items()}, **self.info}, self.info["iter"])
                     
                     # reset metrics
                     self.train_stats = defaultdict(float)
-
-        print("DONE TRAINING EPOCH", self.info["epoch"])
 
     def validate(self):
         self.val_stats = defaultdict(float)
@@ -286,15 +252,14 @@ class Trainer:
             for sample in tqdm(self.dataloaders["val"], leave=False):
 
                 # forward pass
-                sample = to_cuda(sample)
+                sample = to_cuda_inplace(sample)
                 output = self.model(sample)
                 
                 # Colellect predictions and samples
                 pred.append(output["popcount"].view(-1)); gt.append(sample["y"].view(-1))
                 
                 # compute loss
-                loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
-                                           lam_builtmask=args.lam_builtmask,
+                loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug, 
                                            lam_adv=args.lam_adv if self.args.adversarial else 0.0,
                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                            lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
@@ -345,14 +310,13 @@ class Trainer:
             for sample in tqdm(self.dataloaders["test"], leave=False):
 
                 # forward pass
-                sample = to_cuda(sample)
+                sample = to_cuda_inplace(sample)
                 output = self.model(sample)
                 
                 # Colellect predictions and samples
                 if full_eval:
                     pred.append(output["popcount"].view(-1)); gt.append(sample["y"].view(-1)) 
-                    loss, loss_dict = get_loss(output, sample, loss=args.loss, merge_aug=args.merge_aug,
-                                                lam_builtmask=args.lam_builtmask,
+                    loss, loss_dict = get_loss(output, sample, loss=args.loss, merge_aug=args.merge_aug, 
                                                 lam_adv=args.lam_adv if self.args.adversarial else 0.0,
                                                 lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                                 lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
@@ -444,7 +408,7 @@ class Trainer:
 
                 for sample in tqdm(testdataloader, leave=False):
                     
-                    sample = to_cuda(sample)
+                    sample = to_cuda_inplace(sample)
                     xmin, xmax, ymin, ymax = [val.item() for val in sample["valid_coords"]]
                     xl,yl = [val.item() for val in sample["img_coords"]]
                     mask = sample["mask"][0].bool()
@@ -547,8 +511,8 @@ class Trainer:
         # create the dataloaders
         dataloaders =  {
             "train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, sampler=custom_sampler, shuffle=shuffle, drop_last=True, pin_memory=True),
-            "val":  DataLoader(datasets["val"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False),
-            "test":  DataLoader(datasets["test"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False),
+            "val":  DataLoader(datasets["val"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False, pin_memory=True),
+            "test":  DataLoader(datasets["test"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False,pin_memory=True),
             "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False) for datasets["test_target"] in datasets["test_target"] ]
         }
         

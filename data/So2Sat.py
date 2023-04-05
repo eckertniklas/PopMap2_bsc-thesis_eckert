@@ -11,7 +11,7 @@ from joblib import load
 from rasterio.enums import Resampling
 from torch.utils.data import Dataset
 from utils.constants import img_rows, img_cols, osm_features, num_classes, config_path
-from utils.utils import plot_2dmatrix
+from utils.plot import plot_2dmatrix
 import random
 
 

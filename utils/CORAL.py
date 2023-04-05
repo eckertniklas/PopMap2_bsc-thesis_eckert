@@ -1,6 +1,6 @@
 import torch
 from torch import Tensor
-# from utils.utils import plot_2dmatrix
+# from utils.plot import plot_2dmatrix, plot_and_save
 
 def coral(source: Tensor, target: Tensor) -> Tensor:
     """
@@ -35,17 +35,11 @@ def compute_covariance(input_data: Tensor) -> Tensor:
 
 if __name__=="__main__":
 
-    from utils import plot_2dmatrix
+    from utils.plot import plot_2dmatrix
     
     # Test case
-    source_features = torch.tensor([[1.0, 2.0, 3.0, 4.0, 5.0],
-                                    [3.0, 1.0, 0.5, 1.5, 2.5],
-                                    [0.0, 2.0, 1.0, 3.0, 4.0]], requires_grad=True)
-
-    target_features = torch.tensor([[2.0, 1.0, 4.0, 4.0, 5.0],
-                                    [1.0, 3.0, 2.0, 4.0, 5.0],
-                                    [4.0, 0.0, 1.5, 4.0, 3.0]], requires_grad=True)
-
+    source_features = torch.tensor([[1.0, 2.0, 3.0, 4.0, 5.0], [3.0, 1.0, 0.5, 1.5, 2.5], [0.0, 2.0, 1.0, 3.0, 4.0]], requires_grad=True)
+    target_features = torch.tensor([[2.0, 1.0, 4.0, 4.0, 5.0], [1.0, 3.0, 2.0, 4.0, 5.0], [4.0, 0.0, 1.5, 4.0, 3.0]], requires_grad=True)
     loss = coral(source_features, target_features)
     loss.backward()
     print("CORAL Loss:", loss.item())

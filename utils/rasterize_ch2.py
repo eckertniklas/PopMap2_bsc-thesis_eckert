@@ -21,7 +21,7 @@ from PIL import Image
 from PIL.Image import Resampling as PILRes
 
 tqdm.pandas()
-from utils import plot_2dmatrix
+from utils.plot import plot_2dmatrix
 
 
 

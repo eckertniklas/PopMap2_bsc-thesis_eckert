@@ -1,24 +1,7 @@
-
-
 import torch
 import random
 from torch.utils.data import Sampler
 import torch.utils.data as torch_data
-
-
-
-
-
-"""
-custom_sampler = LabeledUnlabeledSampler(
-        labeled_indices=dataset.ind_labeled,
-        unlabeled_indices=dataset.ind_unlabeled,
-        batch_size=cfg.TRAINER.BATCH_SIZE
-    )
-
-dataloader = torch_data.DataLoader(dataset,sampler = custom_sampler, **dataloader_kwargs)
-"""
-
 
 # Taken from Arno Rüegg's implementation
 class LabeledUnlabeledSampler(Sampler):
@@ -64,13 +47,7 @@ class LabeledUnlabeledSampler(Sampler):
         mixed_batches = torch.concat([labeled_batches, unlabeled_batches], 1).tolist()
 
         # yield batches of labeled and unlabeled data
-        return iter(batch for batches in mixed_batches for batch in batches)
-    
-        # yield
-    
-    # # Resart itaration
-    # def __next__(self):
-    #     return self.__iter__()
+        return iter(batch for batches in mixed_batches for batch in batches)    
     
     def __len__(self):
         """

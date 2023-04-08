@@ -57,6 +57,7 @@ class CustomUNet(smp.Unet):
         else:
             self.decoder.center = nn.Identity()
 
+        # initialize
         print("self.encoder.out_channels", self.encoder.out_channels)
         self.name = "u-{}".format(encoder_name)
         self.initialize()
@@ -83,12 +84,10 @@ class CustomUNet(smp.Unet):
             print("Total # of effective Parameters:", stages_param_count+decoder_sum+segmentation_sum)
         return stages_param_count+decoder_sum+segmentation_sum
             
-
     def forward(self, x, return_features=True, encoder_no_grad=False):
         """Sequentially pass `x` trough model`s e ncoder, decoder and heads"""
 
         self.check_input_shape(x)
-
         bs,_,h,w = x.shape
 
         # encoder
@@ -97,12 +96,8 @@ class CustomUNet(smp.Unet):
                 features = self.encoder(x)
         else:
             features = self.encoder(x)
-
-        # decoder
-        # classic_implementation = False
-        # if classic_implementation:
-            # decoder_output = self.decoder(*features)
-        # else:
+        
+        # rearrange features to start from head of encoder
         features = features[1:]  # remove first skip with same spatial resolution
         features = features[::-1]  # reverse channels to start from head of encoder
 
@@ -198,9 +193,14 @@ class JacobsUNet(nn.Module):
             )
         elif classifier=="v9":
             self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel.latent_dim, 128), nn.ReLU(),
+                nn.Linear(self.unetmodel.latent_dim, 64), nn.ReLU(),
                 nn.Linear(64, 64),  nn.ReLU(),
-                nn.Linear(100, 1),  nn.Sigmoid()
+                nn.Linear(64, 1),  nn.Sigmoid()
+            )
+        elif classifier=="v10":
+            self.domain_classifier = nn.Sequential(
+                nn.Linear(self.unetmodel.latent_dim, 32), nn.ReLU(),
+                nn.Linear(32, 1),  nn.Sigmoid()
             )
         else:
             self.domain_classifier = None
@@ -226,7 +226,7 @@ class JacobsUNet(nn.Module):
         out = self.head(features)
 
         # Foward the domain classifier
-        if self.domain_classifier is not None:
+        if self.domain_classifier is not None and return_features:
             reverse_features = ReverseLayerF.apply(decoder_features.unsqueeze(3), alpha) # apply gradient reversal layer
             domain = self.domain_classifier(reverse_features.permute(0,2,3,1).reshape(-1, reverse_features.size(1))).view(reverse_features.size(0),-1)
         else:
@@ -235,7 +235,8 @@ class JacobsUNet(nn.Module):
         # Population map and total count
         popdensemap = nn.functional.relu(out[:,0])
         if "admin_mask" in inputs.keys():
-            popcount = (popdensemap * (inputs["admin_mask"]==inputs["census_idx"])).sum((1,2))
+            # make the following line work for both 2D and 3D
+            popcount = (popdensemap * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
         else:
             popcount = popdensemap.sum((1,2))
 

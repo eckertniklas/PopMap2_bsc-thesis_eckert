@@ -28,7 +28,8 @@ class Population_Dataset_target(Dataset):
     Population dataset for target domain
     Use this dataset to evaluate the model on the target domain and compare it the census data
     """
-    def __init__(self, region, S1=False, S2=True, VIIRS=True, NIR=False, patchsize=1024, overlap=32, fourseasons=False, mode="test") -> None:
+    def __init__(self, region, S1=False, S2=True, VIIRS=True, NIR=False, patchsize=1024, overlap=32, fourseasons=False, mode="test",
+                 max_samples=None, transform=None) -> None:
         """
         Input:
             region: the region identifier (e.g. "pri" for puerto rico)
@@ -52,6 +53,7 @@ class Population_Dataset_target(Dataset):
         self.overlap = overlap
         self.fourseasons = fourseasons
         self.mode = mode
+        self.transform = transform
 
         # get the path to the data
         region_root = os.path.join(pop_map_root, region)
@@ -68,15 +70,19 @@ class Population_Dataset_target(Dataset):
             self.coarse_census = pd.read_csv(self.coarse_census_file)
             max_pix = 2e6
             print("Kicking out ", (self.coarse_census["count"]>=max_pix).sum(), "samples with more than ", int(max_pix), " pixels")
-            self.coarse_census = self.coarse_census[self.coarse_census["count"]<max_pix].reset_index()
+            self.coarse_census = self.coarse_census[self.coarse_census["count"]<max_pix].reset_index(drop=True)
+
+
             # redefine indexing
+            if max_samples is not None:
+                # self.coarse_census = self.coarse_census[:max_samples].reset_index()
+                self.coarse_census = self.coarse_census.sample(frac=1, random_state=1610)[:max_samples].reset_index(drop=True)
 
             # get the shape of the coarse regions
             with rasterio.open(self.coarse_boundary_file, "r") as src:
                 self.cr_regions = src.read(1)
 
-        elif self.mode=="test":
-            # testdata specific preparation
+        elif self.mode=="test": # testdata specific preparation
             # get the shape of the images
             with rasterio.open(self.boundary_file, "r") as src:
                 self.img_shape = src.shape
@@ -202,7 +208,7 @@ class Population_Dataset_target(Dataset):
                 'admin_mask': torch.from_numpy(self.cr_regions[xmin:xmax, ymin:ymax]).type(torch.FloatTensor),
                 'img_coords': (xmin,ymin), 'valid_coords':  (xmin, xmax, ymin, ymax),
                 'season': self.inv_season_dict[season],# 'season_str': [season],
-                'source': torch.tensor(True), "census_idx": census_sample["idx"],
+                'source': torch.tensor(True), "census_idx": torch.tensor([census_sample["idx"]]),
                 }
 
 
@@ -409,6 +415,42 @@ class Population_Dataset_target(Dataset):
         with rasterio.open(output_file, "w", **self._meta) as dest:
             dest.write(preds,1)
         pass
+
+
+# collate function for the dataloader
+def Population_Dataset_collate_fn(batch):
+    """
+    Collate function for the dataloader
+    inputs:
+        :param batch: the batch of data with irregular shapes
+    outputs:
+        :return: the batch of data with same shapes
+    """
+    # Find the maximum dimensions for each item in the batch
+    max_x = max([item['input'].shape[1] for item in batch])
+    max_y = max([item['input'].shape[2] for item in batch])
+
+    # Create empty tensors with the maximum dimensions
+    input_batch = torch.zeros(len(batch), batch[0]['input'].shape[0], max_x, max_y)
+    admin_mask_batch = torch.zeros(len(batch), max_x, max_y)
+    y_batch = torch.zeros(len(batch))
+
+    for i, item in enumerate(batch):
+        x_size, y_size = item['input'].shape[1], item['input'].shape[2]
+        input_batch[i, :, :x_size, :y_size] = item['input']
+        admin_mask_batch[i, :x_size, :y_size] = item['admin_mask']
+        y_batch[i] = item['y']
+
+    return {
+        'input': input_batch,
+        'admin_mask': admin_mask_batch,
+        'y': y_batch,
+        'img_coords': [item['img_coords'] for item in batch],
+        'valid_coords': [item['valid_coords'] for item in batch],
+        'season': torch.tensor([item['season'] for item in batch]),
+        'source': torch.tensor([item['source'] for item in batch], dtype=torch.bool),
+        'census_idx': torch.cat([item['census_idx'] for item in batch]),
+    }
 
 
 if __name__=="__main__":

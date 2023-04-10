@@ -68,10 +68,9 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
 
     # prepare for logging
     if tag=="":
-        popdict = {"Population"+"/"+key: value for key,value in popdict.items()}
+        auxdict = {**auxdict, **{"Population"+"/"+key: value for key,value in popdict.items()}}
     else:
-        popdict = {"Population/"+tag+"/"+key: value for key,value in popdict.items()}
-    auxdict = {**auxdict, **popdict}
+        auxdict = {**auxdict, **{"Population/"+tag+"/"+key: value for key,value in popdict.items()}}
 
     # Adversarial loss
     if ~gt["source"].all():
@@ -97,8 +96,7 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
 
             # prepate for logging
             adv_dict.update(**class_metrics(pred_domain, gt_domain, thresh=0.5))
-            adv_dict = {"Domainadaptation/adv/"+key: value for key,value in adv_dict.items()}
-            auxdict = {**auxdict, **adv_dict}
+            auxdict = {**auxdict, **{"Domainadaptation/adv/"+key: value for key,value in adv_dict.items()}}
         
         # CORAL Domain adaptation loss
         if lam_coral>0.0:
@@ -108,8 +106,7 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
             optimization_loss += lam_coral*coral_dict["coral_loss"]
 
             # prepate for logging
-            coral_dict = {"Domainadaptation/"+key: value for key,value in coral_dict.items()}
-            auxdict = {**auxdict, **coral_dict}
+            auxdict = {**auxdict, **{"Domainadaptation/"+key: value for key,value in coral_dict.items()}}
 
         # MMD Domain adaptation loss
         if lam_mmd>0.0:
@@ -119,8 +116,7 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
             optimization_loss += lam_mmd*mmd_dict["mmd_loss"]
 
             # prepate for logging
-            mmd_dict = {"Domainadaptation/"+key: value for key,value in mmd_dict.items()}
-            auxdict = {**auxdict, **mmd_dict}
+            auxdict = {**auxdict, **{"Domainadaptation/"+key: value for key,value in mmd_dict.items()}}
         
     # prepare for logging
     auxdict["optimization_loss"] =  optimization_loss

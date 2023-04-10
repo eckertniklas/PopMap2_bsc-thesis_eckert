@@ -202,6 +202,11 @@ class JacobsUNet(nn.Module):
                 nn.Linear(self.unetmodel.latent_dim, 32), nn.ReLU(),
                 nn.Linear(32, 1),  nn.Sigmoid()
             )
+        elif classifier=="v11":
+            self.domain_classifier = nn.Sequential(
+                nn.Linear(self.unetmodel.latent_dim, 8), nn.ReLU(),
+                nn.Linear(8, 1),  nn.Sigmoid()
+            )
         else:
             self.domain_classifier = None
 
@@ -226,7 +231,7 @@ class JacobsUNet(nn.Module):
         out = self.head(features)
 
         # Foward the domain classifier
-        if self.domain_classifier is not None and return_features:
+        if self.domain_classifier is not None and return_features and alpha>0:
             reverse_features = ReverseLayerF.apply(decoder_features.unsqueeze(3), alpha) # apply gradient reversal layer
             domain = self.domain_classifier(reverse_features.permute(0,2,3,1).reshape(-1, reverse_features.size(1))).view(reverse_features.size(0),-1)
         else:

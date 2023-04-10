@@ -64,19 +64,18 @@ class Population_Dataset_target(Dataset):
         self.coarse_boundary_file = os.path.join(region_root, "boundaries_COUNTYFP20.tif")
         self.coarse_census_file = os.path.join(region_root, "census_COUNTYFP20.csv")
         
+        # weaksup data specific preparation
         if self.mode == "weaksup":
-            # weaksup data specific preparation
             # read the census file
             self.coarse_census = pd.read_csv(self.coarse_census_file)
             max_pix = 2e6
             print("Kicking out ", (self.coarse_census["count"]>=max_pix).sum(), "samples with more than ", int(max_pix), " pixels")
             self.coarse_census = self.coarse_census[self.coarse_census["count"]<max_pix].reset_index(drop=True)
 
-
             # redefine indexing
             if max_samples is not None:
-                # self.coarse_census = self.coarse_census[:max_samples].reset_index()
                 self.coarse_census = self.coarse_census.sample(frac=1, random_state=1610)[:max_samples].reset_index(drop=True)
+            print("Using", len(self.coarse_census), "samples for weakly supervised training")
 
             # get the shape of the coarse regions
             with rasterio.open(self.coarse_boundary_file, "r") as src:
@@ -201,6 +200,10 @@ class Population_Dataset_target(Dataset):
 
         # get the data
         data, _ = self.data_generation(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0)
+
+        # transform the input data with augmentations
+        if self.transform:
+            data = self.transform(data)
 
         # return dictionary
         return {'input': torch.from_numpy(data).type(torch.FloatTensor),

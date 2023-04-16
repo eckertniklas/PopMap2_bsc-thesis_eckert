@@ -76,7 +76,7 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
     if ~gt["source"].all():
 
         # Adversarial Domain adaptation loss
-        if lam_adv>0.0:
+        if lam_adv>0.0 and output["domain"] is not None:
             # prepare vars
             if len(output["domain"].shape)==4:
                 dims = output["domain"].shape
@@ -99,7 +99,7 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
             auxdict = {**auxdict, **{"Domainadaptation/adv/"+key: value for key,value in adv_dict.items()}}
         
         # CORAL Domain adaptation loss
-        if lam_coral>0.0:
+        if lam_coral>0.0 and output["decoder_features"] is not None:
             source_features = output["decoder_features"][gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
             target_features = output["decoder_features"][~gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
             coral_dict = {"coral_loss": coral(source_features.T, target_features.T)}
@@ -109,7 +109,7 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
             auxdict = {**auxdict, **{"Domainadaptation/"+key: value for key,value in coral_dict.items()}}
 
         # MMD Domain adaptation loss
-        if lam_mmd>0.0:
+        if lam_mmd>0.0 and output["decoder_features"] is not None:
             source_features = output["decoder_features"][gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
             target_features = output["decoder_features"][~gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
             mmd_dict = {"mmd_loss": mmd(source_features.T, target_features.T)}

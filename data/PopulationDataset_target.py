@@ -202,13 +202,16 @@ class Population_Dataset_target(Dataset):
         data, _ = self.data_generation(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0)
 
         # transform the input data with augmentations
+        data = torch.from_numpy(data).type(torch.FloatTensor)
+        admin_mask = torch.from_numpy(self.cr_regions[xmin:xmax, ymin:ymax]).type(torch.FloatTensor)
         if self.transform:
-            data = self.transform(data)
+            data, admin_mask = self.transform((data, admin_mask.unsqueeze(0)))
+            admin_mask = admin_mask.squeeze(0)
 
         # return dictionary
-        return {'input': torch.from_numpy(data).type(torch.FloatTensor),
+        return {'input': data,
                 'y': torch.from_numpy(np.asarray(census_sample["POP20"])).type(torch.FloatTensor),
-                'admin_mask': torch.from_numpy(self.cr_regions[xmin:xmax, ymin:ymax]).type(torch.FloatTensor),
+                'admin_mask': admin_mask,
                 'img_coords': (xmin,ymin), 'valid_coords':  (xmin, xmax, ymin, ymax),
                 'season': self.inv_season_dict[season],# 'season_str': [season],
                 'source': torch.tensor(True), "census_idx": torch.tensor([census_sample["idx"]]),
@@ -271,6 +274,7 @@ class Population_Dataset_target(Dataset):
             else:
                 if fake:
                     raw_data = np.random.randint(0, 10000, size=(3,patchsize_x,patchsize_y))
+                else:
                     with rasterio.open(S2_file, "r") as src:
                         raw_data = src.read((4,3,2), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
                 this_mask = raw_data.sum(axis=0) != 0
@@ -322,11 +326,9 @@ class Population_Dataset_target(Dataset):
             boundary = torch.from_numpy(boundary).cuda()
 
             # iterate over census regions and get totals
-            census_pred = torch.zeros(len(census), dtype=torch.float32).cuda()
-            # for i in tqdm(range(len(census))):
+            census_pred = torch.zeros(len(census), dtype=torch.float32).cuda() 
             for i,bbox in (zip(census["idx"], census["bbox"])):
                 xmin, xmax, ymin, ymax = tuple(map(int, census.loc[i]["bbox"].strip('()').split(',')))
-                # xmin, xmax, ymin, ymax = tuple(map(int, census.loc[3]["bbox"].strip('()').split(',')))
                 census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==i].sum()
 
         else:
@@ -368,33 +370,6 @@ class Population_Dataset_target(Dataset):
         y_min = self.y_stats['min']
         y = y_scaled * (y_max - y_min) + y_min
         return y
-    
-    # taken from https://stackoverflow.com/questions/64022697/max-pooling-with-complex-masks-in-pytorch
-    def mask_max_pool(self, embeddings, mask):
-        '''
-        Inputs:
-        ------------------
-        embeddings: [B, D, E], 
-        mask: [B, R, D], 0s and 1s, 1 indicates membership
-
-        Outputs:
-        ------------------
-        max pooled embeddings: [B, R, E], the max pooled embeddings according to the membership in mask
-        max pooled index： [B, R, E], the max pooled index
-        '''
-        raise NotImplementedError
-        B, D, E = embeddings.shape
-        _, R, _ = mask.shape
-        # extend embedding with placeholder
-        embeddings_ = torch.cat([-1e6*torch.ones_like(embeddings[:, :1, :]), embeddings], dim=1)
-        # transform mask to index
-        index = torch.arange(1, D+1).view(1, 1, -1).repeat(B, R, 1) * mask# [B, R, D]
-        # batch indices
-        batch_indices = torch.arange(B).view(B, 1, 1).repeat(1, R, D)
-        # retrieve embeddings by index
-        indexed = embeddings_[batch_indices.flatten(), index.flatten(), :].view(B, R, D, E)# [B, R, D, E]
-        # return
-        return indexed.max(dim=-2)
 
     def save(self, preds, output_folder) -> None:
         """
@@ -417,7 +392,6 @@ class Population_Dataset_target(Dataset):
         output_file = os.path.join(output_folder, self.region + "_predictions.tif")
         with rasterio.open(output_file, "w", **self._meta) as dest:
             dest.write(preds,1)
-        pass
 
 
 # collate function for the dataloader

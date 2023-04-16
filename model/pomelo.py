@@ -85,7 +85,9 @@ class CustomUNet(smp.Unet):
         return stages_param_count+decoder_sum+segmentation_sum
             
     def forward(self, x, return_features=True, encoder_no_grad=False):
-        """Sequentially pass `x` trough model`s e ncoder, decoder and heads"""
+        """
+        pass `x` trough model`s encoder, decoder and heads
+        """
 
         self.check_input_shape(x)
         bs,_,h,w = x.shape
@@ -106,6 +108,7 @@ class CustomUNet(smp.Unet):
 
         x = self.decoder.center(head)
 
+        # decoder, with skip connections
         decoder_features = []
         for i, decoder_block in enumerate(self.decoder.blocks):
             skip = skips[i] if i < len(skips) else None
@@ -115,12 +118,15 @@ class CustomUNet(smp.Unet):
                 xup = F.interpolate(x, size=(h//self.fsub,w//self.fsub), mode='nearest') # TODO: interpolate to other size
                 decoder_features.append(xup.view(bs,x.size(1),-1))
         decoder_output = x
-
+        
+        # bunddle features
         if return_features:
             decoder_features = torch.concatenate(decoder_features,1)
 
+        # segmentation head forward
         masks = self.segmentation_head(decoder_output)
 
+        # return mask and labels if classification head is present
         if self.classification_head is not None:
             labels = self.classification_head(features[-1])
             return masks, labels
@@ -206,6 +212,14 @@ class JacobsUNet(nn.Module):
             self.domain_classifier = nn.Sequential(
                 nn.Linear(self.unetmodel.latent_dim, 8), nn.ReLU(),
                 nn.Linear(8, 1),  nn.Sigmoid()
+            )
+        elif classifier=="v12":
+            self.domain_classifier = nn.Sequential(
+                nn.Linear(self.unetmodel.latent_dim, 64), nn.ReLU(),
+                nn.Linear(64, 64),  nn.ReLU(),
+                nn.Linear(64, 64),  nn.ReLU(),
+                nn.Linear(64, 64),  nn.ReLU(),
+                nn.Linear(64, 1),  nn.Sigmoid()
             )
         else:
             self.domain_classifier = None

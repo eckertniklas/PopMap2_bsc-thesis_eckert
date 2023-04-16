@@ -225,10 +225,9 @@ class PopulationDataset_Reg(Dataset):
         with rasterio.open(ID_temp, 'r') as ds: 
             if 'sen2' in data:
                 if channels==3:
-                    image = ds.read((4,3,2)) 
-                    # image = ds.read((4,3,2), out_shape=(ds.count, img_rows, img_cols), resampling=Resampling.cubic)
+                    image = ds.read((4,3,2))
                 elif channels==4:
-                    image = ds.read((4,3,2,8)) 
+                    image = ds.read((4,3,2,8))
             elif data == 'lcz':
                 image = ds.read(out_shape=(ds.count, img_rows, img_cols))
             elif "Pop" in data:

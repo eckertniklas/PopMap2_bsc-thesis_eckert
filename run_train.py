@@ -10,7 +10,7 @@ from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader, ChainDataset, ConcatDataset
 from torchvision.transforms import Normalize
 from torchvision import transforms
-from utils.transform import RandomRotationTransform, RandomHorizontalVerticalFlip, RandomBrightness, RandomGamma, AddGaussianNoise
+from utils.transform import RandomRotationTransform, RandomHorizontalFlip, RandomVerticalFlip, RandomHorizontalVerticalFlip, RandomBrightness, RandomGamma, HazeAdditionModule, AddGaussianNoise
 from tqdm import tqdm
 
 import itertools
@@ -216,7 +216,7 @@ class Trainer:
 
                     self.optimizer.step()
                     optim_loss = optim_loss.detach()
-                    torch.cuda.empty_cache()
+                    # torch.cuda.empty_cache()
 
                 # update info
                 self.info["iter"] += 1
@@ -408,26 +408,23 @@ class Trainer:
         self.model.eval()
         self.test_stats = defaultdict(float)
 
-        with torch.no_grad():  
-            # test_dataloader = True
-            # if test_dataloader:
-            #     for i in range(3):
-            #         sample = self.dataloaders["test_target"][0].dataset[i]
-
+        with torch.no_grad(): 
             for testdataloader in self.dataloaders["test_target"]:
-                    
+
                 # inputialize the output map
                 h, w = testdataloader.dataset.shape()
                 output_map = torch.zeros((h, w))
                 output_map_count = torch.zeros((h, w))
 
                 for sample in tqdm(testdataloader, leave=False):
-                    
                     sample = to_cuda_inplace(sample)
+
+                    # get the valid coordinates
                     xmin, xmax, ymin, ymax = [val.item() for val in sample["valid_coords"]]
                     xl,yl = [val.item() for val in sample["img_coords"]]
                     mask = sample["mask"][0].bool()
 
+                    # get the output with a forward pass
                     output = self.model(sample, padding=False)
 
                     # add the output to the output map
@@ -462,34 +459,27 @@ class Trainer:
         input_defs = {'S1': args.Sentinel1, 'S2': args.Sentinel2, 'VIIRS': args.VIIRS, 'NIR': args.NIR}
         params = {'dim': (img_rows, img_cols), "satmode": args.satmode, 'in_memory': args.in_memory, **input_defs}
 
-        if not args.Sentinel1: 
-            data_transform = transforms.Compose([
-                # AddGaussianNoise(std=0.1, p=0.9),
-                # transforms.RandomHorizontalFlip(p=0.5),
-                # transforms.RandomVerticalFlip(p=0.5),
-                # RandomRotationTransform(angles=[90, 180, 270], p=0.75),
-                # RandomGamma(),
-                # RandomBrightness()
-            ])
-        else:
-            if args.full_aug:
+        if args.full_aug:
                 data_transform = transforms.Compose([
                     AddGaussianNoise(std=0.1, p=0.9),
+                    # SyntheticHaze(p=0.75),
                     # RandomHorizontalVerticalFlip(p=0.5),
-                    transforms.RandomVerticalFlip(p=0.5),
-                    transforms.RandomHorizontalFlip(p=0.5),
+                    RandomVerticalFlip(p=0.5), RandomHorizontalFlip(p=0.5),
                     RandomRotationTransform(angles=[90, 180, 270], p=0.75),
-                    # RandomGamma(),
-                    # RandomBrightness()
+                ])
+        else: 
+            if not args.Sentinel1: 
+                data_transform = transforms.Compose([
+                    HazeAdditionModule()
+                    # AddGaussianNoise(std=0.1, p=0.9),
+                    # transforms.RandomHorizontalFlip(p=0.5), transforms.RandomVerticalFlip(p=0.5),
+                    # RandomRotationTransform(angles=[90, 180, 270], p=0.75), 
                 ])
             else:
                 data_transform = transforms.Compose([
                     # AddGaussianNoise(std=0.1, p=0.9),
-                    # RandomHorizontalVerticalFlip(p=0.5),
-                    # transforms.RandomVerticalFlip(p=0.5),
-                    # RandomRotationTransform(angles=[90, 180, 270], p=0.75),
-                    # RandomGamma(),
-                    # RandomBrightness()
+                    # RandomHorizontalVerticalFlip(p=0.5), transforms.RandomVerticalFlip(p=0.5),
+                    # RandomRotationTransform(angles=[90, 180, 270], p=0.75), 
                 ])
         
         # source domain samples

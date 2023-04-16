@@ -9,6 +9,7 @@ from utils.constants import config_path
 from utils.file_folder_ops import load_json
 
 from utils.utils import *
+from utils.plot import plot_2dmatrix
 
 
 class AddGaussianNoise(object):
@@ -24,9 +25,13 @@ class AddGaussianNoise(object):
         self.p = p
         
     def __call__(self, x):
+        if torch.is_tensor(x):
+            mask = None
+        else:
+            x, mask = x
         if torch.rand(1) < self.p:
-            return x + torch.randn(x.size()) * self.std + self.mean
-        return x
+            x += torch.randn(x.size()) * self.std + self.mean
+        return x if mask is None else (x, mask)
     
     def __repr__(self):
         return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
@@ -37,13 +42,50 @@ class RandomHorizontalVerticalFlip(object):
         self.p = p
         
     def __call__(self, x):
+        if torch.is_tensor(x):
+            mask = None
+        else:
+            x, mask = x
         if torch.rand(1) < self.p:
-            return TF.hflip(TF.vflip(x))
-        return x
+            return TF.hflip(TF.vflip(x)) if mask is None else (TF.hflip(TF.vflip(x)), TF.hflip(TF.vflip(mask)))
+        return x if mask is None else (x, mask)
     
     def __repr__(self):
         return self.__class__.__name__ + '(p={0}'.format(self.p)
 
+
+class RandomVerticalFlip(object):
+    def __init__(self, p=0.5): 
+        self.p = p
+        
+    def __call__(self, x):
+        if torch.is_tensor(x):
+            mask = None
+        else:
+            x, mask = x
+        if torch.rand(1) < self.p:
+            return TF.vflip(x) if mask is None else (TF.vflip(x), TF.vflip(mask))
+        return x if mask is None else (x, mask)
+        
+    def __repr__(self):
+        return self.__class__.__name__ + '(p={0}'.format(self.p)
+
+
+class RandomHorizontalFlip(object):
+    def __init__(self, p=0.5): 
+        self.p = p
+        
+    def __call__(self, x):
+        if torch.is_tensor(x):
+            mask = None
+        else:
+            x, mask = x
+        if torch.rand(1) < self.p:
+            return TF.hflip(x) if mask is None else (TF.hflip(x), TF.hflip(mask))
+        return x if mask is None else (x, mask)
+        
+    def __repr__(self):
+        return self.__class__.__name__ + '(p={0}'.format(self.p)
 
 
 class RandomRotationTransform(torch.nn.Module):
@@ -58,16 +100,24 @@ class RandomRotationTransform(torch.nn.Module):
         self.p = p
 
     def __call__(self, x):
+        """
+        Description:
+            Rotate the input tensor image by one of the given angles.  
+        """
+        if torch.is_tensor(x):
+            mask = None
+        else:
+            x, mask = x
         if torch.rand(1) < self.p:
             angle = random.choice(self.angles)
-            return TF.rotate(x, angle)
-        return x
+            return TF.rotate(x, angle) if mask is None else (TF.rotate(x, angle), TF.rotate(mask, angle))
+        return x if mask is None else (x, mask)
 
 
 class RandomGamma(torch.nn.Module):
-    """Perform gamma correction on an image.
-
-    Also known as Power Law Transform.
+    """
+    Perform gamma correction on an image.
+    Also known as Power Law Transform. Intensities in RGB mode are adjusted
     """
 
     def __init__(self, gamma_limit=(0.8, 1.2), p=0.5):
@@ -98,9 +148,9 @@ class RandomBrightness(torch.nn.Module):
     """Perform random brightness on an image.
     """
 
-    def __init__(self, beta_limit=(0.8, 1.2), p=0.5):
+    def __init__(self, beta_limit=(1.0, 1.0), p=0.5):
         self.beta_limit = beta_limit
-        self.p = p
+        # self.p = p
         dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'mod_dataset_stats.json'))
         self.data_mean = dataset_stats['sen2spring']['mean']
         self.data_std = dataset_stats['sen2spring']['std']
@@ -119,3 +169,95 @@ class RandomBrightness(torch.nn.Module):
                 x[i:i + 1] = x[i:i + 1] - self.data_mean[i]
                 x[i:i + 1] = x[i:i + 1] / self.data_std[i]
         return x
+
+# import torch
+# import torch.nn as nn
+# import cv2
+# import numpy as np
+
+
+# class SyntheticHaze(nn.Module):
+#     def __init__(self, p=0.75, haze_intensity=0.5, blur_radius=30, brightness_reduction=40):
+#         super(SyntheticHaze, self).__init__()
+#         self.p = p
+#         self.haze_intensity = haze_intensity
+#         self.blur_radius = blur_radius
+#         self.brightness_reduction = brightness_reduction
+    
+#     def create_gaussian_kernel(self, size, sigma=None):
+#         if sigma is None:
+#             sigma = 0.3 * ((size - 1) * 0.5 - 1) + 0.8
+#         x = torch.linspace(-(size // 2), size // 2, steps=size)
+#         gauss_kernel = torch.exp(-0.5 * (x / sigma) ** 2)
+#         gauss_kernel /= gauss_kernel.sum()
+#         return gauss_kernel.view(1, -1)
+
+#     def gaussian_blur(self, img):
+#         padding = self.blur_radius // 2
+#         img_padded = torch.nn.functional.pad(img, (padding, padding, padding, padding), mode='reflect')
+#         # kernel = cv2.getGaussianKernel(self.blur_radius, 0)
+#         # kernel = torch.from_numpy(kernel).float().view(1, -1)
+#         kernel = self.create_gaussian_kernel(self.blur_radius)
+#         kernel2d = torch.matmul(kernel.t(), kernel)
+#         # kernel2d = kernel2d.view(1, 1, self.blur_radius, self.blur_radius)
+#         kernel2d = kernel2d.repeat(img.shape[0], 1, 1, 1)
+#         blurred_img = torch.nn.functional.conv2d(img_padded, kernel2d, groups=img.shape[0])
+#         return blurred_img
+
+#     def forward(self, x):
+#         if torch.rand(1) < self.p:
+#             x_float = x.float()
+#             white_img = torch.full_like(x_float, 255)
+#             haze_img = self.gaussian_blur(white_img)
+#             haze_img -= self.brightness_reduction
+#             haze_img = torch.clamp(haze_img, 0, 255)
+#             hazed_image  = x_float * (1 - self.haze_intensity) + haze_img * self.haze_intensity
+#             hazed_image  = torch.clamp(hazed_image , 0, 255).to(x.dtype)
+#             x = hazed_image
+#         return x
+    
+
+def generate_haze_parameters():
+    # Generate random haze parameters based on atmospheric conditions
+    atmosphere_light = np.random.uniform(0.3, 3.0) # in terms of "sigma"
+    haze_density = np.random.uniform(0.05, 0.5)
+    return atmosphere_light, haze_density
+
+class HazeAdditionModule(torch.nn.Module):
+    def __init__(self, p=0.9):
+        super(HazeAdditionModule, self).__init__()
+        self.p = p
+
+    def forward(self, x):
+        """
+        Args:
+            x: Multispectral satellite imagery, Tensor of shape (batch_size, num_channels, height, width)
+        Returns:
+            x_haze: Hazy multispectral satellite imagery, Tensor of the same shape as x
+        """
+        if torch.rand(1) < self.p:
+            
+            # Check if the input image is 3D or 4D
+            if len(x.shape) == 3:
+                num_channels, height, width = x.shape
+                x = x.unsqueeze(0)  # Add a batch dimension
+                batched = False
+            else:
+                batch_size, num_channels, height, width = x.shape 
+                batched = True
+            atmosphere_light, haze_density = generate_haze_parameters()
+
+            # Create the haze layer
+            haze_layer = torch.ones((1, num_channels, height, width), dtype=torch.float32) * atmosphere_light
+
+            # Apply haze to the input image
+            x_haze = x * (1 - haze_density) + haze_layer * haze_density
+
+            # squeeze the batch dimension
+            if not batched:
+                x_haze = x_haze.squeeze(0)  # Remove the batch dimension
+
+            x = x_haze
+
+        return x
+    

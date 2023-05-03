@@ -3,6 +3,9 @@
 import os
 import torch
 from torch.utils.data import Dataset
+import torch.nn.functional as F
+from scipy import ndimage
+from scipy.interpolate import griddata
 import rasterio
 import numpy as np
 import json
@@ -113,9 +116,9 @@ class Population_Dataset_target(Dataset):
         for mkey in self.dataset_stats.keys():
             if isinstance(self.dataset_stats[mkey], dict):
                 for key,val in self.dataset_stats[mkey].items():
-                    self.dataset_stats[mkey][key] = np.array(val)
+                    self.dataset_stats[mkey][key] = torch.tensor(val)
             else:
-                self.dataset_stats[mkey] = np.array(val)
+                self.dataset_stats[mkey] = torch.tensor(val)
 
     def get_patch_indices(self, patchsize, overlap):
         """
@@ -172,7 +175,6 @@ class Population_Dataset_target(Dataset):
         elif self.mode=="weaksup":
             return len(self.coarse_census)
 
-
     def __getitem__(self, index: int) -> Dict[str, torch.FloatTensor]:
         """
         Description:
@@ -199,17 +201,31 @@ class Population_Dataset_target(Dataset):
         season = random.choice(['spring', 'autumn', 'winter', 'summer']) if self.fourseasons else "spring"
 
         # get the data
-        data, _ = self.data_generation(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0)
+        indata, auxdata = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0)
 
-        # transform the input data with augmentations
-        data = torch.from_numpy(data).type(torch.FloatTensor)
-        admin_mask = torch.from_numpy(self.cr_regions[xmin:xmax, ymin:ymax]).type(torch.FloatTensor)
+        # To Torch
+        indata = {key:torch.from_numpy(np.asarray(val, dtype=np.float32)).type(torch.FloatTensor) for key,val in indata.items()}
+
+        # Modality wise transformations
         if self.transform:
-            data, admin_mask = self.transform((data, admin_mask.unsqueeze(0)))
+            if "S2" in self.transform and "S2" in indata:
+                indata["S2"] = self.transform["S2"](indata["S2"])
+            if "S1" in self.transform and "S1" in indata:
+                indata["S1"] = self.transform["S1"](indata["S1"])
+
+        # Normalization
+        indata = self.normalize_indata(indata)
+
+        # merge inputs
+        X = torch.concatenate([indata[key] for key in ["S2", "S1", "VIIRS"] if key in indata], dim=0)
+
+        # General transformations
+        if self.transform:
+            X, admin_mask = self.transform((X, admin_mask.unsqueeze(0)))
             admin_mask = admin_mask.squeeze(0)
 
         # return dictionary
-        return {'input': data,
+        return {'input': X,
                 'y': torch.from_numpy(np.asarray(census_sample["POP20"])).type(torch.FloatTensor),
                 'admin_mask': admin_mask,
                 'img_coords': (xmin,ymin), 'valid_coords':  (xmin, xmax, ymin, ymax),
@@ -221,8 +237,20 @@ class Population_Dataset_target(Dataset):
     def __gettestitem__(self, index: int) -> Dict[str, torch.FloatTensor]:
         # get the indices of the patch
         x,y,season = self.patch_indices[index]
-        data, mask= self.data_generation(x,y,season.item())
-        data = torch.from_numpy(data).type(torch.FloatTensor)
+
+        # get the data
+        indata, mask = self.generate_raw_data(x,y,season.item())
+
+        if "S2" in indata:
+            if np.any(np.isnan(indata["S2"])): 
+                indata["S2"] = self.interpolate_nan(indata["S2"]) 
+            
+        if "S1" in indata:
+            if np.any(np.isnan(indata["S1"])):
+                indata["S1"] = self.interpolate_nan(indata["S1"]) 
+
+        # To Torch
+        indata = {key:torch.from_numpy(np.asarray(val, dtype=np.float32)).type(torch.FloatTensor) for key,val in indata.items()} 
         mask = torch.from_numpy(mask).type(torch.FloatTensor)
 
         # get valid coordinates of the patch
@@ -230,13 +258,58 @@ class Population_Dataset_target(Dataset):
         xmax = x+self.patchsize-self.overlap
         ymin = y+self.overlap
         ymax = y+self.patchsize-self.overlap
-        
+
+        # transform the input data with augmentations
+        if self.transform:
+            if "S2" in self.transform and "S2" in indata:
+                indata["S2"] = self.transform["S2"](indata["S2"])
+            if "S1" in self.transform and "S1" in indata:
+                indata["S1"] = self.transform["S1"](indata["S1"])
+
+        # Normalization
+        indata = self.normalize_indata(indata)
+
+        # merge inputs
+        X = torch.concatenate([indata[key] for key in ["S2", "S1", "VIIRS"] if key in indata], dim=0)
+
+        if torch.any(torch.isnan(X)):
+            raise Exception("Nan in X")
+
+        # General transformations
+        if self.transform:
+            X, mask = self.transform((X, mask.unsqueeze(0)))
+            admin_mask = admin_mask.squeeze(0)
+
         # return dictionary
-        return {'input': data, 'img_coords': (x,y), 'valid_coords':  (xmin, xmax, ymin, ymax),
+        return {'input': X, 'img_coords': (x,y), 'valid_coords':  (xmin, xmax, ymin, ymax),
                 'season': season.item(), 'mask': mask, 'season_str': self.season_dict[season.item()]}
     
 
-    def data_generation(self,x,y, season, patchsize=None, overlap=None) -> Tuple[np.ndarray, np.ndarray]:
+    def interpolate_nan(self, input_array):
+        """
+        Interpolate the NaN values in the input array using bicubic interpolation, extrapolating if necessary using nearest neighbor
+        Input:
+            input_array: input array with NaN values
+        Output:
+            input_array: input array with NaN values interpolated
+        """
+
+        # Create an array with True values for NaN positions (interpolation mask)
+        nan_mask = np.isnan(input_array)
+        known_points = np.where(~nan_mask)
+        values = input_array[known_points]
+        missing_points = np.where(nan_mask)
+        # interpolated_values = griddata(known_points[::-1].T, values, missing_points[::-1].T, method='cubic')
+        interpolated_values = griddata(np.vstack(known_points).T, values, np.vstack(missing_points).T, method='nearest')
+
+        # fillin the missing ones
+        input_array[missing_points] = interpolated_values
+
+        return input_array
+    
+
+
+    def generate_raw_data(self,x,y, season, patchsize=None, overlap=None):
         """
         Generate the data for the patch
         Input:
@@ -248,11 +321,12 @@ class Population_Dataset_target(Dataset):
         :return:
             data: data of the patch
         """
+
         patchsize_x = self.patchsize if patchsize is None else patchsize[0]
         patchsize_y = self.patchsize if patchsize is None else patchsize[1]
         overlap = self.overlap if overlap is None else overlap
 
-        data = []
+        indata = {}
         mask = np.zeros((patchsize_x, patchsize_y), dtype=bool)
         mask[overlap:patchsize_x-overlap, overlap:patchsize_y-overlap] = True
         fake = False
@@ -265,44 +339,30 @@ class Population_Dataset_target(Dataset):
                     raw_data = np.random.randint(0, 10000, size=(4,patchsize_x,patchsize_y))
                 else:
                     with rasterio.open(S2_file, "r") as src:
-                        raw_data = src.read((4,3,2,8), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
-                this_mask = raw_data.sum(axis=0) != 0
-                mask = mask & this_mask
-                raw_data = np.where(raw_data > self.dataset_stats["sen2springNIR"]['p2'][:,None,None], self.dataset_stats["sen2springNIR"]['p2'][:,None,None], raw_data)
-                new_arr = ((raw_data.transpose((1,2,0)) - self.dataset_stats["sen2springNIR"]['mean'] ) / self.dataset_stats["sen2springNIR"]['std']).transpose((2,0,1))
-                data.append(new_arr)
+                        indata["S2"] = src.read((4,3,2,8), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
             else:
                 if fake:
                     raw_data = np.random.randint(0, 10000, size=(3,patchsize_x,patchsize_y))
                 else:
                     with rasterio.open(S2_file, "r") as src:
-                        raw_data = src.read((4,3,2), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
-                this_mask = raw_data.sum(axis=0) != 0
-                mask = mask & this_mask
-                raw_data = np.where(raw_data > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], raw_data)
-                new_arr = ((raw_data.transpose((1,2,0)) - self.dataset_stats["sen2spring"]['mean'] ) / self.dataset_stats["sen2spring"]['std']).transpose((2,0,1))
-                data.append(new_arr)
+                        indata["S2"] = src.read((4,3,2), window=((x,x+patchsize_x),(y,y+patchsize_y)))
+            mask = mask & (indata["S2"].sum(axis=0) != 0)
         if self.S1:
             if fake:
                 raw_data = np.random.randint(0, 10000, size=(2,patchsize_x,patchsize_y))
             else:
                 with rasterio.open(self.S1_file, "r") as src:
-                    raw_data = src.read(window=((x,x+patchsize_x),(y,y+patchsize_y))) 
-            # raw_data = np.where(raw_data > self.dataset_stats["sen1"]['p2'][:,None,None], self.dataset_stats["sen1"]['p2'][:,None,None], raw_data)
-            new_arr = ((raw_data.transpose((1,2,0)) - self.dataset_stats["sen1"]['mean'] ) / self.dataset_stats["sen1"]['std']).transpose((2,0,1))
-            data.append(new_arr)
+                    indata["S1"] = src.read(window=((x,x+patchsize_x),(y,y+patchsize_y))) 
+            mask = mask & (indata["S1"].sum(axis=0) != 0)
         if self.VIIRS:
             if fake:
                 raw_data = np.random.randint(0, 10000, size=(1,patchsize_x,patchsize_y))
             else:
                 with rasterio.open(self.VIIRS_file, "r") as src:
-                    raw_data = src.read(window=((x,x+patchsize_x),(y,y+patchsize_y))) 
-            raw_data = np.where(raw_data < 0, 0, raw_data)
-            new_arr = ((raw_data.transpose((1,2,0)) - self.dataset_stats["viirs"]['mean'] ) / self.dataset_stats["viirs"]['std']).transpose((2,0,1))
-            data.append(new_arr)
+                    indata["VIIRS"] = src.read(window=((x,x+patchsize_x),(y,y+patchsize_y))) 
+            mask = mask & (indata["VIIRS"].sum(axis=0) != 0)
 
-        return np.concatenate(data, axis=0), mask
-
+        return indata, mask
 
     def convert_popmap_to_census(self, pred, gpu_mode=False):
         """
@@ -344,6 +404,36 @@ class Population_Dataset_target(Dataset):
         torch.cuda.empty_cache()
 
         return census_pred, torch.tensor(census["POP20"])
+    
+    def normalize_indata(self,indata):
+        """
+        Normalize the input data
+        inputs:
+            :param indata: input data
+        outputs:
+            :return: normalized input data
+        """
+
+        # S2
+        if "S2" in indata:
+            if indata["S2"].shape[0] == 4:
+                indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2springNIR"]['p2'][:,None,None], self.dataset_stats["sen2springNIR"]['p2'][:,None,None], indata["S2"])
+                indata["S2"] = ((indata["S2"].permute((1,2,0)) - self.dataset_stats["sen2springNIR"]['mean'] ) / self.dataset_stats["sen2springNIR"]['std']).permute((2,0,1))
+            else: 
+                indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], indata["S2"])
+                indata["S2"] = ((indata["S2"].permute((1,2,0)) - self.dataset_stats["sen2spring"]['mean'] ) / self.dataset_stats["sen2spring"]['std']).permute((2,0,1))
+
+        # S1
+        if "S1" in indata:
+            indata["S1"] = torch.where(indata["S1"] > self.dataset_stats["sen1"]['p2'][:,None,None], self.dataset_stats["sen1"]['p2'][:,None,None], indata["S1"])
+            indata["S1"] = ((indata["S1"].permute((1,2,0)) - self.dataset_stats["sen1"]['mean'] ) / self.dataset_stats["sen1"]['std']).permute((2,0,1))
+
+        # VIIRS
+        if "VIIRS" in indata:
+            indata["VIIRS"] = torch.where(indata["VIIRS"] > self.dataset_stats["viirs"]['p2'][:,None,None], self.dataset_stats["viirs"]['p2'][:,None,None], indata["VIIRS"])
+            indata["VIIRS"] = ((indata["VIIRS"].permute((1,2,0)) - self.dataset_stats["viirs"]['mean'] ) / self.dataset_stats["viirs"]['std']).permute((2,0,1))
+
+        return indata
     
     def normalize_reg_labels(self, y): 
         """
@@ -397,7 +487,8 @@ class Population_Dataset_target(Dataset):
 # collate function for the dataloader
 def Population_Dataset_collate_fn(batch):
     """
-    Collate function for the dataloader
+    Collate function for the dataloader used in the Population_Dataset class
+    to ensure that all items in the batch have the same shape
     inputs:
         :param batch: the batch of data with irregular shapes
     outputs:
@@ -412,6 +503,7 @@ def Population_Dataset_collate_fn(batch):
     admin_mask_batch = torch.zeros(len(batch), max_x, max_y)
     y_batch = torch.zeros(len(batch))
 
+    # Fill the tensors with the data from the batch
     for i, item in enumerate(batch):
         x_size, y_size = item['input'].shape[1], item['input'].shape[2]
         input_batch[i, :, :x_size, :y_size] = item['input']
@@ -437,28 +529,13 @@ if __name__=="__main__":
 
     input_defs = {'S1': True, 'S2': True, 'VIIRS': False, 'NIR': True}
 
+    # Create the dataset for testing
     dataset = Population_Dataset_target("pri2017", mode="weaksup", patchsize=None, overlap=None, fourseasons=True, **input_defs) 
-    
     dataloader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=True, drop_last=True)
 
-
-    # with tqdm(dataloader, leave=False) as inner_tnr:
-    #     for i, sample in enumerate(inner_tnr):
-
-    #         print(i, sample['input'].shape)
-    
+    # Test the dataset
     for e in tqdm(range(10), leave=True):
-        # unsupervised mode
         dataloader_iterator = iter(dataloader)
-        
         for i in tqdm(range(5000)):
-
             sample = dataset[i%len(dataset)]
             print(i,sample['input'].shape)
-            # try:
-            #     sample_weak = next(dataloader_iterator)
-            # except StopIteration:
-            #     dataloader_iterator = iter(dataloader)
-            #     sample_weak = next(dataloader_iterator)
-
-

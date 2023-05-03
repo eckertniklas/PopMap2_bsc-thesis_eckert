@@ -428,6 +428,8 @@ class Trainer:
                     output = self.model(sample, padding=False)
 
                     # add the output to the output map
+                    if mask.sum()<921599:
+                        print("sus...")
                     output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu()
                     output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
 
@@ -442,7 +444,7 @@ class Trainer:
                 census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True)
                 self.target_test_stats = get_test_metrics(census_pred, census_gt.float().cuda(), tag="census")
                 
-            wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}, **self.info}, self.info["iter"])
+                wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}, **self.info}, self.info["iter"])
         
 
     @staticmethod
@@ -458,29 +460,38 @@ class Trainer:
 
         input_defs = {'S1': args.Sentinel1, 'S2': args.Sentinel2, 'VIIRS': args.VIIRS, 'NIR': args.NIR}
         params = {'dim': (img_rows, img_cols), "satmode": args.satmode, 'in_memory': args.in_memory, **input_defs}
-
+        data_transform = {}
         if args.full_aug:
-                data_transform = transforms.Compose([
-                    AddGaussianNoise(std=0.1, p=0.9),
-                    # SyntheticHaze(p=0.75),
-                    # RandomHorizontalVerticalFlip(p=0.5),
-                    RandomVerticalFlip(p=0.5), RandomHorizontalFlip(p=0.5),
-                    RandomRotationTransform(angles=[90, 180, 270], p=0.75),
-                ])
+            data_transform["general"] = transforms.Compose([
+                AddGaussianNoise(std=0.1, p=0.9), 
+                # RandomHorizontalVerticalFlip(p=0.5),
+                RandomVerticalFlip(p=0.5), RandomHorizontalFlip(p=0.5),
+                RandomRotationTransform(angles=[90, 180, 270], p=0.75),
+            ])
         else: 
             if not args.Sentinel1: 
-                data_transform = transforms.Compose([
-                    HazeAdditionModule()
+                data_transform["general"] = transforms.Compose([
+                    # HazeAdditionModule()
                     # AddGaussianNoise(std=0.1, p=0.9),
                     # transforms.RandomHorizontalFlip(p=0.5), transforms.RandomVerticalFlip(p=0.5),
                     # RandomRotationTransform(angles=[90, 180, 270], p=0.75), 
                 ])
             else:
-                data_transform = transforms.Compose([
+                data_transform["general"] = transforms.Compose([
                     # AddGaussianNoise(std=0.1, p=0.9),
                     # RandomHorizontalVerticalFlip(p=0.5), transforms.RandomVerticalFlip(p=0.5),
                     # RandomRotationTransform(angles=[90, 180, 270], p=0.75), 
                 ])
+        data_transform["S2"] = transforms.Compose([
+            RandomBrightness(p=0.9),
+            RandomGamma(p=0.9, gamma_limit=(0.2, 5.0)),
+            HazeAdditionModule(p=0.9, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3))
+        ])
+        data_transform["S1"] = transforms.Compose([
+            # RandomBrightness(p=0.95),
+            # RandomGamma(p=0.95),
+            # HazeAdditionModule(p=0.95)
+        ])
         
         # source domain samples
         val_size = 0.2 
@@ -497,13 +508,13 @@ class Trainer:
         f_names, labels = f_names[:int(args.max_samples)] , labels[:int(args.max_samples)]
         s = int(len(f_names)*val_size)
         f_names_train, f_names_val, labels_train, labels_val = f_names[:-s], f_names[-s:], labels[:-s], labels[-s:]
-        f_names_test, labels_test = get_fnames_labs_reg(all_patches_mixed_test_part1, force_recompute=False)
+        f_names_test, labels_test = get_fnames_labs_reg(all_patches_mixed_test_part1, force_recompute=force_recompute)
 
         # unlabled target domain samples
         if args.da:
             f_names_unlab = []
             for reg in args.target_regions:
-                f_names_unlab.extend(get_fnames_unlab_reg(os.path.join(pop_map_root, os.path.join("EE", reg)), force_recompute=force_recompute))
+                f_names_unlab.extend(get_fnames_unlab_reg(os.path.join(pop_map_root, os.path.join("EE", reg)), force_recompute=True))
         else:
             f_names_unlab = []
 

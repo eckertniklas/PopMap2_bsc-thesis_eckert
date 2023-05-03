@@ -215,18 +215,78 @@ def submit_s2job(s2_sr_mosaic, description, name, exportarea):
     # Submits a job to Google earth engine with all the requred arguments
     
     task = ee.batch.Export.image.toDrive(
-        image = s2_sr_mosaic,
-        scale = 10,  
-        description = description + "_" + name,
+        image=s2_sr_mosaic,
+        scale=10,  
+        description=description + "_" + name,
         fileFormat="GEOTIFF", 
-        folder = name, 
-        region = exportarea,
+        folder=name, 
+        region=exportarea,
         crs='EPSG:4326',
         maxPixels=80000000000 
     )
 
     # submit/start the job
     task.start() 
+
+
+# New function to download the Sentine2 data
+def export_cloud_free_sen2(season, dates, roi_id, roi, debug=0):
+    """
+    Export cloud free Sentinel-2 data for a given season and region of interest
+    Parameters
+    ----------
+    season : str
+        Season to download data for
+    dates : list
+        List of dates to download data for
+    roi_id : str
+        Region of interest ID
+    roi : ee.Geometry
+        Region of interest
+    debug : int
+        Debug level
+    -------
+    Returns
+        None
+    """
+
+    start_date = ee.Date(dates[0])
+    end_date = ee.Date(dates[1])
+    s2_sr = ee.ImageCollection("COPERNICUS/S2")
+    s2_clouds = ee.ImageCollection("COPERNICUS/S2_CLOUD_PROBABILITY")
+
+    criteria = ee.Filter.And(
+        ee.Filter.bounds(roi), ee.Filter.date(start_date, end_date))
+    s2_sr = s2_sr.filter(criteria)
+    s2_clouds = s2_clouds.filter(criteria)
+
+    # Join S2 SR with cloud probability dataset to add cloud mask.
+    join = ee.Join.saveFirst('cloud_mask')
+    condition = ee.Filter.equals(leftField='system:index', rightField='system:index')
+    s2_sr_with_cloud_mask = join.apply(primary=s2_sr, secondary=s2_clouds, condition=condition)
+
+    def mask_clouds(img):
+        clouds = ee.Image(img.get('cloud_mask')).select('probability')
+        is_not_cloud = clouds.lt(65)
+        return img.updateMask(is_not_cloud)
+
+    img_c = ee.ImageCollection(s2_sr_with_cloud_mask).map(mask_clouds)
+
+    cloud_free = img_c.median()
+    filename = f"{roi_id}_{season}"
+
+    task = ee.batch.Export.image.toDrive(
+        image=cloud_free.select(['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9', 'B10', 'B11', 'B12']),
+        description=filename,
+        scale=10,
+        region=roi,
+        folder=f"{roi_id}/{season}",
+        fileNamePrefix=filename,
+        maxPixels=1e13
+    )
+
+    task.start()
+
 
 def download(minx, miny, maxx, maxy, name):
 
@@ -251,10 +311,7 @@ def download(minx, miny, maxx, maxy, name):
             .select(['VV', 'VH'])
         
         # Reduce with Median operation
-        collectionS1_mean = collectionS1.mean()
-        # collectionS1_median = collectionS1.first()
-        # collectionS1_median = collectionS1.mosaic()
-        # collectionS1_median = collectionS1.mean()
+        collectionS1_mean = collectionS1.mean() 
 
         # Export
         task = ee.batch.Export.image.toDrive(
@@ -270,38 +327,49 @@ def download(minx, miny, maxx, maxy, name):
         task.start()
 
     if S2:
-        ########################### Processing Sentinel 2 #############################################
-        # 1. cating the clouds to the Sentinel-2 data
-        # 2. Filtering clouds and cloud shadow and apply the mask to sentinel-2
-        # 3. composite the image by giving preference to the least cloudy image first.
-        # 4. Submit job
+        old = False
+        if old:
+            ########################### Processing Sentinel 2 #############################################
+            # 1. cating the clouds to the Sentinel-2 data
+            # 2. Filtering clouds and cloud shadow and apply the mask to sentinel-2
+            # 3. composite the image by giving preference to the least cloudy image first.
+            # 4. Submit job
 
-        # SPRING
-        s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2spring_start_date, Sen2spring_finish_date)
-        s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
-        s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False)
-        s2_sr_col = s2_sr_col.mosaic()
-        submit_s2job(s2_sr_col, "sen2spring",  name, exportarea)
+            # SPRING
+            s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2spring_start_date, Sen2spring_finish_date)
+            s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
+            s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False)
+            s2_sr_col = s2_sr_col.mosaic()
+            submit_s2job(s2_sr_col, "sen2spring",  name, exportarea)
 
-        # SUMMER
-        s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2summer_start_date, Sen2summer_finish_date)
-        s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
-        s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
-        submit_s2job(s2_sr_col, "sen2summer", name, exportarea)
+            # SUMMER
+            s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2summer_start_date, Sen2summer_finish_date)
+            s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
+            s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
+            submit_s2job(s2_sr_col, "sen2summer", name, exportarea)
 
-        # AUTUMN
-        s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2autumn_start_date, Sen2autumn_finish_date)
-        s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
-        s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
-        submit_s2job(s2_sr_col, "sen2autumn", name, exportarea)
+            # AUTUMN
+            s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2autumn_start_date, Sen2autumn_finish_date)
+            s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
+            s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
+            submit_s2job(s2_sr_col, "sen2autumn", name, exportarea)
 
-        # WINTER
-        s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2winter_start_date, Sen2winter_finish_date)
-        s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
-        s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
-        submit_s2job(s2_sr_col, "sen2winter", name, exportarea)
-        # print(s2_sr_median.getInfo()["bands"])
+            # WINTER
+            s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2winter_start_date, Sen2winter_finish_date)
+            s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
+            s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
+            submit_s2job(s2_sr_col, "sen2winter", name, exportarea)
+        else:
 
+            ########################### Processing Sentinel 2 #############################################
+            
+            # SPRING
+            export_cloud_free_sen2("spring", (Sen2spring_start_date, Sen2spring_finish_date), name, exportarea)
+            export_cloud_free_sen2("summer", (Sen2summer_start_date, Sen2summer_finish_date), name, exportarea)
+            export_cloud_free_sen2("autumn", (Sen2autumn_start_date, Sen2autumn_finish_date), name, exportarea)
+            export_cloud_free_sen2("winter", (Sen2winter_start_date, Sen2winter_finish_date), name, exportarea)
+
+            
     if VIIRS:
         ########################### Processing Sentinel 2 #############################################
 
@@ -310,10 +378,6 @@ def download(minx, miny, maxx, maxy, name):
         NL_median = viirs_NL_col.select("avg_rad").median()
 
         # Create composite
-        # num_obs = viirs_NL_col.select("cf_cvg")
-        # NL_col = NL_col.updateMask(num_obs.gt(1))
-        # viirs_NL = viirs_NL_col.mosaic()
-        
         # Export
         task = ee.batch.Export.image.toDrive(
                         image = NL_median,
@@ -336,7 +400,6 @@ def main():
     parser.add_argument("maxx", type=float)
     parser.add_argument("maxy", type=float) 
     parser.add_argument("name", type=str) 
-    parser.add_argument("output_path", type=str, help="Output path")
     args = parser.parse_args()
 
     download(args.minx, args.miny, args.maxx, args.maxy, args.name)

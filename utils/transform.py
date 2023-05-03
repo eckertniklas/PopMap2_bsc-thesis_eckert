@@ -5,6 +5,7 @@ import random
 
 import torch
 import torchvision.transforms.functional as TF
+from torch import Tensor
 from utils.constants import config_path
 from utils.file_folder_ops import load_json
 
@@ -120,27 +121,17 @@ class RandomGamma(torch.nn.Module):
     Also known as Power Law Transform. Intensities in RGB mode are adjusted
     """
 
-    def __init__(self, gamma_limit=(0.8, 1.2), p=0.5):
+    def __init__(self, gamma_limit=(0.5, 2.0), p=0.5):
         self.gamma_limit = gamma_limit
         self.p = p
-        dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'mod_dataset_stats.json'))
-        self.data_mean = dataset_stats['sen2spring']['mean']
-        self.data_std = dataset_stats['sen2spring']['std']
-        self.data_max = dataset_stats['sen2spring']['max']
 
     def __call__(self, x):
         if torch.rand(1) < self.p:
             gamma = random.uniform(self.gamma_limit[0], self.gamma_limit[1])
-            for i in range(3):
-                x[i:i + 1] = x[i:i + 1] * self.data_std[i]
-                x[i:i + 1] = x[i:i + 1] + self.data_mean[i]
-                x[i:i + 1] = x[i:i + 1] / self.data_max[i]
-            x[:3] = torch.clip(x[:3], min=0)
-            x[:3] = TF.adjust_gamma(x[:3], gamma)
-            for i in range(3):
-                x[i:i + 1] = x[i:i + 1] * self.data_max[i]
-                x[i:i + 1] = x[i:i + 1] - self.data_mean[i]
-                x[i:i + 1] = x[i:i + 1] / self.data_std[i]
+            x = torch.clip(x, min=0)
+            x = x/3500
+            x = TF.adjust_gamma(x, gamma)
+            x = x*3500
         return x
 
 
@@ -148,27 +139,24 @@ class RandomBrightness(torch.nn.Module):
     """Perform random brightness on an image.
     """
 
-    def __init__(self, beta_limit=(1.0, 1.0), p=0.5):
+    def __init__(self, beta_limit=(0.666, 1.5), p=0.5):
         self.beta_limit = beta_limit
-        # self.p = p
-        dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'mod_dataset_stats.json'))
-        self.data_mean = dataset_stats['sen2spring']['mean']
-        self.data_std = dataset_stats['sen2spring']['std']
-        self.data_max = dataset_stats['sen2spring']['max']
+        self.p = p
 
     def __call__(self, x):
+        """
+        Applies the random brightness transformation with probability p.
+
+        :param x: Tensor, input image
+        :return: Tensor, output image with brightness adjusted if the transformation was applied
+        """
         if torch.rand(1) < self.p:
             beta = random.uniform(self.beta_limit[0], self.beta_limit[1])
-            for i in range(3):
-                x[i:i + 1] = x[i:i + 1] * self.data_std[i]
-                x[i:i + 1] = x[i:i + 1] + self.data_mean[i]
-                x[i:i + 1] = x[i:i + 1] / self.data_max[i]
-            x[:3] = TF.adjust_brightness(x[:3], beta)
-            for i in range(3):
-                x[i:i + 1] = x[i:i + 1] * self.data_max[i]
-                x[i:i + 1] = x[i:i + 1] - self.data_mean[i]
-                x[i:i + 1] = x[i:i + 1] / self.data_std[i]
+            x = x/3500
+            x = TF.adjust_brightness(x, beta)
+            x = x*3500
         return x
+
 
 # import torch
 # import torch.nn as nn
@@ -219,19 +207,21 @@ class RandomBrightness(torch.nn.Module):
 
 def generate_haze_parameters():
     # Generate random haze parameters based on atmospheric conditions
-    atmosphere_light = np.random.uniform(0.3, 3.0) # in terms of "sigma"
-    haze_density = np.random.uniform(0.05, 0.5)
+    atmosphere_light = np.random.uniform(0.7, 1.0) # Atmospheric light intensity
+    haze_density = np.random.uniform(0.05, 0.3)
     return atmosphere_light, haze_density
 
 class HazeAdditionModule(torch.nn.Module):
-    def __init__(self, p=0.9):
+    def __init__(self, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3), p=0.9):
         super(HazeAdditionModule, self).__init__()
+        self.atm_limit = atm_limit
+        self.haze_limit = haze_limit
         self.p = p
 
     def forward(self, x):
         """
         Args:
-            x: Multispectral satellite imagery, Tensor of shape (batch_size, num_channels, height, width)
+            x: Multispectral satellite imagery, Tensor of shape (batch_size, num_channels, height, width) or (num_channels, height, width)
         Returns:
             x_haze: Hazy multispectral satellite imagery, Tensor of the same shape as x
         """
@@ -245,18 +235,24 @@ class HazeAdditionModule(torch.nn.Module):
             else:
                 batch_size, num_channels, height, width = x.shape 
                 batched = True
-            atmosphere_light, haze_density = generate_haze_parameters()
+
+            # sample/gernerate params
+            atmosphere_light = np.random.uniform(self.atm_limit[0], self.atm_limit[1]) # Sample Atmospheric light intensity
+            haze_density = np.random.uniform(self.haze_limit[0], self.haze_limit[1]) # Sample Haze density
 
             # Create the haze layer
             haze_layer = torch.ones((1, num_channels, height, width), dtype=torch.float32) * atmosphere_light
 
             # Apply haze to the input image
+            x = x/3500
             x_haze = x * (1 - haze_density) + haze_layer * haze_density
+            x_haze = x_haze*3500
 
             # squeeze the batch dimension
             if not batched:
                 x_haze = x_haze.squeeze(0)  # Remove the batch dimension
 
+            # reassign the output image to the return variable
             x = x_haze
 
         return x

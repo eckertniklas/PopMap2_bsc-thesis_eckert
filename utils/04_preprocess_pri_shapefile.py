@@ -23,8 +23,6 @@ def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mod
     # len(np.unique(gdb["TRACTCE20"])) #952
     # len(np.unique(gdb["GEOID20"])) #41987
 
-
-
     # read metadata of the template file
     with rasterio.open(template_file, 'r') as tmp:
         metadata = tmp.meta.copy()

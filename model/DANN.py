@@ -1,4 +1,4 @@
-# https://github.com/fungtion/DANN
+#  
 
 from torch.autograd import Function
 from torch import nn

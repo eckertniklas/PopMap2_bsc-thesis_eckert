@@ -6,6 +6,8 @@ import os
 import rasterio
 from tqdm import tqdm
 
+done = ["S2spring", "S2summer", "S2winter", "S2autumn",
+        "S1spring", "S1summer", "S1winter", "S1autumn"]
 
 def process(input_path, output_dir, tile_size=100):
     '''
@@ -35,6 +37,9 @@ def process(input_path, output_dir, tile_size=100):
 
         # Sort out fist unusable one
         if subdir==input_path:
+            continue
+
+        if subdir.split("/")[-1] in done:
             continue
 
         # Find source file

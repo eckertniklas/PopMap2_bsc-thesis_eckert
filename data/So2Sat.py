@@ -13,6 +13,7 @@ from torch.utils.data import Dataset
 from utils.constants import img_rows, img_cols, osm_features, num_classes, config_path
 from utils.plot import plot_2dmatrix
 import random
+from scipy.interpolate import griddata
 
 
 from torch.utils.data import DataLoader
@@ -92,7 +93,8 @@ class PopulationDataset_Reg(Dataset):
         # Generate data
         indata, auxdata = self.generate_raw_data(ID_temp)
 
-        ID = ID_temp.split(os.sep)[-1].split('_sen2')[0]
+        # ID = ID_temp.split(os.sep)[-1].split('_sen2')[0]
+        ID = ID_temp.split(os.sep)[-1].split('_S2')[0]
 
         # Generate labels if posssible
         if idx<len(self.labels):
@@ -142,77 +144,53 @@ class PopulationDataset_Reg(Dataset):
             return len(self.labels)
     
 
-    # def data_generation(self, ID_temp):
-    #     # Initialization
-    #     # preparing the batch from other datasets
-    #     if self.random_season:
-    #         ID_sen2 = ID_temp.replace('sen2spring', "sen2{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
-    #     else:
-    #         ID_sen2 = ID_temp.replace('sen2spring', 'sen2spring') # for testing just use the spring images
-                
-    #     ID_sen1 = ID_temp.replace('sen2spring', 'S1')
-    #     ID_viirs = ID_temp.replace('sen2spring', 'viirs')
-    #     ID_osm = ID_temp.replace('sen2spring', 'osm_features').replace('tif', 'csv')
-    #     ID_lu = ID_temp.replace('sen2spring', 'lu')
-    #     ID_Pop = ID_temp.replace('sen2spring', 'Pop')
-    #     ID_PopNN = ID_temp.replace('sen2spring', 'PopNN')
-    #     ID_msb = ID_temp.replace('sen2spring', 'msb')
-        
-    #     data = []
-    #     if self.S2:
-    #         if self.NIR:
-    #             data.append(self.generate_data(ID_sen2, channels=4, data='sen2spring'))
-    #         else:
-    #             data.append(self.generate_data(ID_sen2, channels=3, data='sen2spring'))
-    #     if self.S1:
-    #         data.append(self.generate_data(ID_sen1, channels=2 , data='sen1'))
-    #     if self.VIIRS:
-    #         data.append(self.generate_data(ID_viirs, channels=1, data='viirs'))
-    #     # osm_X = self.generate_osm_data(osm_X, ID_osm, mm_scaler, channels=1)
-    #     # lu_X = self.generate_data(ID_lu, channels=4, data='lu') 
+    def interpolate_nan(self, input_array):
+        """
+        Interpolate the NaN values in the input array using bicubic interpolation, extrapolating if necessary using nearest neighbor
+        Input:
+            input_array: input array with NaN values
+        Output:
+            input_array: input array with NaN values interpolated
+        """
 
-    #     # if finegrained cencus is available
-    #     if isfile(ID_Pop):
-    #         Pop_X = self.generate_data(ID_Pop, channels=1, data='Pop') 
-    #         PopNN_X = self.generate_data(ID_PopNN, channels=1, data='PopNN')
-    #         pop_avail = np.array([1])
-    #     elif self.mode=="train":
-    #         Pop_X = np.zeros((0,0))
-    #         PopNN_X = np.zeros((0,0))
-    #         pop_avail = np.array([0])
-    #     else:
-    #         Pop_X = np.zeros((10,10))
-    #         PopNN_X = np.zeros((100,100))
-    #         pop_avail = np.array([0])
+        # Create an array with True values for NaN positions (interpolation mask)
+        nan_mask = np.isnan(input_array)
+        known_points = np.where(~nan_mask)
+        values = input_array[known_points]
+        missing_points = np.where(nan_mask)
+        # interpolated_values = griddata(known_points[::-1].T, values, missing_points[::-1].T, method='cubic')
+        interpolated_values = griddata(np.vstack(known_points).T, values, np.vstack(missing_points).T, method='nearest')
 
-    #     use_msb = False
-    #     if isfile(ID_msb) and use_msb:
-    #         msb = self.generate_data(ID_msb, channels=1, data='msb')
-    #         msb_avail = np.array([1])
-    #     else:
-    #         msb = np.zeros((100,100))
-    #         msb_avail = np.array([0])
-        
-    #     return np.concatenate(data, axis=0), Pop_X, PopNN_X, pop_avail, msb, msb_avail
+        # fillin the missing ones
+        input_array[missing_points] = interpolated_values
+
+        return input_array
     
-    def generate_raw_data(self, ID_temp):
+    def generate_raw_data(self, ID_temp, trials=0):
         """
         
         """
         # Initialization
         # preparing the batch from other datasets
+        
+        # basetype = "sen2spring"
+        basetype = "S2spring"
+        base = "S2spring"
         if self.random_season:
-            ID_sen2 = ID_temp.replace('sen2spring', "sen2{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
+            # ID_sen2 = ID_temp.replace(basetype, "sen2{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
+            ID_sen2 = ID_temp.replace(basetype, "S2{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
+            ID_sen1 = ID_temp.replace(basetype, "S1{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
         else:
-            ID_sen2 = ID_temp.replace('sen2spring', 'sen2spring') # for testing just use the spring images
+            ID_sen2 = ID_temp.replace(basetype, basetype) # for testing just use the spring images
+            ID_sen1 = ID_temp.replace(basetype, "S1spring") # for testing just use the spring images
                 
-        ID_sen1 = ID_temp.replace('sen2spring', 'S1')
-        ID_viirs = ID_temp.replace('sen2spring', 'viirs')
-        ID_osm = ID_temp.replace('sen2spring', 'osm_features').replace('tif', 'csv')
-        ID_lu = ID_temp.replace('sen2spring', 'lu')
-        ID_Pop = ID_temp.replace('sen2spring', 'Pop')
-        ID_PopNN = ID_temp.replace('sen2spring', 'PopNN')
-        ID_msb = ID_temp.replace('sen2spring', 'msb')
+        # ID_sen1 = ID_temp.replace(basetype, 'S1')
+        ID_viirs = ID_temp.replace(basetype, 'viirs')
+        # ID_osm = ID_temp.replace(basetype, 'osm_features').replace('tif', 'csv')
+        # ID_lu = ID_temp.replace(basetype, 'lu')
+        ID_Pop = ID_temp.replace(basetype, 'Pop')
+        ID_PopNN = ID_temp.replace(basetype, 'PopNN')
+        ID_msb = ID_temp.replace(basetype, 'msb')
         
         # get the input data
         fake = False
@@ -220,28 +198,43 @@ class PopulationDataset_Reg(Dataset):
         if self.S2: 
             if self.NIR:
                 if fake:
-                    raw_data = np.random.randint(0, 10000, size=(4,img_rows, img_cols))
+                    indata["S2"] = np.random.randint(0, 10000, size=(4,img_rows, img_cols))
                 else:
                     with rasterio.open(ID_sen2, "r") as src:
                         indata["S2"] = src.read((4,3,2,8))
             else:
                 if fake:
-                    raw_data = np.random.randint(0, 10000, size=(3,img_rows, img_cols))
+                    indata["S2"] = np.random.randint(0, 10000, size=(3,img_rows, img_cols))
                 else:
                     with rasterio.open(ID_sen2, "r") as src:
                         indata["S2"] = src.read((4,3,2))
+
+            if torch.isnan(torch.tensor(indata["S2"])).any():
+                if torch.isnan(torch.tensor(indata["S2"])).sum() / torch.numel(torch.tensor(indata["S2"])) < 0.2:
+                    indata["S2"] = self.interpolate_nan(indata["S2"])
+                elif trials < 5:
+                    # print("Too many NaNs in S2 image, recursive procedure. Trial:", trials) 
+                    return self.generate_raw_data_new_sample(ID_temp, trials=trials)
+                    # b = self.generate_raw_data_new_sample(ID_temp, trials=trials)[0]
+                    # plot_2dmatrix(b["S2"]/3500)
+                else:
+                    print("Too many NaNs in S2 image, skipping sample") 
+                    raise Exception("Too many NaNs in S2 image, breaking")
+                    return None
+
         if self.S1:
             if fake:
-                raw_data = np.random.randint(0, 10000, size=(2,img_rows, img_cols))
+                indata["S1"] = np.random.randint(0, 10000, size=(2,img_rows, img_cols))
             else:
                 with rasterio.open(ID_sen1, "r") as src:
-                    indata["S1"] = src.read(1)
+                    indata["S1"] = src.read((1,2))
         if self.VIIRS:
             if fake:
-                raw_data = np.random.randint(0, 10000, size=(1,img_rows, img_cols))
+                indata["VIIRS"] = np.random.randint(0, 10000, size=(1,img_rows, img_cols))
             else:
                 with rasterio.open(ID_viirs, "r") as src:
                     indata["VIIRS"] = src.read(1)
+
 
         auxdata = {}
         # if finegrained cencus is available
@@ -262,7 +255,6 @@ class PopulationDataset_Reg(Dataset):
 
         use_msb = False
         if isfile(ID_msb) and use_msb:
-            # msb = self.generate_raw_data(ID_msb, channels=1, data='msb')
             msb_avail = np.array([1])
         else:
             msb = np.zeros((100,100))
@@ -270,25 +262,36 @@ class PopulationDataset_Reg(Dataset):
         
         return indata, auxdata
     
+    def generate_raw_data_new_sample(self, ID_temp, trials):
+
+        if trials > 4:
+            print("Too many trials, returning zeros")
+            raise Exception("Enough trials")
+        
+        for season in ["spring", "summer", "autumn", "winter"]:
+            ID_temp = ID_temp.replace("sen2spring", "sen2{}".format(season))
+            return self.generate_raw_data(ID_temp, trials=trials+1)
+
+
     def normalize_indata(self,indata):
 
         # S2
         if "S2" in indata:
             if indata["S2"].shape[0] == 4:
-                indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2springNIR"]['p2'][:,None,None], self.dataset_stats["sen2springNIR"]['p2'][:,None,None], indata["S2"])
+                # indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2springNIR"]['p2'][:,None,None], self.dataset_stats["sen2springNIR"]['p2'][:,None,None], indata["S2"])
                 indata["S2"] = ((indata["S2"].permute((1,2,0)) - self.dataset_stats["sen2springNIR"]['mean'] ) / self.dataset_stats["sen2springNIR"]['std']).permute((2,0,1))
             else: 
-                indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], indata["S2"])
+                # indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], indata["S2"])
                 indata["S2"] = ((indata["S2"].permute((1,2,0)) - self.dataset_stats["sen2spring"]['mean'] ) / self.dataset_stats["sen2spring"]['std']).permute((2,0,1))
 
         # S1
         if "S1" in indata:
-            indata["S1"] = torch.where(indata["S1"] > self.dataset_stats["sen1"]['p2'][:,None,None], self.dataset_stats["sen1"]['p2'][:,None,None], indata["S1"])
+            # indata["S1"] = torch.where(indata["S1"] > self.dataset_stats["sen1"]['p2'][:,None,None], self.dataset_stats["sen1"]['p2'][:,None,None], indata["S1"])
             indata["S1"] = ((indata["S1"].permute((1,2,0)) - self.dataset_stats["sen1"]['mean'] ) / self.dataset_stats["sen1"]['std']).permute((2,0,1))
 
         # VIIRS
         if "VIIRS" in indata:
-            indata["VIIRS"] = torch.where(indata["VIIRS"] > self.dataset_stats["viirs"]['p2'][:,None,None], self.dataset_stats["viirs"]['p2'][:,None,None], indata["VIIRS"])
+            # indata["VIIRS"] = torch.where(indata["VIIRS"] > self.dataset_stats["viirs"]['p2'][:,None,None], self.dataset_stats["viirs"]['p2'][:,None,None], indata["VIIRS"])
             indata["VIIRS"] = ((indata["VIIRS"].permute((1,2,0)) - self.dataset_stats["viirs"]['mean'] ) / self.dataset_stats["viirs"]['std']).permute((2,0,1))
 
         return indata
@@ -304,64 +307,3 @@ class PopulationDataset_Reg(Dataset):
         y_min = self.y_stats['min']
         y = y_scaled * (y_max - y_min) + y_min
         return y
-
-    # def generate_data(self, ID_temp, channels, data):
-    #     # load dataset statistics and patches 
-    #     with rasterio.open(ID_temp, 'r') as ds: 
-    #         if 'sen2' in data:
-    #             if channels==3:
-    #                 image = ds.read((4,3,2))
-    #             elif channels==4:
-    #                 image = ds.read((4,3,2,8))
-    #         elif data == 'lcz':
-    #             image = ds.read(out_shape=(ds.count, img_rows, img_cols))
-    #         elif "Pop" in data:
-    #             image = ds.read(1)
-    #         elif "sen1" in data:
-    #             image = ds.read((1,2)) 
-    #         else:
-    #             image = ds.read(out_shape=(ds.count, img_rows, img_cols), resampling=Resampling.average)
-
-    #     if "sen2" in data:
-    #         if channels==3:
-    #             image = np.where(image > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], image)
-    #             new_arr = ((image.transpose((1,2,0)) - self.dataset_stats["sen2spring"]['mean'] ) / self.dataset_stats["sen2spring"]['std']).transpose((2,0,1))
-    #         elif channels==4:
-    #             image = np.where(image > self.dataset_stats["sen2springNIR"]['p2'][:,None,None], self.dataset_stats["sen2springNIR"]['p2'][:,None,None], image)
-    #             new_arr = ((image.transpose((1,2,0)) - self.dataset_stats["sen2springNIR"]['mean'] ) / self.dataset_stats["sen2springNIR"]['std']).transpose((2,0,1))
-
-    #     elif "sen1" in data:
-    #         new_arr = ((image.transpose((1,2,0)) - self.dataset_stats[data]['mean'] ) / self.dataset_stats[data]['std']).transpose((2,0,1))
-    #     elif data=="viirs":
-    #         image = np.where(image < 0, 0.0, image)
-    #         new_arr = ((image.transpose((1,2,0)) - self.dataset_stats[data]['mean'] ) / self.dataset_stats[data]['std']).transpose((2,0,1))
-    #     elif data=="lu":
-    #         new_arr = ((image.transpose((1,2,0)) - self.dataset_stats[data]['mean'] ) / self.dataset_stats[data]['std']).transpose((2,0,1))
-    #     elif "Pop" in data:
-    #         new_arr = image
-    #     else: 
-    #         raise ValueError("Invalid data type")
-
-    #     return new_arr
-
-
-
-
-    # def generate_osm_data(self, X, ID_temp, mm_scaler, channels):
-    #     # Generate data
-    #     # load csv
-    #     df = pd.read_csv(ID_temp, header=None)[1]
-    #     df = df[df.notna()]
-
-    #     df_array = np.array(df)
-    #     df_array[df_array == np.inf] = 0
-
-    #     new_arr = np.empty([channels, osm_features])
-    #     new_arr[0] = df_array
-
-    #     # fit and transform the data
-    #     new_arr = mm_scaler.transform(new_arr)
-    #     scaled_arr = np.empty([channels, osm_features])
-    #     scaled_arr[0] = new_arr
-    #     return np.transpose(scaled_arr, (1, 0))
- 

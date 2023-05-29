@@ -1,8 +1,12 @@
 
 import argparse
 import requests
-
+import time
 import ee
+import os
+
+
+
 try:
     ee.Initialize()
 except:
@@ -10,6 +14,7 @@ except:
     ee.Authenticate(auth_mode="localhost")
     ee.Initialize()
     # gcloud auth application-default login --no-browser
+
 
 ee_crs = ee.Projection('EPSG:4326')
     
@@ -46,6 +51,33 @@ Sentinel1_start_date = '2020-07-03'
 Sentinel1_finish_date = '2020-08-30'
 orbit = 'DESCENDING' # Default
 # orbit = 'Ascending' # for pri?
+
+def start(task):
+        # Start the task.
+    try:
+        task.start()
+    except ee.ee_exception.EEException:
+        for i in range(128):
+            print("Congrats. too-many jobs. EE is at it's limit. Trial", i,". Taking a 15s pause...")
+            time.sleep(15)
+            try:
+                task.start()
+            except:
+                pass
+            else:
+                break 
+            if i>30:
+                raise Exception("Could not submit EE job")
+            
+
+
+def download_tile(url, filename, folder):
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(os.path.join(folder, filename), 'wb') as f:
+            f.write(response.content)
+    else:
+        print(f"Error downloading {filename}: {response.status_code}")
 
 
 # https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless
@@ -221,7 +253,8 @@ def submit_s2job(s2_sr_mosaic, description, name, exportarea):
         fileFormat="GEOTIFF", 
         folder=name, 
         region=exportarea,
-        crs='EPSG:4326',
+        crs='EPSG:4326', #OLD
+        # crs='EPSG:3035', #NEW, but wrong, this only works for Europe
         maxPixels=80000000000 
     )
 
@@ -230,7 +263,7 @@ def submit_s2job(s2_sr_mosaic, description, name, exportarea):
 
 
 # New function to download the Sentine2 data
-def export_cloud_free_sen2(season, dates, roi_id, roi, debug=0):
+def export_cloud_free_sen2(season, dates, roi_id, roi, debug=0, S2type="S2"):
     """
     Export cloud free Sentinel-2 data for a given season and region of interest
     Parameters
@@ -250,13 +283,23 @@ def export_cloud_free_sen2(season, dates, roi_id, roi, debug=0):
         None
     """
 
+    if S2type == "S2":
+        bands = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9', 'B10', 'B11', 'B12']
+    elif S2type == "S2_SR_HARMONIZED":
+        bands = ['B2', 'B3', 'B4', 'B8']
+    
+    # Get the start and end dates for the season.
     start_date = ee.Date(dates[0])
     end_date = ee.Date(dates[1])
-    s2_sr = ee.ImageCollection("COPERNICUS/S2")
+
+    # Get the Sentinel-2 surface reflectance and cloud probability collections.
+    s2_sr = ee.ImageCollection("COPERNICUS/" + S2type)
     s2_clouds = ee.ImageCollection("COPERNICUS/S2_CLOUD_PROBABILITY")
 
-    criteria = ee.Filter.And(
-        ee.Filter.bounds(roi), ee.Filter.date(start_date, end_date))
+    # Filter the collections by the ROI and date.
+    criteria = ee.Filter.And(ee.Filter.bounds(roi), ee.Filter.date(start_date, end_date))
+
+    # Filter the collections by the ROI and date.
     s2_sr = s2_sr.filter(criteria)
     s2_clouds = s2_clouds.filter(criteria)
 
@@ -265,18 +308,23 @@ def export_cloud_free_sen2(season, dates, roi_id, roi, debug=0):
     condition = ee.Filter.equals(leftField='system:index', rightField='system:index')
     s2_sr_with_cloud_mask = join.apply(primary=s2_sr, secondary=s2_clouds, condition=condition)
 
+    # Define a function to mask clouds using the probability threshold.
     def mask_clouds(img):
         clouds = ee.Image(img.get('cloud_mask')).select('probability')
         is_not_cloud = clouds.lt(65)
         return img.updateMask(is_not_cloud)
 
+    # Map the function over one year of data and take the median.
     img_c = ee.ImageCollection(s2_sr_with_cloud_mask).map(mask_clouds)
 
+    # Get the median of each pixel for the time period.
     cloud_free = img_c.median()
-    filename = f"{roi_id}_{season}"
+    # filename = f"{roi_id}_{season}"
+    filename = f"{season}_{roi_id}"
 
+    # Export the image to Google Drive.
     task = ee.batch.Export.image.toDrive(
-        image=cloud_free.select(['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9', 'B10', 'B11', 'B12']),
+        image=cloud_free.select(bands),
         description=filename,
         scale=10,
         region=roi,
@@ -287,19 +335,88 @@ def export_cloud_free_sen2(season, dates, roi_id, roi, debug=0):
 
     task.start()
 
+def export_S1_tile(season, dates, filename, roi, folder, scale=10, crs='EPSG:4326', url_mode=True):
+    """
+    """
+    start_date = ee.Date(dates[0])
+    end_date = ee.Date(dates[1])
+
+    # Define a method for filtering and compositing.
+    collectionS1 = ee.ImageCollection('COPERNICUS/S1_GRD')
+    collectionS1 = collectionS1.filter(ee.Filter.eq('instrumentMode', 'IW'))
+    collectionS1 = collectionS1.filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+    collectionS1 = collectionS1.filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))
+    collectionS1 = collectionS1.filter(ee.Filter.eq('orbitProperties_pass', orbit))
+    collectionS1 = collectionS1.filterBounds(roi)
+    # collectionS1 = collectionS1.filter(ee.Filter.contains('.geo', roi))
+    collectionS1 = collectionS1.filterDate(start_date, end_date)
+    collectionS1 = collectionS1.select(['VV', 'VH'])
+
+
+    # collectionS1 = ee.ImageCollection('COPERNICUS/S1_GRD')\
+    #         .filter(ee.Filter.eq('instrumentMode', 'IW'))\
+    #         .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))\
+    #         .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))\
+    #         .filter(ee.Filter.eq('orbitProperties_pass', orbit))\
+    #         .filterBounds(roi)\
+    #         .filterDate(Sen2spring_start_date, Sen2spring_finish_date)\
+    #         .select(['VV', 'VH'])
+    
+    collectionS1_first = collectionS1.median() 
+
+
+    if url_mode:
+        try:
+            url = collectionS1_first.getDownloadUrl({
+                'scale': scale,
+                'format': "GEOTIFF", 
+                'region': roi,
+                'crs': crs,
+                'maxPixels':80000000000,
+                # 'filePerBand': False
+            })
+        except Exception as e:
+            print(e)
+            print("Error in " + filename + " getting the url, moving on tho the next tile")
+            return None
+        
+        download_tile(url, filename, folder)
+        return url
+
+    # Export the image, specifying scale and region.
+    task = ee.batch.Export.image.toDrive(
+        image = collectionS1_first,
+        scale = scale,  
+        description = filename, 
+        fileFormat="GEOTIFF",  
+        folder=folder, 
+        region = roi, 
+        crs=crs, 
+        maxPixels=80000000000,
+    )
+    start(task)
+    return None
+
 
 def download(minx, miny, maxx, maxy, name):
 
     exportarea = { "type": "Polygon",  "coordinates": [[[maxx, miny], [maxx, maxy], [minx, maxy], [minx, miny], [maxx, miny]]]  }
     exportarea = ee.Geometry.Polygon(exportarea["coordinates"]) 
 
-    S1 = True
-    S2 = True
+    # transform into local projection
+    # find the EPSG code for the local projection
+    # exportarea3035 = exportarea.transform('EPSG:3035')
+
+    S1 = False
+    # S2 = True
+    S2 = False
+    S2A = True
     VIIRS = True
 
     if S1:
         ########################### Processing Sentinel 1 #############################################
         
+
         # select by data and sensormode and area
         collectionS1 = ee.ImageCollection('COPERNICUS/S1_GRD')\
             .filter(ee.Filter.eq('instrumentMode', 'IW'))\
@@ -307,24 +424,58 @@ def download(minx, miny, maxx, maxy, name):
             .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))\
             .filter(ee.Filter.eq('orbitProperties_pass', orbit))\
             .filterBounds(exportarea)\
-            .filterDate(Sentinel1_start_date, Sentinel1_finish_date)\
+            .filterDate(Sen2spring_start_date, Sen2spring_finish_date)\
             .select(['VV', 'VH'])
         
-        # Reduce with Median operation
-        collectionS1_mean = collectionS1.mean() 
+        # # Reduce with Median operation
+        # collectionS1_mean = collectionS1.mean() 
 
-        # Export
-        task = ee.batch.Export.image.toDrive(
-                        image = collectionS1_mean,
-                        scale = 10,  
-                        description = "S1_" + name,
-                        fileFormat="GEOTIFF", 
-                        folder = name, 
-                        region = exportarea,
-                        crs='EPSG:4326',
-                        maxPixels=80000000000,
-                    )
-        task.start()
+        # # Export
+        # task = ee.batch.Export.image.toDrive(
+        #                 image = collectionS1_mean,
+        #                 scale = 10,  
+        #                 description = "S1_" + name,
+        #                 fileFormat="GEOTIFF", 
+        #                 folder = name, 
+        #                 region = exportarea,
+        #                 crs='EPSG:4326',
+        #                 maxPixels=80000000000,
+        #             )
+        # task.start()
+
+
+        # select by data and sensormode and area
+        # collectionS1 = ee.ImageCollection('COPERNICUS/S1_GRD')\
+        #     .filter(ee.Filter.eq('instrumentMode', 'IW'))\
+        #     .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))\
+        #     .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))\
+        #     .filter(ee.Filter.eq('orbitProperties_pass', orbit))\
+        #     .filterBounds(exportarea)\
+        #     .filterDate(Sentinel1_start_date, Sentinel1_finish_date)\
+        #     .select(['VV', 'VH'])
+        
+        # # Reduce with Median operation
+        # collectionS1_mean = collectionS1.mean() 
+
+        # # Export
+        # task = ee.batch.Export.image.toDrive(
+        #                 image = collectionS1_mean,
+        #                 scale = 10,  
+        #                 description = "S1_" + name,
+        #                 fileFormat="GEOTIFF", 
+        #                 folder = name, 
+        #                 region = exportarea,
+        #                 crs='EPSG:4326',
+        #                 maxPixels=80000000000,
+        #             )
+        # task.start()
+
+
+        export_S1_tile("spring", (Sen2spring_start_date, Sen2spring_finish_date), "S1spring_" + name, exportarea, name, url_mode=False)
+        export_S1_tile("summer", (Sen2summer_start_date, Sen2summer_finish_date), "S1summer_" + name, exportarea, name, url_mode=False)
+        export_S1_tile("autumn", (Sen2autumn_start_date, Sen2autumn_finish_date), "S1autumn_" + name, exportarea, name, url_mode=False)
+        export_S1_tile("winter", (Sen2winter_start_date, Sen2winter_finish_date), "S1winter_" + name, exportarea, name, url_mode=False)
+
 
     if S2:
         old = False
@@ -359,15 +510,21 @@ def download(minx, miny, maxx, maxy, name):
             s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
             s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
             submit_s2job(s2_sr_col, "sen2winter", name, exportarea)
+            
         else:
 
             ########################### Processing Sentinel 2 #############################################
             
-            # SPRING
-            export_cloud_free_sen2("spring", (Sen2spring_start_date, Sen2spring_finish_date), name, exportarea)
-            export_cloud_free_sen2("summer", (Sen2summer_start_date, Sen2summer_finish_date), name, exportarea)
-            export_cloud_free_sen2("autumn", (Sen2autumn_start_date, Sen2autumn_finish_date), name, exportarea)
-            export_cloud_free_sen2("winter", (Sen2winter_start_date, Sen2winter_finish_date), name, exportarea)
+            export_cloud_free_sen2("S2spring", (Sen2spring_start_date, Sen2spring_finish_date), name, exportarea, S2type="S2")
+            export_cloud_free_sen2("S2summer", (Sen2summer_start_date, Sen2summer_finish_date), name, exportarea)
+            export_cloud_free_sen2("S2autumn", (Sen2autumn_start_date, Sen2autumn_finish_date), name, exportarea)
+            export_cloud_free_sen2("S2winter", (Sen2winter_start_date, Sen2winter_finish_date), name, exportarea)
+    if S2A:
+
+        export_cloud_free_sen2("S2Aspring", (Sen2spring_start_date, Sen2spring_finish_date), name, exportarea, S2type="S2_SR_HARMONIZED")
+        export_cloud_free_sen2("S2Asummer", (Sen2summer_start_date, Sen2summer_finish_date), name, exportarea, S2type="S2_SR_HARMONIZED")
+        export_cloud_free_sen2("S2Aautumn", (Sen2autumn_start_date, Sen2autumn_finish_date), name, exportarea, S2type="S2_SR_HARMONIZED")
+        export_cloud_free_sen2("S2Awinter", (Sen2winter_start_date, Sen2winter_finish_date), name, exportarea, S2type="S2_SR_HARMONIZED")
 
             
     if VIIRS:

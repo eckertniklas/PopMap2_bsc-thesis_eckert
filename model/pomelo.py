@@ -57,6 +57,9 @@ class CustomUNet(smp.Unet):
         else:
             self.decoder.center = nn.Identity()
 
+        # self.remove_batchnorm(self.encoder)
+        self.remove_batchnorm(self)
+
         # initialize
         print("self.encoder.out_channels", self.encoder.out_channels)
         self.name = "u-{}".format(encoder_name)
@@ -64,6 +67,13 @@ class CustomUNet(smp.Unet):
 
         # print number of parameters that are actually used
         self.num_effective_params(down=down, verbose=True)
+
+    def remove_batchnorm(self, model):
+        for name, module in model.named_children():
+            if isinstance(module, nn.BatchNorm2d):
+                setattr(model, name, nn.Identity())
+            else:
+                self.remove_batchnorm(module)
 
     def num_effective_params(self, down=5, verbose=False):
         stages_param_count = 0
@@ -152,28 +162,28 @@ class JacobsUNet(nn.Module):
 
         # Build the regression head
         if head=="v1":
-            self.head = nn.Conv2d(feature_dim, 4, kernel_size=1, padding=0)
+            self.head = nn.Conv2d(feature_dim, 5, kernel_size=1, padding=0)
         elif head=="v2":
             self.head = nn.Sequential(
                 nn.Conv2d(feature_dim, 32, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(32, 4, kernel_size=1, padding=0)
+                nn.Conv2d(32, 5, kernel_size=1, padding=0)
             )
         elif head=="v3":
             self.head = nn.Sequential(
                 nn.Conv2d(feature_dim, 100, kernel_size=3, padding=1), nn.ReLU(),
                 nn.Conv2d(100, 100, kernel_size=3, padding=1), nn.ReLU(),
-                nn.Conv2d(100, 4, kernel_size=1, padding=0)
+                nn.Conv2d(100, 5, kernel_size=1, padding=0)
             )
         elif head=="v4":
             self.head = nn.Sequential(
                 nn.Conv2d(feature_dim, 100, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(100, 4, kernel_size=1, padding=0)
+                nn.Conv2d(100, 5, kernel_size=1, padding=0)
             )
         elif head=="v5":
             self.head = nn.Sequential(
                 nn.Conv2d(feature_dim, 32, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(32, 4, kernel_size=1, padding=0)
+                nn.Conv2d(32, 5, kernel_size=1, padding=0)
             )
 
         # Build the domain classifier
@@ -259,18 +269,28 @@ class JacobsUNet(nn.Module):
         else:
             popcount = popdensemap.sum((1,2))
 
+        popvarmap = nn.functional.softplus(out[:,1])
+        # popvarmap = nn.functional.relu(out[:,1])
+        if "admin_mask" in inputs.keys():
+            # make the following line work for both 2D and 3D
+            popvar = (popvarmap * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
+        else:
+            popvar = popvarmap.sum((1,2))
+
         # Building map
-        builtdensemap = nn.functional.softplus(out[:,1])
+        builtdensemap = nn.functional.softplus(out[:,2])
         builtcount = builtdensemap.sum((1,2))
 
         # Builtup mask
-        builtupmap = torch.sigmoid(out[:,2])
+        builtupmap = torch.sigmoid(out[:,3])
 
 
         return {"popcount": popcount, "popdensemap": popdensemap,
+                "popvar": popvar ,"popvarmap": popvarmap, 
                 "builtdensemap": builtdensemap, "builtcount": builtcount,
                 "builtupmap": builtupmap, "domain": domain, "features": features,
                 "decoder_features": decoder_features}
+
 
     def add_padding(self, data, force=True):
         # Add padding

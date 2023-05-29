@@ -18,6 +18,7 @@ import random
 from sklearn import model_selection
 import wandb
 
+import pickle
 import gc
 
 from arguments import train_parser
@@ -27,8 +28,8 @@ from utils.losses import get_loss, r2
 from utils.metrics import get_test_metrics
 from utils.utils import new_log, to_cuda, to_cuda_inplace, detach_tensors_in_dict, seed_all, get_model_kwargs, model_dict
 
+from utils.plot import plot_2dmatrix, plot_and_save, scatter_plot3
 from utils.utils import get_fnames_labs_reg, get_fnames_unlab_reg
-from utils.plot import plot_2dmatrix, plot_and_save
 from utils.datasampler import LabeledUnlabeledSampler
 from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1, pop_map_root, inference_patch_size, overlap
 from utils.constants import inference_patch_size as ips
@@ -77,7 +78,11 @@ class Trainer:
         wandb.config.update(self.args) 
 
         # set up optimizer and scheduler
-        self.optimizer = optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
+        if args.optimizer == "Adam":
+            self.optimizer = optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
+        elif args.optimizer == "SGD":
+            self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weightdecay)
+
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
 
         # set up info
@@ -172,16 +177,25 @@ class Trainer:
                         sample_weak["source"] = sample_weak["source"][0]
 
                     loss_weak, loss_dict_weak = get_loss(
-                        output_weak, sample_weak, tag="weak", loss=args.loss, lam=args.lam, merge_aug=args.merge_aug)
+                        output_weak, sample_weak, tag="weak", loss=args.loss, lam=args.lam, merge_aug=args.weak_merge_aug)
                     
                     # Detach tensors
                     loss_dict_weak = detach_tensors_in_dict(loss_dict_weak)
 
                     # update loss
-                    optim_loss += loss_weak * self.args.lam_weak * self.info["beta"]
+                    optim_loss += loss_weak * self.args.lam_weak #* self.info["beta"]
 
                 # forward pass
                 sample = to_cuda_inplace(sample)
+                # with open('objs.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
+                #     pickle.dump(sample, f)
+                # with open('objs.pkl', "rb") as f:  # Python 3: open(..., 'rb')
+                #     trainsample = pickle.load(f)
+                # train_output = self.model(trainsample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
+                # sample_b = sample.copy()
+                # sample_b["input"] = sample["input"][3:4]
+                # output_b = self.model(sample_b, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
+                
                 output = self.model(sample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
             
                 # compute loss
@@ -261,6 +275,10 @@ class Trainer:
         self.val_stats = defaultdict(float)
 
         self.model.eval()
+
+        # with open('objs.pkl', "rb") as f:  # Python 3: open(..., 'rb')
+        #     trainsample = pickle.load(f)
+        # train_output = self.model(trainsample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
 
         with torch.no_grad():
             pred, gt = [], []
@@ -407,6 +425,7 @@ class Trainer:
         # Test on target domain
         self.model.eval()
         self.test_stats = defaultdict(float)
+        # self.model.train()
 
         with torch.no_grad(): 
             for testdataloader in self.dataloaders["test_target"]:
@@ -414,6 +433,7 @@ class Trainer:
                 # inputialize the output map
                 h, w = testdataloader.dataset.shape()
                 output_map = torch.zeros((h, w))
+                output_map_var = torch.zeros((h, w))
                 output_map_count = torch.zeros((h, w))
 
                 for sample in tqdm(testdataloader, leave=False):
@@ -425,25 +445,80 @@ class Trainer:
                     mask = sample["mask"][0].bool()
 
                     # get the output with a forward pass
+                    
                     output = self.model(sample, padding=False)
-
+                    # sample_b = sample.copy()
+                    # sample_b["input"] = sample_b["input"][:,:,450:550,450:550]
+                    # plot_2dmatrix(sample_b["input"][0,0] )
+                    # output_b = self.model(sample_b, padding=False)
+                    # output_b = self.model(sample_b, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
                     # add the output to the output map
-                    if mask.sum()<921599:
+                    # import torchvision
+                    # torchvision.transforms.TenCrop(224)
+                    if mask.sum()<(921600-1):
                         print("sus...")
                     output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu()
+                    output_map_var[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popvarmap"][0][mask].cpu()
                     output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
 
                 # average over the number of times each pixel was visited
                 output_map[output_map_count>0] = output_map[output_map_count>0] / output_map_count[output_map_count>0]
+                output_map_var[output_map_count>0] = output_map_var[output_map_count>0] / output_map_count[output_map_count>0]
 
                 if save:
                     # save the output map
                     testdataloader.dataset.save(output_map, self.experiment_folder)
+                    testdataloader.dataset.save(output_map_var, self.experiment_folder, tag="VAR")
                 
                 # convert populationmap to census
                 census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True)
                 self.target_test_stats = get_test_metrics(census_pred, census_gt.float().cuda(), tag="census")
+                built_up = census_gt>10
+                self.target_test_stats = {**self.target_test_stats,
+                                          **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="census_pos")}
                 
+                # scatter_data = [wandb.Scatter(x=census_pred, y=census_gt, mode='markers')]
+
+                # self.target_test_stats["census/scatter_plot"] = wandb.Plotly([wandb.Scatter(x=census_pred, y=census_gt, mode='markers')])
+                # self.target_test_stats["census/scatter_plot"] = wandb.Plotly([wandb.plot.scatter(x=census_pred, y=census_gt)])
+                # # wandb.log({"scatter_plot": wandb.Plotly(scatter_data)})
+
+                # data = [[x, y] for (x, y) in zip(census_pred, census_gt)]
+                # table = wandb.Table(data=[[x, y] for (x, y) in zip(census_pred, census_gt)], columns = ["predicted", "Census"])
+                # self.target_test_stats["census/scatter_plot"] = wandb.plot.scatter(
+                # self.target_test_stats["data"] = wandb.Table(data=[[x, y] for (x, y) in zip(census_pred.reshape(-1,), census_gt.reshape(-1,))], columns = ["Predicted", "Census"])
+                # self.target_test_stats["my_custom_id"] = wandb.plot.scatter(
+                #     wandb.Table(data=[[x, y] for (x, y) in zip(census_pred.tolist(), census_gt.tolist())], columns = ["Predicted", "Census"]) ,
+                #     "Predicted", "Census", title="Puerto Rico")
+
+                # wandb.log({"my_custom_id" : wandb.plot.scatter(table, "class_x", "class_y")})
+
+                # Generate random data for class_x_prediction_scores and class_y_prediction_scores
+                # num_samples = 50
+                # class_x_prediction_scores = np.random.rand(num_samples)
+                # class_y_prediction_scores = np.random.rand(num_samples)
+
+                # # Zip the data arrays and create a table with columns 'class_x' and 'class_y'
+                # data = [[x, y] for (x, y) in zip(class_x_prediction_scores, class_y_prediction_scores)]
+                # table = wandb.Table(data=data, columns=["class_x", "class_y"])
+                # self.target_test_stats["census/scatter_plot_dummy"] = wandb.plot.scatter(table, "class_x", "class_y")
+
+                # data = [[x, y] for (x, y) in zip(class_x_prediction_scores, class_x_prediction_scores)]
+                # table = wandb.Table(data, columns = ["x", "y"])
+                # wandb.log({"my_custom_plot_id" : wandb.plots.scatter(table, "x", "y", title="Custom Y vs X Scatter Plot")})
+
+                # import math
+                # data = [[i, random.random() + math.sin(i / 10)] for i in range(100)]
+                # table = wandb.Table(data=data, columns=["step", "height"])
+                
+                # self.target_test_stats["scatter_PRI"] =  wandb.Image(scatter_plot(census_pred.tolist(), census_gt.tolist()) )
+
+                # scatter_plot(census_pred.tolist(), census_gt.tolist()).save("last_scatter.png")
+                scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
+                if scatterplot is not None:
+                    self.target_test_stats["scatter_PRI"] = wandb.Image(scatterplot)
+                    scatterplot.save("last_scatter.png")
+
                 wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}, **self.info}, self.info["iter"])
         
 
@@ -453,7 +528,7 @@ class Trainer:
         Get dataloaders for the source and target domains
         Inputs:
             args: command line arguments
-            force_recompute: if True, recompute the dataloaders even if they already exist
+            force_recompute: if True, recompute the dataloader's and look out for new files even if the file list already exist
         Outputs:
             dataloaders: dictionary of dataloaders
                 """
@@ -497,6 +572,7 @@ class Trainer:
         val_size = 0.2 
         f_names, labels = get_fnames_labs_reg(all_patches_mixed_train_part1, force_recompute=force_recompute)
 
+    
         # remove elements that contain "zurich" as a substring
         if args.excludeZH:
             f_namesX = []
@@ -514,7 +590,7 @@ class Trainer:
         if args.da:
             f_names_unlab = []
             for reg in args.target_regions:
-                f_names_unlab.extend(get_fnames_unlab_reg(os.path.join(pop_map_root, os.path.join("EE", reg)), force_recompute=True))
+                f_names_unlab.extend(get_fnames_unlab_reg(os.path.join(pop_map_root, os.path.join("EE", reg)), force_recompute=force_recompute))
         else:
             f_names_unlab = []
 

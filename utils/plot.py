@@ -3,7 +3,8 @@ import numpy as np
 import torch
 from pylab import figure, imshow, matshow, grid, savefig, colorbar
 import matplotlib.pyplot as plt
-
+from io import BytesIO
+from PIL import Image
 
 
 def plot_2dmatrix(matrix, fig=1, vmin=None, vmax=None):
@@ -67,3 +68,108 @@ def plot_and_save(img, mask=None, vmax=None, vmin=None, idx=None,
         plt.close()
     else:
         plt.savefig(f'{name}.png')
+
+
+def scatter_plot(predicted, ground_truth):
+    # Create a scatterplot of the predicted and ground truth values
+    plt.scatter(predicted, ground_truth)
+
+    # Add axis labels and a title
+    plt.xlabel('Predicted Values')
+    plt.ylabel('Ground Truth Values')
+    plt.title('Predicted vs. Ground Truth Values')
+
+    # Save the plot to a BytesIO object
+    buffer = BytesIO()
+    plt.savefig(buffer, format='png')
+    buffer.seek(0)
+
+    # Open the BytesIO object as a PIL Image and return it
+    return Image.open(buffer)
+
+
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from scipy import stats
+
+def scatter_plot2(predicted, ground_truth):
+    # Create a scatterplot of the predicted and ground truth values
+    
+    tips = sns.load_dataset("tips")
+
+    values = np.vstack([predicted, ground_truth])
+    kernel = stats.gaussian_kde(values)(values)
+    fig, ax = plt.subplots(figsize=(6, 6))
+    sns.scatterplot(
+        data=tips,
+        x="total_bill",
+        y="tip",
+        c=kernel,
+        cmap="viridis",
+        ax=ax,
+    )
+
+    # Add axis labels and a title
+    plt.xlabel('Predicted Values')
+    plt.ylabel('Ground Truth Values')
+    plt.title('Predicted vs. Ground Truth Values')
+
+    # Save the plot to a BytesIO object
+    buffer = BytesIO()
+    plt.savefig(buffer, format='png')
+    buffer.seek(0)
+
+    # Open the BytesIO object as a PIL Image and return it
+    return Image.open(buffer)
+
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import gaussian_kde
+
+def scatter_plot3(predicted, ground_truth):
+    # Create a scatterplot of the predicted and ground truth values
+
+    x = np.array(predicted)
+    y = np.array(ground_truth)
+
+    # Remove zeros from x and y
+    mask = (x != 0) & (y != 0)
+    if mask.sum() == 0:
+        return None
+    
+    x = x[mask]
+    y = y[mask]
+
+    # Calculate the point density
+    xy = np.vstack([x,y])
+    z = gaussian_kde(xy)(xy)
+
+    fig, ax = plt.subplots()
+    ax.scatter(x, y, c=z, s=12)
+
+    # Set the x and y limits to match the ground truth min and max
+    min_value, max_value = np.min(0.5), np.max(ground_truth)
+    ax.set_xlim(min_value, max_value)
+    ax.set_ylim(min_value, max_value)
+    # plt.show()
+
+    # Set both axes to a log scale
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+
+    # Add axis labels and a title
+    plt.xlabel('Predicted Values')
+    plt.ylabel('Ground Truth Values')
+    plt.title('Predicted vs. Ground Truth Values')
+
+    # Save the plot to a BytesIO object
+    buffer = BytesIO()
+    plt.savefig(buffer, format='png')
+    buffer.seek(0)
+
+    # Open the BytesIO object as a PIL Image and return it
+    return Image.open(buffer)
+

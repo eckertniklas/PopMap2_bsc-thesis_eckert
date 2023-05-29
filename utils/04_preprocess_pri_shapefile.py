@@ -9,7 +9,7 @@ import os
 import torch
 from tqdm import tqdm
 
-from utils import plot_2dmatrix
+# from utils.plot import plot_2dmatrix
 
 def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mode=True):
 
@@ -32,6 +32,12 @@ def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mod
 
     this_outputfile = output_tif_file.replace("boundaries", "boundaries4")
     this_censusfile = output_census_file.replace("census", "census4")
+
+    parent_dir = os.path.dirname(this_outputfile)
+    os.makedirs(parent_dir, exist_ok=True)
+
+    parent_dir = os.path.dirname(this_censusfile)
+    os.makedirs(parent_dir, exist_ok=True)
 
     # rasterize
     with rasterio.open(this_outputfile, 'w+', **metadata) as out:

@@ -31,7 +31,8 @@ parser.add_argument('-smo', '--supmode', type=str, help="'unsup', 'weaksup'", de
 parser.add_argument('-e', '--num_epochs', help='', type=int, default=20)
 parser.add_argument('-lr', '--learning_rate', help='', type=float, default=1e-4)
 parser.add_argument("-exZH", "--excludeZH", action='store_true', help="")
-parser.add_argument('-l', '--loss', nargs='+', default=["l1_loss"], help="list composed of 'l1_loss', 'log_l1_loss', 'mse_loss', 'log_mse_loss', 'focal_loss','tversky_loss")
+parser.add_argument('-optim', '--optimizer', nargs='+', default="Adam", choices=["Adam", "SGD"])
+parser.add_argument('-l', '--loss', nargs='+', default=["l1_loss"], help="list composed of 'l1_loss', 'log_l1_loss', 'mse_loss', 'log_mse_loss', 'focal_loss','tversky_loss', 'gaussian_nll', 'laplacian_nll'")
 parser.add_argument('-la', '--lam', nargs='+', type=float, default=[1.0], help="list composed of loss weightings")
 parser.add_argument("-lw", "--lam_weak", help='', type=float, default=1.0)
 parser.add_argument("-adv", "--adversarial", action='store_true', help="")
@@ -66,7 +67,7 @@ parser.add_argument('--save-model', default='both', choices=['last', 'best', 'no
 parser.add_argument('-ms', '--max_samples', help='', type=int, default=1e15)
 parser.add_argument('-mws', '--max_weak_samples', help='', type=int, default=None)
 parser.add_argument("--in_memory", action='store_true', help='')
-parser.add_argument("--merge_aug", action='store_true', help='')
+parser.add_argument("--merge_aug", type=int, help='Number of Admin regions to merge, Default is 1 with equivalent to no augmentations. Must be a power of 2 and a divisor of the batchsize.', default=None)
 parser.add_argument("-wma", "--weak_merge_aug", action='store_true', help='')
 
 args = parser.parse_args()

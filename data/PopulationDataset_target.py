@@ -15,7 +15,7 @@ import random
 
 from typing import Dict, Tuple
 
-from utils.constants import pop_map_root, pop_map_covariates, config_path
+from utils.constants import pop_map_root_large, pop_map_covariates, pop_map_covariates_large, config_path 
 
 from utils.plot import plot_2dmatrix
 
@@ -59,7 +59,7 @@ class Population_Dataset_target(Dataset):
         self.transform = transform
 
         # get the path to the data
-        region_root = os.path.join(pop_map_root, region)
+        region_root = os.path.join(pop_map_root_large, region)
 
         # load the boundary and census data
         self.boundary_file = os.path.join(region_root, "boundaries4.tif")
@@ -96,12 +96,18 @@ class Population_Dataset_target(Dataset):
 
         # get the path to the data files
         covar_root = os.path.join(pop_map_covariates, region)
-        self.S1_file = os.path.join(covar_root,  os.path.join("S1", region +"_S1.tif"))
-        self.sen2spring_file = os.path.join(covar_root,  os.path.join("sen2spring", region +"_sen2spring.tif"))
-        self.sen2summer_file = os.path.join(covar_root,  os.path.join("sen2summer", region +"_sen2summer.tif"))
-        self.sen2autumn_file = os.path.join(covar_root,  os.path.join("sen2autumn", region +"_sen2autumn.tif"))
-        self.sen2winter_file = os.path.join(covar_root,  os.path.join("sen2winter", region +"_sen2winter.tif"))
-        self.S2_file = {0: self.sen2spring_file, 1: self.sen2summer_file, 2: self.sen2autumn_file, 3: self.sen2winter_file}
+        # covar_root = os.path.join(pop_map_covariates_large, region)
+        # self.S1_file = os.path.join(covar_root,  os.path.join("S1", region +"_S1.tif"))
+        self.S1spring_file = os.path.join(covar_root,  os.path.join("S1spring", region +"_S1spring.tif"))
+        self.S1summer_file = os.path.join(covar_root,  os.path.join("S1summer", region +"_S1summer.tif"))
+        self.S1autumn_file = os.path.join(covar_root,  os.path.join("S1autumn", region +"_S1autumn.tif"))
+        self.S1winter_file = os.path.join(covar_root,  os.path.join("S1winter", region +"_S1winter.tif"))
+        self.S1_file = {0: self.S1spring_file, 1: self.S1summer_file, 2: self.S1autumn_file, 3: self.S1winter_file}
+        self.S2spring_file = os.path.join(covar_root,  os.path.join("S2spring", region +"_S2spring.tif"))
+        self.S2summer_file = os.path.join(covar_root,  os.path.join("S2summer", region +"_S2summer.tif"))
+        self.S2autumn_file = os.path.join(covar_root,  os.path.join("S2autumn", region +"_S2autumn.tif"))
+        self.S2winter_file = os.path.join(covar_root,  os.path.join("S2winter", region +"_S2winter.tif"))
+        self.S2_file = {0: self.S2spring_file, 1: self.S2summer_file, 2: self.S2autumn_file, 3: self.S2winter_file}
         self.season_dict = {0: "spring", 1: "summer", 2: "autumn", 3: "winter"}
         self.inv_season_dict = {v: k for k, v in self.season_dict.items()}
         self.VIIRS_file = os.path.join(covar_root,  os.path.join("viirs", region +"_viirs.tif"))
@@ -203,6 +209,17 @@ class Population_Dataset_target(Dataset):
         # get the data
         indata, auxdata = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0)
 
+        if "S2" in indata:
+            if np.any(np.isnan(indata["S2"])): 
+                indata["S2"] = self.interpolate_nan(indata["S2"]) 
+            
+        if "S1" in indata:
+            if np.any(np.isnan(indata["S1"])):
+                indata["S1"] = self.interpolate_nan(indata["S1"]) 
+
+        # get admin_mask
+        admin_mask = torch.from_numpy(self.cr_regions[xmin:xmax, ymin:ymax]==census_sample["idx"])
+
         # To Torch
         indata = {key:torch.from_numpy(np.asarray(val, dtype=np.float32)).type(torch.FloatTensor) for key,val in indata.items()}
 
@@ -221,8 +238,9 @@ class Population_Dataset_target(Dataset):
 
         # General transformations
         if self.transform:
-            X, admin_mask = self.transform((X, admin_mask.unsqueeze(0)))
-            admin_mask = admin_mask.squeeze(0)
+            if "general" in self.transform:
+                X, admin_mask = self.transform["general"]((X, admin_mask.unsqueeze(0)))
+                admin_mask = admin_mask.squeeze(0)
 
         # return dictionary
         return {'input': X,
@@ -277,8 +295,9 @@ class Population_Dataset_target(Dataset):
 
         # General transformations
         if self.transform:
-            X, mask = self.transform((X, mask.unsqueeze(0)))
-            admin_mask = admin_mask.squeeze(0)
+            if "general" in self.transform:
+                X, mask = self.transform["general"]((X, mask.unsqueeze(0)))
+                admin_mask = admin_mask.squeeze(0)
 
         # return dictionary
         return {'input': X, 'img_coords': (x,y), 'valid_coords':  (xmin, xmax, ymin, ymax),
@@ -306,7 +325,6 @@ class Population_Dataset_target(Dataset):
         input_array[missing_points] = interpolated_values
 
         return input_array
-    
 
 
     def generate_raw_data(self,x,y, season, patchsize=None, overlap=None):
@@ -336,31 +354,35 @@ class Population_Dataset_target(Dataset):
             S2_file = self.S2_file[season]
             if self.NIR:
                 if fake:
-                    raw_data = np.random.randint(0, 10000, size=(4,patchsize_x,patchsize_y))
+                    indata["S2"] = np.random.randint(0, 10000, size=(4,patchsize_x,patchsize_y))
                 else:
                     with rasterio.open(S2_file, "r") as src:
                         indata["S2"] = src.read((4,3,2,8), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
             else:
                 if fake:
-                    raw_data = np.random.randint(0, 10000, size=(3,patchsize_x,patchsize_y))
+                    indata["S2"] = np.random.randint(0, 10000, size=(3,patchsize_x,patchsize_y))
                 else:
                     with rasterio.open(S2_file, "r") as src:
                         indata["S2"] = src.read((4,3,2), window=((x,x+patchsize_x),(y,y+patchsize_y)))
             mask = mask & (indata["S2"].sum(axis=0) != 0)
         if self.S1:
+            S1_file = self.S1_file[season]
             if fake:
-                raw_data = np.random.randint(0, 10000, size=(2,patchsize_x,patchsize_y))
+                indata["S1"] = np.random.randint(0, 10000, size=(2,patchsize_x,patchsize_y))
             else:
-                with rasterio.open(self.S1_file, "r") as src:
-                    indata["S1"] = src.read(window=((x,x+patchsize_x),(y,y+patchsize_y))) 
+                with rasterio.open(S1_file, "r") as src:
+                    indata["S1"] = src.read((1,2), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
             mask = mask & (indata["S1"].sum(axis=0) != 0)
         if self.VIIRS:
             if fake:
-                raw_data = np.random.randint(0, 10000, size=(1,patchsize_x,patchsize_y))
+                indata["VIIRS"] = np.random.randint(0, 10000, size=(1,patchsize_x,patchsize_y))
             else:
                 with rasterio.open(self.VIIRS_file, "r") as src:
-                    indata["VIIRS"] = src.read(window=((x,x+patchsize_x),(y,y+patchsize_y))) 
+                    indata["VIIRS"] = src.read(1, window=((x,x+patchsize_x),(y,y+patchsize_y))) 
             mask = mask & (indata["VIIRS"].sum(axis=0) != 0)
+
+        # # load administrative mask
+        # admin_mask = self.cr_regions[x:x+patchsize_x, y:y+patchsize_y]==idx
 
         return indata, mask
 
@@ -417,20 +439,20 @@ class Population_Dataset_target(Dataset):
         # S2
         if "S2" in indata:
             if indata["S2"].shape[0] == 4:
-                indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2springNIR"]['p2'][:,None,None], self.dataset_stats["sen2springNIR"]['p2'][:,None,None], indata["S2"])
+                # indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2springNIR"]['p2'][:,None,None], self.dataset_stats["sen2springNIR"]['p2'][:,None,None], indata["S2"])
                 indata["S2"] = ((indata["S2"].permute((1,2,0)) - self.dataset_stats["sen2springNIR"]['mean'] ) / self.dataset_stats["sen2springNIR"]['std']).permute((2,0,1))
             else: 
-                indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], indata["S2"])
+                # indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], indata["S2"])
                 indata["S2"] = ((indata["S2"].permute((1,2,0)) - self.dataset_stats["sen2spring"]['mean'] ) / self.dataset_stats["sen2spring"]['std']).permute((2,0,1))
 
         # S1
         if "S1" in indata:
-            indata["S1"] = torch.where(indata["S1"] > self.dataset_stats["sen1"]['p2'][:,None,None], self.dataset_stats["sen1"]['p2'][:,None,None], indata["S1"])
+            # indata["S1"] = torch.where(indata["S1"] > self.dataset_stats["sen1"]['p2'][:,None,None], self.dataset_stats["sen1"]['p2'][:,None,None], indata["S1"])
             indata["S1"] = ((indata["S1"].permute((1,2,0)) - self.dataset_stats["sen1"]['mean'] ) / self.dataset_stats["sen1"]['std']).permute((2,0,1))
 
         # VIIRS
         if "VIIRS" in indata:
-            indata["VIIRS"] = torch.where(indata["VIIRS"] > self.dataset_stats["viirs"]['p2'][:,None,None], self.dataset_stats["viirs"]['p2'][:,None,None], indata["VIIRS"])
+            # indata["VIIRS"] = torch.where(indata["VIIRS"] > self.dataset_stats["viirs"]['p2'][:,None,None], self.dataset_stats["viirs"]['p2'][:,None,None], indata["VIIRS"])
             indata["VIIRS"] = ((indata["VIIRS"].permute((1,2,0)) - self.dataset_stats["viirs"]['mean'] ) / self.dataset_stats["viirs"]['std']).permute((2,0,1))
 
         return indata
@@ -461,7 +483,7 @@ class Population_Dataset_target(Dataset):
         y = y_scaled * (y_max - y_min) + y_min
         return y
 
-    def save(self, preds, output_folder) -> None:
+    def save(self, preds, output_folder, tag="") -> None:
         """
         Saves the predictions to a tif file
         inputs:
@@ -479,7 +501,7 @@ class Population_Dataset_target(Dataset):
             os.makedirs(output_folder)
 
         # save the predictions
-        output_file = os.path.join(output_folder, self.region + "_predictions.tif")
+        output_file = os.path.join(output_folder, self.region + f"_predictions{tag}.tif")
         with rasterio.open(output_file, "w", **self._meta) as dest:
             dest.write(preds,1)
 

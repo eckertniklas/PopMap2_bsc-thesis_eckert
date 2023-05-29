@@ -45,21 +45,21 @@
             "justMyCode": true,
         },
         {
-            "name": "01_download_gee_country.py, CHE",
+            "name": "01_download_gee_country.py, CHE test",
             "type": "python",
             "request": "launch",
             "program": "utils/01_download_gee_country.py",
             "console": "integratedTerminal",
             "args": [
-                "8.342543532767808",
                 "47.21619954958101",
-                "8.700972487845933",
+                "8.342543532767808",
                 "47.52405300662494",
-                "checp2",
+                "8.700972487845933",
+                "checp2test2",
             ]
         },
         {
-            "name": "01_download_gee_country.py, CHE test",
+            "name": "01_download_gee_country.py, CHE",
             "type": "python",
             "request": "launch",
             "program": "utils/01_download_gee_country.py",
@@ -69,7 +69,7 @@
                 "5.955490",
                 "46.914333",
                 "10.492294",
-                "checp2test"
+                "checp2"
             ]
         },
         {
@@ -104,6 +104,20 @@
             ]
         },
         {
+            "name": "01_download_gee_country.py, PRI",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/01_download_gee_country.py",
+            "console": "integratedTerminal",
+            "args": [
+                "-67.28203119204046", 
+                "17.874492216594003",
+                "-65.20561517641546",
+                "18.522873187515714",
+                "pricp2", 
+            ]
+        }, 
+        {
             "name": "01_download_gee_country.py, RWA, test",
             "type": "python",
             "request": "launch",
@@ -118,8 +132,7 @@
                 "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/GEEraster/RWA",
                 // "P_2020"
             ]
-        },
-        {
+        },{
             "name": "02_preprocess_rwa_shapefile.py",
             "type": "python",
             "request": "launch",
@@ -143,7 +156,8 @@
             "program": "utils/03_merge_tiffs.py",
             "console": "integratedTerminal",
             "args": [
-                "/scratch/metzgern/HAC/data/PopMapData/raw/EE/pricp2"
+                "/scratch2/metzgern/HAC/data/PopMapData/raw/EE/pricp2",
+                "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/pricp2"
             ]
         },
         {
@@ -163,10 +177,10 @@
             "program": "utils/04_preprocess_pri_shapefile.py",
             "console": "integratedTerminal",
             "args": [
-                "/scratch/metzgern/HAC/data/PopMapData/raw/boundaries/pri",
-                "/scratch/metzgern/HAC/data/PopMapData/processed/pri/boundaries.tif",
-                "/scratch/metzgern/HAC/data/PopMapData/processed/pri/census.csv",
-                "/scratch/metzgern/HAC/data/PopMapData/merged/EE/pri/S1/pri_S1.tif"
+                "/scratch2/metzgern/HAC/data/PopMapData/raw/boundaries/pricp2",
+                "/scratch/metzgern/HAC/data/PopMapData/processed/pricp2/boundaries.tif",
+                "/scratch/metzgern/HAC/data/PopMapData/processed/pricp2/census.csv",
+                "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/pricp2/S1spring/pricp2_S1spring.tif"
             ]
         },
         {
@@ -178,6 +192,18 @@
             "args": [
                 "/scratch/metzgern/HAC/data/PopMapData/merged/EE/pricp2",
                 "/scratch/metzgern/HAC/data/PopMapData/processed/EE/pricp2",
+                "100",
+            ]
+        },
+        {
+            "name": "05_cut_tiles.py, HDD",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/05_cut_tiles.py",
+            "console": "integratedTerminal",
+            "args": [
+                "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/pricp2",
+                "/scratch2/metzgern/HAC/data/PopMapData/processed/EE/pricp2",
                 "100",
             ]
         },
@@ -590,17 +616,24 @@
                 "256",
                 "-lr",
                 "1e-4",
+                // "1e-4",
                 "-l",
-                "l1_loss",
+                "log_l1_aug_loss",
+                // "l1_loss",
+                // "log_l1_loss",
+                // "gaussian_nll",
+                // "laplacian_nll",
+                "--merge_aug", "4",
                 "-la",
                 "1.0",
+                // "100.0",
                 // "-wd", "0.001",
                 // "-lw", "0.1",
                 "-dw",
-                "2",
+                "4",
                 // "-S2",
-                "-S2",
-                // "-S1",
+                // "-S2",
+                "-S1",
                 // "-NIR",
                 "-f",
                 "16",
@@ -618,12 +651,102 @@
                 // "--classifier", "v8",
                 // "-smo", "weaksup",
                 // "-mws", "10",
-                // "--val", "5",
+                "--val", "1",
                 // "-clasif", "v12",
                 // "-adv",
                 // "-ladv", "0.001",
-                "--full_aug"
+                // "--full_aug"
                 // "-wma",
+            ]
+        },
+        {
+            "name": "train, smp, deterministic",
+            "type": "python",
+            "request": "launch",
+            "program": "run_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "-o",
+                "-s",
+                // "--max_samples", "20000",
+                "-e",
+                "200",
+                "-b",
+                "256",
+                "-lr",
+                "1e-4",
+                // "1e-4",
+                "-l",
+                "l1_loss",
+                "-la",
+                "1.0",
+                // "-wd", "0.001",
+                // "-lw", "0.1",
+                "-dw",
+                "3",
+                // "-S2",
+                "-S1",
+                // "-NIR",
+                "-f",
+                "16",
+                "-rse",
+                "-treg",
+                "pricp2",
+                // "-adv", 
+                // "-ladv", "0.01",
+                // "--classif", "v8",
+                // "--CORAL",
+                // "--lam_coral", "10000.0",
+                // "--MMD",
+                // "--lam_mmd", "0.1",
+                "-exZH",
+                // "--classifier", "v8",
+                // "-smo", "weaksup",
+                // "-mws", "10",
+                "--val", "1",
+                // "-clasif", "v12",
+                // "-adv",
+                // "-ladv", "0.001",
+                // "--full_aug"
+                // "-wma",
+            ]
+        },
+        {
+            "name": "train, smp, bayesian",
+            "type": "python",
+            "request": "launch",
+            "program": "run_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "-o",
+                "-s",
+                // "--max_samples", "20000",
+                "-e",
+                "200",
+                "-b",
+                "256",
+                "-lr",
+                "1e-5",
+                // "1e-4",
+                "-l",
+                "gaussian_nll",
+                // "laplacian_nll",
+                "-la",
+                "1.0",
+                "-dw",
+                "4",
+                // "-S2",
+                "-S1",
+                // "-NIR",
+                "-f",
+                "16",
+                "-rse",
+                "-treg",
+                "pricp2",
+                "-exZH",
+                "--val", "1",
             ]
         }
     ]

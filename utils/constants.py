@@ -48,7 +48,9 @@ all_patches_mixed_test_part2 = os.path.join(all_patches_mixed_part2, 'test')   #
 
 # Sat2Pop data folder
 pop_map_root = os.path.join(current_dir_path, os.path.join("PopMapData", "processed"))
+pop_map_root_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.join("PopMapData", "processed"))
 pop_map_covariates = os.path.join(current_dir_path, os.path.join("PopMapData", os.path.join("merged", "EE")))
+pop_map_covariates_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.join("PopMapData", os.path.join("merged", "EE")))
 
 src_path = os.path.dirname(os.path.dirname(__file__))
 config_path = os.path.join(os.path.join(src_path, 'data'), 'config')

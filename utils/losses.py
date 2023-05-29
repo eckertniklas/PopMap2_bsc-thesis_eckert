@@ -6,6 +6,8 @@ from collections import defaultdict
 from utils.CORAL import coral
 from utils.MMD import default_mmd as mmd
 
+from torch.nn.modules.loss import _Loss
+from torch import Tensor
 
 
 def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
@@ -31,6 +33,7 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
     # prepare vars1.0
     y_pred = output["popcount"][gt["source"]]
     y_gt = gt["y"][gt["source"]]
+    var = output["popvar"][gt["source"]]
 
     # Population loss and metrics
     popdict = {
@@ -40,31 +43,33 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
         "log_mse_loss": F.mse_loss(torch.log(y_pred+1), torch.log(y_gt+1)),
         "mr2": r2(y_pred, y_gt) if len(y_pred)>1 else torch.tensor(0.0),
         "mape": mape_func(y_pred, y_gt),
-        "focal_loss": focal_loss(y_pred, y_gt),
-        "tversky_loss": tversky_loss(y_pred, y_gt),
+        # "focal_loss": focal_loss(y_pred, y_gt),
+        # "tversky_loss": tversky_loss(y_pred, y_gt),
         "GTmean": y_gt.mean(),
         "GTstd": y_gt.std(),
         "predmean": y_pred.mean(),
         "predstd": y_pred.std(),
         "mCorrelation": torch.corrcoef(torch.stack([y_pred, y_gt]))[0,1] if len(y_pred)>1 else torch.tensor(0.0),
+        "gaussian_nll": gaussian_nll(y_pred, y_gt, var),
+        "laplacian_nll": laplacian_nll(y_pred, y_gt, var),
+        "STDpredmean": var.mean().sqrt(),
+        # "log_gaussian_nll": gaussian_nll(torch.log(y_pred+1), torch.log(y_gt+1)),
     }
 
     # augmented loss
-    if len(y_pred)%2==0:
-        hl = len(y_pred)//2
+    if len(y_pred)%merge_aug==0:
+        hl = len(y_pred)//merge_aug
         aug_pred = torch.stack(torch.split(y_pred, hl)).sum(0)
         aug_gt = torch.stack(torch.split(y_gt, hl)).sum(0) 
         popdict["l1_aug_loss"] = F.l1_loss(aug_pred, aug_gt)
+        popdict["log_l1_aug_loss"] = F.l1_loss(torch.log(aug_pred+1), torch.log(aug_gt+1))
         popdict["mse_aug_loss"] = F.mse_loss(aug_pred, aug_gt)
+        popdict["log_mse_aug_loss"] = F.mse_loss(torch.log(aug_pred+1), torch.log(aug_gt+1))
     else:
         popdict["l1_aug_loss"] = popdict["l1_loss"]*4
 
-    # define optimization loss
-    if merge_aug:
-        optimization_loss = popdict["mse_aug_loss"]
-    else:
-        # optimization_loss = popdict[loss]
-        optimization_loss = sum([popdict[lo]*la for lo,la in zip(loss,lam)])
+    # define optimization loss as a weighted sum of the losses
+    optimization_loss = sum([popdict[lo]*la for lo,la in zip(loss,lam)])
 
     # prepare for logging
     if tag=="":
@@ -72,7 +77,7 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
     else:
         auxdict = {**auxdict, **{"Population/"+tag+"/"+key: value for key,value in popdict.items()}}
 
-    # Adversarial loss
+    # Domain adaption losses
     if ~gt["source"].all():
 
         # Adversarial Domain adaptation loss
@@ -125,7 +130,50 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
     return optimization_loss, auxdict
 
         
+class LaplacianNLLLoss(_Loss):
+    """Laplacian negative log-likelihood loss using log-variance
+
+    For more details see:
+        I don't know yet
+
+    Adapted from:
+        torch.nn.GaussianNLLLoss: https://pytorch.org/docs/stable/generated/torch.nn.GaussianNLLLoss.html#torch.nn.GaussianNLLLoss
+        torch.nn.functional.gaussian_nll_loss: https://github.com/pytorch/pytorch/blob/master/torch/nn/functional.py
+    """
+    __constants__ = ['full', 'eps', 'max_clamp', 'reduction']
+    full: bool
+    eps: float
+    max_clamp: float
+
+    def __init__(self, *, full: bool = False, max_clamp: float = 10.0, eps: float = 1e-6, reduction: str = 'mean') -> None:
+        super(LaplacianNLLLoss, self).__init__(None, None, reduction)
+        self.full = full
+        self.max_clamp = max_clamp # for exponential stability 
+        self.eps = eps # for division stability
+        self.eps2 = 1e-3
+
+        if self.full:
+            print('FULL LAPLACIAN NLL LOSS NOT YET IMPLEMENTED')
+            raise NotImplementedError
+
+    def forward(self, pred: Tensor, var:Tensor, target: Tensor) -> Tensor:
+        # pred, var = pred_log_var.split([1,1], dim=0)
+        log_var = (var+self.eps2).log()
+        loss =  0.5 * (log_var + abs(pred - target) / (var + self.eps))
+        # loss =  0.5 * (log_var + abs(pred - target) / (torch.exp(log_var.clamp(max=self.max_clamp)) + self.eps))
+
+        if self.reduction == 'mean':
+            return loss.mean()
+        elif self.reduction == 'sum':
+            return loss.sum()
+        else:
+            return loss
+        
+
 BCE = torch.nn.BCELoss()
+gaussian_nll =  torch.nn.GaussianNLLLoss()
+laplacian_nll = LaplacianNLLLoss()
+
 
 
 def class_metrics(pred, gt, thresh=0.5, eps=1e-8):

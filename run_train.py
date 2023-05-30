@@ -10,6 +10,7 @@ from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader, ChainDataset, ConcatDataset
 from torchvision.transforms import Normalize
 from torchvision import transforms
+from utils.transform import OwnCompose
 from utils.transform import RandomRotationTransform, RandomHorizontalFlip, RandomVerticalFlip, RandomHorizontalVerticalFlip, RandomBrightness, RandomGamma, HazeAdditionModule, AddGaussianNoise
 from tqdm import tqdm
 
@@ -21,7 +22,8 @@ import wandb
 import pickle
 import gc
 
-from arguments import train_parser
+# from arguments import train_parser
+from arguments.train import parser as train_parser
 from data.So2Sat import PopulationDataset_Reg
 from data.PopulationDataset_target import Population_Dataset_target, Population_Dataset_collate_fn
 from utils.losses import get_loss, r2
@@ -177,7 +179,7 @@ class Trainer:
                         sample_weak["source"] = sample_weak["source"][0]
 
                     loss_weak, loss_dict_weak = get_loss(
-                        output_weak, sample_weak, tag="weak", loss=args.loss, lam=args.lam, merge_aug=args.weak_merge_aug)
+                        output_weak, sample_weak, tag="weak", loss=args.loss, lam=args.lam, merge_aug=args.merge_aug)
                     
                     # Detach tensors
                     loss_dict_weak = detach_tensors_in_dict(loss_dict_weak)
@@ -201,8 +203,8 @@ class Trainer:
                 # compute loss
                 loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
                                            lam_adv=args.lam_adv if self.args.adversarial else 0.0,
-                                           lam_coral=args.lam_coral if self.args.CORAL*self.info["beta"] else 0.0,
-                                           lam_mmd=args.lam_mmd if self.args.MMD*self.info["beta"] else 0.0 )
+                                           lam_coral=args.lam_coral if self.args.CORAL else 0.0,
+                                           lam_mmd=args.lam_mmd if self.args.MMD else 0.0 )
                 
                 # update loss
                 optim_loss += loss
@@ -557,7 +559,7 @@ class Trainer:
                     # RandomHorizontalVerticalFlip(p=0.5), transforms.RandomVerticalFlip(p=0.5),
                     # RandomRotationTransform(angles=[90, 180, 270], p=0.75), 
                 ])
-        data_transform["S2"] = transforms.Compose([
+        data_transform["S2"] = OwnCompose([
             RandomBrightness(p=0.9),
             RandomGamma(p=0.9, gamma_limit=(0.2, 5.0)),
             HazeAdditionModule(p=0.9, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3))

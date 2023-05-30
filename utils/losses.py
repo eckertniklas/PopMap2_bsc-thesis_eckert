@@ -69,7 +69,11 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
         popdict["l1_aug_loss"] = popdict["l1_loss"]*4
 
     # define optimization loss as a weighted sum of the losses
-    optimization_loss = sum([popdict[lo]*la for lo,la in zip(loss,lam)])
+    optimization_loss = torch.tensor(0, device=y_pred.device, dtype=y_pred.dtype)
+    for lo,la in zip(loss,lam):
+        if lo in popdict.keys():
+            optimization_loss += popdict[lo]*la
+    # optimization_loss = sum([popdict[lo]*la for lo,la in zip(loss,lam)])
 
     # prepare for logging
     if tag=="":

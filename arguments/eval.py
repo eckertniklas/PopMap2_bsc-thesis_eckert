@@ -2,22 +2,29 @@ import configargparse
 
 parser = configargparse.ArgumentParser()
 parser.add_argument('-c', '--config', is_config_file=True, help='Path to the config file', type=str)
+parser.add_argument('-r', '--resume', type=str, help='if argument is given, skript will continue training '
+                                                            'given model\
+                                                            ; argument should be name of the model to be trained')
+parser.add_argument("-treg", "--target_regions", nargs='+', default=["pri2017"], help="the target domains")
+parser.add_argument("-S1", "--Sentinel1", action='store_true', help="")
+parser.add_argument("-S2", "--Sentinel2", action='store_true', help="")
+parser.add_argument("-NIR", "--NIR", action='store_true', help="")
+parser.add_argument("-VIIRS", "--VIIRS", action='store_true', help="")
+parser.add_argument('-f', '--feature_dim', help='', type=int, default=32)
+parser.add_argument("-m", "--model", help='', type=str, default="JacobsUNet")
+parser.add_argument("-dw", "--down", help='', type=int, default=2)
+parser.add_argument('-fe', '--feature_extractor', type=str, help=' ', default="resnet18")
 
-parser.add_argument('--checkpoint', type=str, required=True, help='Checkpoint path to evaluate')
-parser.add_argument('--dataset', type=str, required=True, help='Name of the dataset')
-parser.add_argument('--data-dir', type=str, required=True, help='Root directory of the dataset')
-parser.add_argument('--num-workers', type=int, default=8, metavar='N', help='Number of dataloader worker processes')
-parser.add_argument('--batch-size', type=int, default=8)
-parser.add_argument('--crop-size', type=int, default=256, help='Size of the input (squared) patches')
-parser.add_argument('--scaling', type=int, default=8, help='Scaling factor')
-parser.add_argument('--in-memory', default=False, action='store_true', help='Hold data in memory during evaluation')
-parser.add_argument('--no_params', default=False, action='store_true', help='Hold data in memory during evaluation')
-parser.add_argument('--feature-extractor', type=str, default='UResNet', help='Feature extractor for edge potentials')
+#Training
+parser.add_argument("-clasif", "--classifier", default="v8", help="")
+parser.add_argument("-head", "--head", default="v1", help="")
+parser.add_argument("-adv", "--adversarial", action='store_true', help="")
 
-parser.add_argument('--N', type=int, default=4000, help='N rgb iterations')
-parser.add_argument('--Npre', type=int, default=1000, help='N learned iterations, but without gradients')
-parser.add_argument('--Ntrain', type=int, default=16, help='N learned iterations with gradients')
-parser.add_argument('--pixtransform', default=False, action='store_true', help='eval the pix transformer.')
-parser.add_argument('--sdfilter', default=False, action='store_true', help='eval the pix transformer.')
-parser.add_argument('--gfilter', default=False, action='store_true', help='eval the pix transformer.')
-parser.add_argument('--bicubic', default=False, action='store_true', help='eval the pix transformer.')
+# misc
+parser.add_argument('--save-dir', default='/scratch2/metzgern/HAC/POMELOv2_results', help='Path to directory where models and logs should be saved')
+parser.add_argument('-w', '--num_workers', help='', type=int, default=6)
+parser.add_argument("-wp", "--wandb_project", help='', type=str, default="POMELOv2")
+parser.add_argument("--seed", help='', type=int, default=1610)
+parser.add_argument("--in_memory", action='store_true', help='')
+
+args = parser.parse_args()

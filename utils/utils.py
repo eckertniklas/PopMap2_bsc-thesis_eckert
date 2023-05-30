@@ -87,7 +87,7 @@ def write_params(params, path):
 
 def get_fnames_labs_reg(path, force_recompute=False):
     """
-    :param path: path to patch folder (sen2spring), now S2spring
+    :param path: path to patch folder (sen2spring), now S2Aspring
     :return: gives the paths of all the tifs and its corresponding class labels
     """
 
@@ -119,7 +119,7 @@ def get_fnames_labs_reg(path, force_recompute=False):
             if each_city.endswith(".txt"):
                 continue
             # data_path = os.path.join(each_city, "sen2spring")
-            data_path = os.path.join(each_city, "S2spring")
+            data_path = os.path.join(each_city, "S2Aspring")
             csv_path = os.path.join(each_city, each_city.split(os.sep)[-1:][0] + '.csv')
             city_df = pd.read_csv(csv_path)
             ids = city_df['GRD_ID']
@@ -129,10 +129,10 @@ def get_fnames_labs_reg(path, force_recompute=False):
             classes_paths = [data_path + '/Class_' + x + '/' for x in classes_str]
             for index in range(0, len(classes_paths)):
                 # f_names = [classes_paths[index] + str(ids[index]) + '_sen2spring.tif']
-                f_names = [classes_paths[index] + str(ids[index]) + '_S2spring.tif']
+                f_names = [classes_paths[index] + str(ids[index]) + '_S2Aspring.tif']
                 f_names_all = np.append(f_names_all, f_names, axis=0)
                 # f_names_save = [(classes_paths[index] + str(ids[index]) + '_sen2spring.tif').split(path+"/")[1]]
-                f_names_save = [(classes_paths[index] + str(ids[index]) + '_S2spring.tif').split(path+"/")[1]]
+                f_names_save = [(classes_paths[index] + str(ids[index]) + '_S2Aspring.tif').split(path+"/")[1]]
                 f_names_save_all = np.append(f_names_save_all, f_names_save, axis=0)
                 labs = [pop[index]]
                 labs_all = np.append(labs_all, labs, axis=0)
@@ -151,12 +151,12 @@ def get_fnames_labs_reg(path, force_recompute=False):
 
 def get_fnames_unlab_reg(parent_dir, force_recompute=False):
     """
-    :param parent_dir: path to patch folder (sen2spring)
+    :param parent_dir: path to patch folder (sen2spring), now S2Aspring
     :return: gives the paths of all the tifs and its corresponding class labels
     """
  
     # data_path = os.path.join(parent_dir, "sen2spring")
-    data_path = os.path.join(parent_dir, "S2spring")
+    data_path = os.path.join(parent_dir, "S2Aspring")
     fnames_file = os.path.join(parent_dir, 'file_list.txt')
     # labs_file = os.path.join(parent_dir, 'label_list.txt')
 

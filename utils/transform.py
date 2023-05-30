@@ -13,6 +13,20 @@ from utils.utils import *
 from utils.plot import plot_2dmatrix
 
 
+class OwnCompose(object):
+    def __init__(self, transforms):
+        self.transforms = transforms
+
+    def __call__(self, x):
+        if torch.is_tensor(x):
+            mask = None
+        else:
+            x, mask = x
+        for t in self.transforms:
+            x = t(x)
+        return x if mask is None else (x, mask)
+    
+
 class AddGaussianNoise(object):
     """Add gaussian noise to a tensor image with a given probability.
     Args:
@@ -124,14 +138,20 @@ class RandomGamma(torch.nn.Module):
     def __init__(self, gamma_limit=(0.5, 2.0), p=0.5):
         self.gamma_limit = gamma_limit
         self.p = p
+        self.s2_max = 10000
 
     def __call__(self, x):
         if torch.rand(1) < self.p:
             gamma = random.uniform(self.gamma_limit[0], self.gamma_limit[1])
             x = torch.clip(x, min=0)
-            x = x/3500
-            x = TF.adjust_gamma(x, gamma)
-            x = x*3500
+            x = x / self.s2_max
+            if x.shape[0] == 3:
+                x = TF.adjust_gamma(x, gamma)
+            else:
+                # Apply gamma to each channel separately
+                for i in range(x.shape[0]):
+                    x[i] = TF.adjust_gamma(x[i], gamma)
+            x = x * self.s2_max
         return x
 
 
@@ -142,6 +162,7 @@ class RandomBrightness(torch.nn.Module):
     def __init__(self, beta_limit=(0.666, 1.5), p=0.5):
         self.beta_limit = beta_limit
         self.p = p
+        self.s2_max = 10000
 
     def __call__(self, x):
         """
@@ -152,9 +173,14 @@ class RandomBrightness(torch.nn.Module):
         """
         if torch.rand(1) < self.p:
             beta = random.uniform(self.beta_limit[0], self.beta_limit[1])
-            x = x/3500
-            x = TF.adjust_brightness(x, beta)
-            x = x*3500
+            x = x / self.s2_max
+            if x.shape[0] == 3:
+                x = TF.adjust_brightness(x, beta)
+            else:
+                # Apply brightness to each channel separately
+                for i in range(x.shape[0]):
+                    x[i] = TF.adjust_brightness(x[i], beta) 
+            x = x * self.s2_max
         return x
 
 
@@ -217,6 +243,7 @@ class HazeAdditionModule(torch.nn.Module):
         self.atm_limit = atm_limit
         self.haze_limit = haze_limit
         self.p = p
+        self.s2_max = 10000
 
     def forward(self, x):
         """
@@ -244,9 +271,9 @@ class HazeAdditionModule(torch.nn.Module):
             haze_layer = torch.ones((1, num_channels, height, width), dtype=torch.float32) * atmosphere_light
 
             # Apply haze to the input image
-            x = x/3500
+            x = x / self.s2_max
             x_haze = x * (1 - haze_density) + haze_layer * haze_density
-            x_haze = x_haze*3500
+            x_haze = x_haze * self.s2_max
 
             # squeeze the batch dimension
             if not batched:

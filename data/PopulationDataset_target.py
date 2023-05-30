@@ -103,10 +103,14 @@ class Population_Dataset_target(Dataset):
         self.S1autumn_file = os.path.join(covar_root,  os.path.join("S1autumn", region +"_S1autumn.tif"))
         self.S1winter_file = os.path.join(covar_root,  os.path.join("S1winter", region +"_S1winter.tif"))
         self.S1_file = {0: self.S1spring_file, 1: self.S1summer_file, 2: self.S1autumn_file, 3: self.S1winter_file}
-        self.S2spring_file = os.path.join(covar_root,  os.path.join("S2spring", region +"_S2spring.tif"))
-        self.S2summer_file = os.path.join(covar_root,  os.path.join("S2summer", region +"_S2summer.tif"))
-        self.S2autumn_file = os.path.join(covar_root,  os.path.join("S2autumn", region +"_S2autumn.tif"))
-        self.S2winter_file = os.path.join(covar_root,  os.path.join("S2winter", region +"_S2winter.tif"))
+        # self.S2spring_file = os.path.join(covar_root,  os.path.join("S2spring", region +"_S2spring.tif"))
+        # self.S2summer_file = os.path.join(covar_root,  os.path.join("S2summer", region +"_S2summer.tif"))
+        # self.S2autumn_file = os.path.join(covar_root,  os.path.join("S2autumn", region +"_S2autumn.tif"))
+        # self.S2winter_file = os.path.join(covar_root,  os.path.join("S2winter", region +"_S2winter.tif"))
+        self.S2spring_file = os.path.join(covar_root,  os.path.join("S2Aspring", region +"_S2Aspring.tif"))
+        self.S2summer_file = os.path.join(covar_root,  os.path.join("S2Asummer", region +"_S2Asummer.tif"))
+        self.S2autumn_file = os.path.join(covar_root,  os.path.join("S2Aautumn", region +"_S2Aautumn.tif"))
+        self.S2winter_file = os.path.join(covar_root,  os.path.join("S2Awinter", region +"_S2Awinter.tif"))
         self.S2_file = {0: self.S2spring_file, 1: self.S2summer_file, 2: self.S2autumn_file, 3: self.S2winter_file}
         self.season_dict = {0: "spring", 1: "summer", 2: "autumn", 3: "winter"}
         self.inv_season_dict = {v: k for k, v in self.season_dict.items()}
@@ -357,13 +361,15 @@ class Population_Dataset_target(Dataset):
                     indata["S2"] = np.random.randint(0, 10000, size=(4,patchsize_x,patchsize_y))
                 else:
                     with rasterio.open(S2_file, "r") as src:
-                        indata["S2"] = src.read((4,3,2,8), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
+                        # indata["S2"] = src.read((4,3,2,8), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
+                        indata["S2"] = src.read((3,2,1,4), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
             else:
                 if fake:
                     indata["S2"] = np.random.randint(0, 10000, size=(3,patchsize_x,patchsize_y))
                 else:
                     with rasterio.open(S2_file, "r") as src:
-                        indata["S2"] = src.read((4,3,2), window=((x,x+patchsize_x),(y,y+patchsize_y)))
+                        # indata["S2"] = src.read((4,3,2), window=((x,x+patchsize_x),(y,y+patchsize_y)))
+                        indata["S2"] = src.read((3,2,1), window=((x,x+patchsize_x),(y,y+patchsize_y)))
             mask = mask & (indata["S2"].sum(axis=0) != 0)
         if self.S1:
             S1_file = self.S1_file[season]

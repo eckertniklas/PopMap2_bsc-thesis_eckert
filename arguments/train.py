@@ -1,10 +1,12 @@
 import configargparse
 import numpy as np
 
-parser = configargparse.ArgumentParser()
+# parser = configargparse.ArgumentParser()
 # general
 
-parser = configargparse.ArgumentParser(description='Training Population Estimation')
+# parser = configargparse.ArgumentParser(description='Training Population Estimation')
+parser = configargparse.ArgumentParser()
+parser.add_argument('-c', '--config', is_config_file=True, help='Path to the config file', type=str)
 
 parser.add_argument('-o', '--no-osm', help='If set, Training Skript wont use OSM Data', default=False,
                     action='store_true')

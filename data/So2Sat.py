@@ -61,7 +61,7 @@ class PopulationDataset_Reg(Dataset):
         self.y_stats = load_json(os.path.join(config_path, 'dataset_stats', 'label_stats.json'))
         self.y_stats['max'] = float(self.y_stats['max'])
         self.y_stats['min'] = float(self.y_stats['min'])
-        self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified.json'))
+        self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
         for mkey in self.dataset_stats.keys():
             if isinstance(self.dataset_stats[mkey], dict):
                 for key,val in self.dataset_stats[mkey].items():
@@ -94,7 +94,8 @@ class PopulationDataset_Reg(Dataset):
         indata, auxdata = self.generate_raw_data(ID_temp)
 
         # ID = ID_temp.split(os.sep)[-1].split('_sen2')[0]
-        ID = ID_temp.split(os.sep)[-1].split('_S2')[0]
+        # ID = ID_temp.split(os.sep)[-1].split('_S2')[0]
+        ID = ID_temp.split(os.sep)[-1].split('_S2A')[0]
 
         # Generate labels if posssible
         if idx<len(self.labels):
@@ -174,11 +175,13 @@ class PopulationDataset_Reg(Dataset):
         # preparing the batch from other datasets
         
         # basetype = "sen2spring"
-        basetype = "S2spring"
-        base = "S2spring"
+        # basetype = "S2spring"
+        basetype = "S2Aspring"
+        # base = "S2spring"
         if self.random_season:
             # ID_sen2 = ID_temp.replace(basetype, "sen2{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
-            ID_sen2 = ID_temp.replace(basetype, "S2{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
+            # ID_sen2 = ID_temp.replace(basetype, "S2{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
+            ID_sen2 = ID_temp.replace(basetype, "S2A{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
             ID_sen1 = ID_temp.replace(basetype, "S1{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
         else:
             ID_sen2 = ID_temp.replace(basetype, basetype) # for testing just use the spring images
@@ -201,24 +204,27 @@ class PopulationDataset_Reg(Dataset):
                     indata["S2"] = np.random.randint(0, 10000, size=(4,img_rows, img_cols))
                 else:
                     with rasterio.open(ID_sen2, "r") as src:
-                        indata["S2"] = src.read((4,3,2,8))
+                        # indata["S2"] = src.read((4,3,2,8))
+                        indata["S2"] = src.read((3,2,1,4))
             else:
                 if fake:
                     indata["S2"] = np.random.randint(0, 10000, size=(3,img_rows, img_cols))
                 else:
                     with rasterio.open(ID_sen2, "r") as src:
-                        indata["S2"] = src.read((4,3,2))
+                        # indata["S2"] = src.read((4,3,2))
+                        indata["S2"] = src.read((3,2,1))
 
             if torch.isnan(torch.tensor(indata["S2"])).any():
                 if torch.isnan(torch.tensor(indata["S2"])).sum() / torch.numel(torch.tensor(indata["S2"])) < 0.2:
                     indata["S2"] = self.interpolate_nan(indata["S2"])
-                elif trials < 5:
+                elif trials < 16:
                     # print("Too many NaNs in S2 image, recursive procedure. Trial:", trials) 
                     return self.generate_raw_data_new_sample(ID_temp, trials=trials)
                     # b = self.generate_raw_data_new_sample(ID_temp, trials=trials)[0]
                     # plot_2dmatrix(b["S2"]/3500)
                 else:
-                    print("Too many NaNs in S2 image, skipping sample") 
+                    print("Too many NaNs in S2 image, skipping sample")
+                    print("Suspect:", ID_temp)
                     raise Exception("Too many NaNs in S2 image, breaking")
                     return None
 
@@ -269,7 +275,9 @@ class PopulationDataset_Reg(Dataset):
             raise Exception("Enough trials")
         
         for season in ["spring", "summer", "autumn", "winter"]:
+            # ID_temp = ID_temp.replace("sen2spring", "sen2{}".format(season))
             ID_temp = ID_temp.replace("sen2spring", "sen2{}".format(season))
+            ID_temp = ID_temp.replace("S2Aspring", "sen2{}".format(season))
             return self.generate_raw_data(ID_temp, trials=trials+1)
 
 

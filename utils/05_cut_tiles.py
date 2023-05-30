@@ -7,7 +7,8 @@ import rasterio
 from tqdm import tqdm
 
 done = ["S2spring", "S2summer", "S2winter", "S2autumn",
-        "S1spring", "S1summer", "S1winter", "S1autumn"]
+        "S1spring", "S1summer", "S1winter", "S1autumn",
+        "VIIRS"]
 
 def process(input_path, output_dir, tile_size=100):
     '''

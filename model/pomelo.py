@@ -162,7 +162,7 @@ class JacobsUNet(nn.Module):
 
         # Define batchnorm layer for the feature extractor
         # self.bn = nn.BatchNorm2d(input_channels)
-        self.maxi = torch.tensor([0,0,0,0,0,0], dtype=torch.float32)
+        # self.maxi = torch.tensor([0,0,0,0,0,0], dtype=torch.float32)
 
         # Build the regression head
         if head=="v1":
@@ -250,7 +250,7 @@ class JacobsUNet(nn.Module):
         data, (px1,px2,py1,py2) = self.add_padding(data, padding)
 
         # Forward the main model
-        self.maxi[data.max(dim=2)[0].max(dim=2)[0].max(dim=0)[0].cpu()>self.maxi] = data.max(dim=2)[0].max(dim=2)[0].max(dim=0)[0].cpu()[data.max(dim=2)[0].max(dim=2)[0].max(dim=0)[0].cpu()>self.maxi]
+        # self.maxi[data.max(dim=2)[0].max(dim=2)[0].max(dim=0)[0].cpu()>self.maxi] = data.max(dim=2)[0].max(dim=2)[0].max(dim=0)[0].cpu()[data.max(dim=2)[0].max(dim=2)[0].max(dim=0)[0].cpu()>self.maxi]
         features, decoder_features = self.unetmodel(data, return_features=return_features)
 
         # revert padding

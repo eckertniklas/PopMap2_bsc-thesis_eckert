@@ -522,6 +522,7 @@ class Trainer:
                     scatterplot.save("last_scatter.png")
 
                 wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}, **self.info}, self.info["iter"])
+                
         
 
     @staticmethod

@@ -22,7 +22,7 @@ import wandb
 import pickle
 import gc
 
-from arguments import eval_parser
+# from arguments import eval_parser
 from arguments.eval import parser as eval_parser
 from data.So2Sat import PopulationDataset_Reg
 from data.PopulationDataset_target import Population_Dataset_target, Population_Dataset_collate_fn
@@ -126,6 +126,7 @@ class Trainer:
                     scatterplot.save("last_scatter.png")
 
                 wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}})
+                print(self.target_test_stats)
         
 
     @staticmethod

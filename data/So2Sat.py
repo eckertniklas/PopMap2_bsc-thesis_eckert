@@ -184,7 +184,7 @@ class PopulationDataset_Reg(Dataset):
             ID_sen2 = ID_temp.replace(basetype, "S2A{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
             ID_sen1 = ID_temp.replace(basetype, "S1{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
         else:
-            ID_sen2 = ID_temp.replace(basetype, basetype) # for testing just use the spring images
+            ID_sen2 = ID_temp.replace(basetype, "S2Aspring") # for testing just use the spring images
             ID_sen1 = ID_temp.replace(basetype, "S1spring") # for testing just use the spring images
                 
         # ID_sen1 = ID_temp.replace(basetype, 'S1')

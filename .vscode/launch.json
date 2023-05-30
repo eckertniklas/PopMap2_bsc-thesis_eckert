@@ -642,8 +642,8 @@
                 // "-adv", 
                 // "-ladv", "0.01",
                 // "--classif", "v8",
-                // "--CORAL",
-                // "--lam_coral", "0.000001",
+                "--CORAL",
+                "--lam_coral", "0.00001",
                 // "--MMD",
                 // "--lam_mmd", "0.1",
                 "-exZH",
@@ -669,11 +669,11 @@
                 "-dw", "4",
                 "-S2",
                 "-S1",
-                // "-NIR",
+                "-NIR",
                 "-f", "16",
                 "-rse",
                 "-treg", "pricp2",
-                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_616_114/last_model.pth"
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_619_377/last_model.pth"
             ]
         },
         {

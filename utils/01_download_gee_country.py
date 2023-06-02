@@ -351,16 +351,6 @@ def export_S1_tile(season, dates, filename, roi, folder, scale=10, crs='EPSG:432
     # collectionS1 = collectionS1.filter(ee.Filter.contains('.geo', roi))
     collectionS1 = collectionS1.filterDate(start_date, end_date)
     collectionS1 = collectionS1.select(['VV', 'VH'])
-
-
-    # collectionS1 = ee.ImageCollection('COPERNICUS/S1_GRD')\
-    #         .filter(ee.Filter.eq('instrumentMode', 'IW'))\
-    #         .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))\
-    #         .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))\
-    #         .filter(ee.Filter.eq('orbitProperties_pass', orbit))\
-    #         .filterBounds(roi)\
-    #         .filterDate(Sen2spring_start_date, Sen2spring_finish_date)\
-    #         .select(['VV', 'VH'])
     
     collectionS1_first = collectionS1.median() 
 
@@ -373,7 +363,6 @@ def export_S1_tile(season, dates, filename, roi, folder, scale=10, crs='EPSG:432
                 'region': roi,
                 'crs': crs,
                 'maxPixels':80000000000,
-                # 'filePerBand': False
             })
         except Exception as e:
             print(e)
@@ -407,119 +396,30 @@ def download(minx, miny, maxx, maxy, name):
     # find the EPSG code for the local projection
     # exportarea3035 = exportarea.transform('EPSG:3035')
 
-    S1 = False
+    S1 = True
     # S2 = True
     S2 = False
-    S2A = True
+    S2A = False
     VIIRS = True
 
     if S1:
         ########################### Processing Sentinel 1 #############################################
-        
-
-        # select by data and sensormode and area
-        collectionS1 = ee.ImageCollection('COPERNICUS/S1_GRD')\
-            .filter(ee.Filter.eq('instrumentMode', 'IW'))\
-            .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))\
-            .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))\
-            .filter(ee.Filter.eq('orbitProperties_pass', orbit))\
-            .filterBounds(exportarea)\
-            .filterDate(Sen2spring_start_date, Sen2spring_finish_date)\
-            .select(['VV', 'VH'])
-        
-        # # Reduce with Median operation
-        # collectionS1_mean = collectionS1.mean() 
-
-        # # Export
-        # task = ee.batch.Export.image.toDrive(
-        #                 image = collectionS1_mean,
-        #                 scale = 10,  
-        #                 description = "S1_" + name,
-        #                 fileFormat="GEOTIFF", 
-        #                 folder = name, 
-        #                 region = exportarea,
-        #                 crs='EPSG:4326',
-        #                 maxPixels=80000000000,
-        #             )
-        # task.start()
-
-
-        # select by data and sensormode and area
-        # collectionS1 = ee.ImageCollection('COPERNICUS/S1_GRD')\
-        #     .filter(ee.Filter.eq('instrumentMode', 'IW'))\
-        #     .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))\
-        #     .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))\
-        #     .filter(ee.Filter.eq('orbitProperties_pass', orbit))\
-        #     .filterBounds(exportarea)\
-        #     .filterDate(Sentinel1_start_date, Sentinel1_finish_date)\
-        #     .select(['VV', 'VH'])
-        
-        # # Reduce with Median operation
-        # collectionS1_mean = collectionS1.mean() 
-
-        # # Export
-        # task = ee.batch.Export.image.toDrive(
-        #                 image = collectionS1_mean,
-        #                 scale = 10,  
-        #                 description = "S1_" + name,
-        #                 fileFormat="GEOTIFF", 
-        #                 folder = name, 
-        #                 region = exportarea,
-        #                 crs='EPSG:4326',
-        #                 maxPixels=80000000000,
-        #             )
-        # task.start()
-
 
         export_S1_tile("spring", (Sen2spring_start_date, Sen2spring_finish_date), "S1spring_" + name, exportarea, name, url_mode=False)
         export_S1_tile("summer", (Sen2summer_start_date, Sen2summer_finish_date), "S1summer_" + name, exportarea, name, url_mode=False)
         export_S1_tile("autumn", (Sen2autumn_start_date, Sen2autumn_finish_date), "S1autumn_" + name, exportarea, name, url_mode=False)
         export_S1_tile("winter", (Sen2winter_start_date, Sen2winter_finish_date), "S1winter_" + name, exportarea, name, url_mode=False)
 
-
     if S2:
-        old = False
-        if old:
-            ########################### Processing Sentinel 2 #############################################
-            # 1. cating the clouds to the Sentinel-2 data
-            # 2. Filtering clouds and cloud shadow and apply the mask to sentinel-2
-            # 3. composite the image by giving preference to the least cloudy image first.
-            # 4. Submit job
+        ########################### Processing Sentinel 2 Level 1C #############################################
+        
+        export_cloud_free_sen2("S2spring", (Sen2spring_start_date, Sen2spring_finish_date), name, exportarea, S2type="S2")
+        export_cloud_free_sen2("S2summer", (Sen2summer_start_date, Sen2summer_finish_date), name, exportarea)
+        export_cloud_free_sen2("S2autumn", (Sen2autumn_start_date, Sen2autumn_finish_date), name, exportarea)
+        export_cloud_free_sen2("S2winter", (Sen2winter_start_date, Sen2winter_finish_date), name, exportarea)
 
-            # SPRING
-            s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2spring_start_date, Sen2spring_finish_date)
-            s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
-            s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False)
-            s2_sr_col = s2_sr_col.mosaic()
-            submit_s2job(s2_sr_col, "sen2spring",  name, exportarea)
-
-            # SUMMER
-            s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2summer_start_date, Sen2summer_finish_date)
-            s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
-            s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
-            submit_s2job(s2_sr_col, "sen2summer", name, exportarea)
-
-            # AUTUMN
-            s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2autumn_start_date, Sen2autumn_finish_date)
-            s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
-            s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
-            submit_s2job(s2_sr_col, "sen2autumn", name, exportarea)
-
-            # WINTER
-            s2_sr_cld_col = get_s2_sr_cld_col(exportarea, Sen2winter_start_date, Sen2winter_finish_date)
-            s2_sr_col = s2_sr_cld_col.map(add_cld_shdw_mask).map(apply_cld_shdw_mask)
-            s2_sr_col = s2_sr_col.sort('CLOUDY_PIXEL_PERCENTAGE', False).mosaic()
-            submit_s2job(s2_sr_col, "sen2winter", name, exportarea)
-            
-        else:
-
-            ########################### Processing Sentinel 2 #############################################
-            
-            export_cloud_free_sen2("S2spring", (Sen2spring_start_date, Sen2spring_finish_date), name, exportarea, S2type="S2")
-            export_cloud_free_sen2("S2summer", (Sen2summer_start_date, Sen2summer_finish_date), name, exportarea)
-            export_cloud_free_sen2("S2autumn", (Sen2autumn_start_date, Sen2autumn_finish_date), name, exportarea)
-            export_cloud_free_sen2("S2winter", (Sen2winter_start_date, Sen2winter_finish_date), name, exportarea)
     if S2A:
+        ########################### Processing Sentinel 2 Level 2A #############################################
 
         export_cloud_free_sen2("S2Aspring", (Sen2spring_start_date, Sen2spring_finish_date), name, exportarea, S2type="S2_SR_HARMONIZED")
         export_cloud_free_sen2("S2Asummer", (Sen2summer_start_date, Sen2summer_finish_date), name, exportarea, S2type="S2_SR_HARMONIZED")

@@ -316,6 +316,7 @@ class Population_Dataset_target(Dataset):
 
         # return dictionary
         return {'input': X, 'img_coords': (x,y), 'valid_coords':  (xmin, xmax, ymin, ymax),
+                **indata,
                 'season': season.item(), 'mask': mask, 'season_str': self.season_dict[season.item()]}
     
 

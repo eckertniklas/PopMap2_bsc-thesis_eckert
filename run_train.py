@@ -201,13 +201,14 @@ class Trainer:
                 loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
                                            lam_adv=args.lam_adv if self.args.adversarial else 0.0,
                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
-                                           lam_mmd=args.lam_mmd if self.args.MMD else 0.0 )
+                                           lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
+                                           tag="train_main")
                 if self.boosted:
                     loss_raw, loss_dict_raw = get_loss(output["intermediate"], sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
                                            lam_adv=args.lam_adv if self.args.adversarial else 0.0,
                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                            lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
-                                           tag="intermediate")
+                                           tag="train_intermediate")
                     
                     loss += loss_raw * self.args.lam_raw
                 
@@ -303,13 +304,13 @@ class Trainer:
                                            lam_adv=args.lam_adv if self.args.adversarial else 0.0,
                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                            lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
-                                           )
+                                           tag="val_main")
                 if self.boosted:
                     loss_raw, loss_dict_raw = get_loss(output["intermediate"], sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
                                            lam_adv=args.lam_adv if self.args.adversarial else 0.0,
                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                            lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
-                                           tag="intermediate")
+                                           tag="val_intermediate")
                     loss_dict = {**loss_dict, **loss_dict_raw}
 
                 # accumulate stats
@@ -368,13 +369,13 @@ class Trainer:
                                                 lam_adv=args.lam_adv if self.args.adversarial else 0.0,
                                                 lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                                 lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
-                                               )
+                                               tag="test_main")
                     if self.boosted:
                         loss_raw, loss_dict_raw = get_loss(output["intermediate"], sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
                                             lam_adv=args.lam_adv if self.args.adversarial else 0.0,
                                             lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                             lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
-                                            tag="intermediate")
+                                            tag="test_intermediate")
                         loss_dict = {**loss_dict, **loss_dict_raw}
 
                         for key in loss_dict:
@@ -473,25 +474,40 @@ class Trainer:
                     output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu()
                     output_map_var[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popvarmap"][0][mask].cpu()
                     if self.boosted:
-                        output_map_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap_raw"][0][mask].cpu()
-                        output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popvarmap_raw"][0][mask].cpu()
+                        output_map_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popdensemap"][0][mask].cpu()
+                        output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popvarmap"][0][mask].cpu()
                     output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
 
                 # average over the number of times each pixel was visited
                 output_map[output_map_count>0] = output_map[output_map_count>0] / output_map_count[output_map_count>0]
                 output_map_var[output_map_count>0] = output_map_var[output_map_count>0] / output_map_count[output_map_count>0]
+                if self.boosted:
+                    output_map_raw[output_map_count>0] = output_map_raw[output_map_count>0] / output_map_count[output_map_count>0]
+                    output_map_var_raw[output_map_count>0] = output_map_var_raw[output_map_count>0] / output_map_count[output_map_count>0]
 
                 if save:
                     # save the output map
                     testdataloader.dataset.save(output_map, self.experiment_folder)
                     testdataloader.dataset.save(output_map_var, self.experiment_folder, tag="VAR")
+                    if self.boosted:
+                        testdataloader.dataset.save(output_map_raw, self.experiment_folder, tag="RAW")
+                        testdataloader.dataset.save(output_map_var_raw, self.experiment_folder, tag="VAR_RAW")
                 
                 # convert populationmap to census
                 census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True)
-                self.target_test_stats = get_test_metrics(census_pred, census_gt.float().cuda(), tag="census")
+                self.target_test_stats = get_test_metrics(census_pred, census_gt.float().cuda(), tag="MainCensus")
                 built_up = census_gt>10
                 self.target_test_stats = {**self.target_test_stats,
-                                          **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="census_pos")}
+                                          **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="MainCensusPos")}
+                
+                if self.boosted:
+                    census_pred_raw, census_gt_raw = testdataloader.dataset.convert_popmap_to_census(output_map_raw, gpu_mode=True)
+                    self.target_test_stats = {**self.target_test_stats,
+                                              **get_test_metrics(census_pred_raw, census_gt_raw.float().cuda(), tag="CensusRaw")}
+                    built_up = census_gt_raw>10
+                    self.target_test_stats = {**self.target_test_stats,
+                                              **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos")}
+
                 
                 scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
                 if scatterplot is not None:

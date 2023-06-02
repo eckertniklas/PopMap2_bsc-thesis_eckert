@@ -19,6 +19,6 @@ def get_test_metrics(pred, y, tag=""):
         "GTmean": y.mean(),
         "Correlation": torch.corrcoef(torch.stack([pred, y]))[0,1]
     }
-    log_dict = {"Population/" + tag + "/"+key: value for key,value in log_dict.items()}
+    log_dict = {"Population_" + tag + "/"+key: value for key,value in log_dict.items()}
 
     return log_dict

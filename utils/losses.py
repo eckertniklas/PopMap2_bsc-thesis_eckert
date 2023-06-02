@@ -81,7 +81,7 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
     if tag=="":
         auxdict = {**auxdict, **{"Population"+"/"+key: value for key,value in popdict.items()}}
     else:
-        auxdict = {**auxdict, **{"Population/"+tag+"/"+key: value for key,value in popdict.items()}}
+        auxdict = {**auxdict, **{"Population_"+tag+"/"+key: value for key,value in popdict.items()}}
 
     # Domain adaption losses
     if ~gt["source"].all():

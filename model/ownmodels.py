@@ -184,7 +184,7 @@ class BoostUNet(nn.Module):
 
 
         return {"popcount": popcount, "popdensemap": popdensemap, "popvar": popvar ,"popvarmap": popvarmap, 
-                "intermediate": {"popcount": popcount_raw, "popdensemap": popdensemap_raw, "popvar": popvar_raw ,"popvarmap": popvarmap_raw, "domain": domain_raw }, 
+                "intermediate": {"popcount": popcount_raw, "popdensemap": popdensemap_raw, "popvar": popvar_raw ,"popvarmap": popvarmap_raw, "domain": domain_raw, "decoder_features": None}, 
                 "popvar": popvar ,"popvarmap": popvarmap, 
                 "builtdensemap": builtdensemap, "builtcount": builtcount,
                 "builtupmap": builtupmap, "domain": domain, "features": features,

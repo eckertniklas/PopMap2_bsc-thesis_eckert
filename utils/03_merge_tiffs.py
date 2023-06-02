@@ -59,7 +59,7 @@ def process(parent_dir, output_dir):
             g = gdal.Translate(output_file1C, g, format="GTiff", bandList=[2,3,4,8], options=["COMPRESS=LZW"])
             g = None
 
-s     return None
+    return None
 
 def main():
     parser = argparse.ArgumentParser()

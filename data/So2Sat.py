@@ -261,7 +261,6 @@ class PopulationDataset_Reg(Dataset):
                 with rasterio.open(ID_viirs, "r") as src:
                     indata["VIIRS"] = src.read(1)
 
-
         auxdata = {}
         # if finegrained cencus is available
         if self.mode=="train": 

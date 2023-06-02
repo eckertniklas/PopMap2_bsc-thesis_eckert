@@ -12,7 +12,7 @@ from pylab import figure, imshow, matshow, grid, savefig, colorbar
 import pandas as pd
 import matplotlib.pyplot as plt
 from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep, ResBlocksSqueeze
-
+from model.ownmodels import BoostUNet
 
 def to_cuda(sample):
     sampleout = {}
@@ -195,7 +195,8 @@ model_dict = {
     "ResBlocks": ResBlocks,
     "ResBlocksSqueeze": ResBlocksSqueeze,
     "UResBlocks": UResBlocks,
-    "ResBlocksDeep": ResBlocksDeep
+    "ResBlocksDeep": ResBlocksDeep,
+    "BoostUNet": BoostUNet,
 }
 
 
@@ -218,5 +219,12 @@ def get_model_kwargs(args, model_name):
         kwargs['classifier'] = args.classifier if args.adversarial else None
         kwargs['head'] = args.head
         kwargs['down'] = args.down
+    if model_name == 'BoostUNet':
+        assert args.Sentinel1
+        assert args.Sentinel2
+        kwargs['classifier'] = args.classifier if args.adversarial else None
+        # kwargs['head'] = args.head
+        kwargs['down'] = args.down
+        kwargs['down2'] = args.down2
     return kwargs
 

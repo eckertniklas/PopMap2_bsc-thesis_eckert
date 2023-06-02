@@ -7,6 +7,7 @@ import rasterio
 from tqdm import tqdm
 
 done = ["S2spring", "S2summer", "S2winter", "S2autumn",
+        "S2Aspring", "S2Asummer", "S2Awinter", "S2Aautumn",
         "S1spring", "S1summer", "S1winter", "S1autumn",
         "VIIRS"]
 

@@ -51,7 +51,9 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
         "predstd": y_pred.std(),
         "mCorrelation": torch.corrcoef(torch.stack([y_pred, y_gt]))[0,1] if len(y_pred)>1 else torch.tensor(0.0),
         "gaussian_nll": gaussian_nll(y_pred, y_gt, var),
+        "log_gaussian_nll": gaussian_nll(torch.log(y_pred+1), torch.log(y_gt+1), var),
         "laplacian_nll": laplacian_nll(y_pred, y_gt, var),
+        "log_laplacian_nll": laplacian_nll(torch.log(y_pred+1), torch.log(y_gt+1), var),
         "STDpredmean": var.mean().sqrt(),
         # "log_gaussian_nll": gaussian_nll(torch.log(y_pred+1), torch.log(y_gt+1)),
     }
@@ -59,8 +61,8 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
     # augmented loss
     if len(y_pred)%merge_aug==0:
         hl = len(y_pred)//merge_aug
-        aug_pred = torch.stack(torch.split(y_pred, hl)).sum(0)
-        aug_gt = torch.stack(torch.split(y_gt, hl)).sum(0) 
+        aug_pred = torch.stack(torch.split(y_pred, hl)).sum(0) / merge_aug * 2
+        aug_gt = torch.stack(torch.split(y_gt, hl)).sum(0) / merge_aug * 2
         popdict["l1_aug_loss"] = F.l1_loss(aug_pred, aug_gt)
         popdict["log_l1_aug_loss"] = F.l1_loss(torch.log(aug_pred+1), torch.log(aug_gt+1))
         popdict["mse_aug_loss"] = F.mse_loss(aug_pred, aug_gt)

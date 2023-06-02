@@ -54,6 +54,8 @@ class PopulationDataset_Reg(Dataset):
         self.random_season = random_season                 
         self.satmode = satmode
 
+        self.use2A = True
+
         self.all_ids = list_IDs + f_names_unlab
         self.labeled_indices = [i for i,name in enumerate(self.all_ids) if name in list_IDs]
         self.unlabeled_indices = [i for i,name in enumerate(self.all_ids) if name in f_names_unlab]
@@ -61,7 +63,12 @@ class PopulationDataset_Reg(Dataset):
         self.y_stats = load_json(os.path.join(config_path, 'dataset_stats', 'label_stats.json'))
         self.y_stats['max'] = float(self.y_stats['max'])
         self.y_stats['min'] = float(self.y_stats['min'])
-        self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
+
+        if self.use2A:
+            self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
+        else:
+            self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified.json'))
+        
         for mkey in self.dataset_stats.keys():
             if isinstance(self.dataset_stats[mkey], dict):
                 for key,val in self.dataset_stats[mkey].items():
@@ -134,7 +141,8 @@ class PopulationDataset_Reg(Dataset):
             X = self.transform["general"](X) if "general" in self.transform.keys() else X
         
         # Collect all variables
-        sample = {'input': X, **auxdata, 'y': y, 'y_norm': y_norm, 'identifier': ID, 'source': source}
+        sample = {'input': X, **auxdata, 'y': y, 'y_norm': y_norm, 'identifier': ID, 'source': source,
+                  **indata}
         return sample
 
 
@@ -181,10 +189,16 @@ class PopulationDataset_Reg(Dataset):
         if self.random_season:
             # ID_sen2 = ID_temp.replace(basetype, "sen2{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
             # ID_sen2 = ID_temp.replace(basetype, "S2{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
-            ID_sen2 = ID_temp.replace(basetype, "S2A{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
+            if self.use2A:
+                ID_sen2 = ID_temp.replace(basetype, "S2A{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
+            else:
+                ID_sen2 = ID_temp.replace(basetype, "S21C{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
             ID_sen1 = ID_temp.replace(basetype, "S1{}".format(random.choice(['spring', 'autumn', 'winter', 'summer'])))
         else:
-            ID_sen2 = ID_temp.replace(basetype, "S2Aspring") # for testing just use the spring images
+            if self.use2A:
+                ID_sen2 = ID_temp.replace(basetype, "S2Aspring") # for testing just use the spring images
+            else:
+                ID_sen2 = ID_temp.replace(basetype, "S21Cspring") # for testing just use the spring images
             ID_sen1 = ID_temp.replace(basetype, "S1spring") # for testing just use the spring images
                 
         # ID_sen1 = ID_temp.replace(basetype, 'S1')
@@ -214,19 +228,22 @@ class PopulationDataset_Reg(Dataset):
                         # indata["S2"] = src.read((4,3,2))
                         indata["S2"] = src.read((3,2,1))
 
-            if torch.isnan(torch.tensor(indata["S2"])).any():
+            # if torch.isnan(torch.tensor(indata["S2"])).any():
+            indata["S2"] = indata["S2"].astype(np.float32)
+            if np.isnan(indata["S2"]).any():
                 if torch.isnan(torch.tensor(indata["S2"])).sum() / torch.numel(torch.tensor(indata["S2"])) < 0.2:
                     indata["S2"] = self.interpolate_nan(indata["S2"])
                 elif trials < 16:
-                    # print("Too many NaNs in S2 image, recursive procedure. Trial:", trials) 
                     return self.generate_raw_data_new_sample(ID_temp, trials=trials)
-                    # b = self.generate_raw_data_new_sample(ID_temp, trials=trials)[0]
+                    # print("Too many NaNs in S2 image, recursive procedure. Trial:", trials) 
                     # plot_2dmatrix(b["S2"]/3500)
                 else:
                     print("Too many NaNs in S2 image, skipping sample")
                     print("Suspect:", ID_temp)
                     raise Exception("Too many NaNs in S2 image, breaking")
-                    return None
+                
+            assert indata["S2"].shape[1] == img_rows
+            assert indata["S2"].shape[2] == img_cols
 
         if self.S1:
             if fake:
@@ -234,6 +251,9 @@ class PopulationDataset_Reg(Dataset):
             else:
                 with rasterio.open(ID_sen1, "r") as src:
                     indata["S1"] = src.read((1,2))
+            assert indata["S1"].shape[1] == img_rows
+            assert indata["S1"].shape[2] == img_cols
+
         if self.VIIRS:
             if fake:
                 indata["VIIRS"] = np.random.randint(0, 10000, size=(1,img_rows, img_cols))
@@ -244,16 +264,16 @@ class PopulationDataset_Reg(Dataset):
 
         auxdata = {}
         # if finegrained cencus is available
-        if isfile(ID_Pop):
+        if self.mode=="train": 
+            auxdata["Pop_X"]  = np.zeros((0,0))
+            auxdata["PopNN_X"] = np.zeros((0,0))
+            auxdata["pop_avail"] = np.array([0])
+        elif isfile(ID_Pop):
             with rasterio.open(ID_Pop, "r") as src:
                 auxdata["Pop_X"] = src.read(1)
             with rasterio.open(ID_PopNN, "r") as src:
                 auxdata["PopNN_X"] = src.read(1)
             auxdata["pop_avail"] = np.array([1])
-        elif self.mode=="train":
-            auxdata["Pop_X"]  = np.zeros((0,0))
-            auxdata["PopNN_X"] = np.zeros((0,0))
-            auxdata["pop_avail"] = np.array([0])
         else:
             auxdata["Pop_X"] = np.zeros((10,10))
             auxdata["PopNN_X"] = np.zeros((100,100))
@@ -271,13 +291,19 @@ class PopulationDataset_Reg(Dataset):
     def generate_raw_data_new_sample(self, ID_temp, trials):
 
         if trials > 4:
-            print("Too many trials, returning zeros")
+            print("Too many trials, breaking")
             raise Exception("Enough trials")
         
         for season in ["spring", "summer", "autumn", "winter"]:
             # ID_temp = ID_temp.replace("sen2spring", "sen2{}".format(season))
-            ID_temp = ID_temp.replace("sen2spring", "sen2{}".format(season))
-            ID_temp = ID_temp.replace("S2Aspring", "sen2{}".format(season))
+            # ID_temp = ID_temp.replace("sen2spring", "sen2{}".format(season))
+            if self.use2A:
+                # ID_temp = ID_temp.replace("S2Aspring", "S2A{}".format(season))
+                ID_temp = ID_temp.replace("spring", "{}".format(season))
+            else:
+                # ID_temp = ID_temp.replace("S2Aspring", "S21C{}".format(season))
+                ID_temp = ID_temp.replace("spring", "{}".format(season))
+            # ID_temp = ID_temp.replace("S2Aspring", "sen2{}".format(season))
             return self.generate_raw_data(ID_temp, trials=trials+1)
 
 

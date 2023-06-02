@@ -57,6 +57,7 @@ class Population_Dataset_target(Dataset):
         self.fourseasons = fourseasons
         self.mode = mode
         self.transform = transform
+        self.use2A = True
 
         # get the path to the data
         region_root = os.path.join(pop_map_root_large, region)
@@ -107,10 +108,16 @@ class Population_Dataset_target(Dataset):
         # self.S2summer_file = os.path.join(covar_root,  os.path.join("S2summer", region +"_S2summer.tif"))
         # self.S2autumn_file = os.path.join(covar_root,  os.path.join("S2autumn", region +"_S2autumn.tif"))
         # self.S2winter_file = os.path.join(covar_root,  os.path.join("S2winter", region +"_S2winter.tif"))
-        self.S2spring_file = os.path.join(covar_root,  os.path.join("S2Aspring", region +"_S2Aspring.tif"))
-        self.S2summer_file = os.path.join(covar_root,  os.path.join("S2Asummer", region +"_S2Asummer.tif"))
-        self.S2autumn_file = os.path.join(covar_root,  os.path.join("S2Aautumn", region +"_S2Aautumn.tif"))
-        self.S2winter_file = os.path.join(covar_root,  os.path.join("S2Awinter", region +"_S2Awinter.tif"))
+        if self.use2A:
+            self.S2spring_file = os.path.join(covar_root,  os.path.join("S2Aspring", region +"_S2Aspring.tif"))
+            self.S2summer_file = os.path.join(covar_root,  os.path.join("S2Asummer", region +"_S2Asummer.tif"))
+            self.S2autumn_file = os.path.join(covar_root,  os.path.join("S2Aautumn", region +"_S2Aautumn.tif"))
+            self.S2winter_file = os.path.join(covar_root,  os.path.join("S2Awinter", region +"_S2Awinter.tif"))
+        else:
+            self.S2spring_file = os.path.join(covar_root,  os.path.join("S21Cspring", region +"_S21Cspring.tif"))
+            self.S2summer_file = os.path.join(covar_root,  os.path.join("S21Csummer", region +"_S21Csummer.tif"))
+            self.S2autumn_file = os.path.join(covar_root,  os.path.join("S21Cautumn", region +"_S21Cautumn.tif"))
+            self.S2winter_file = os.path.join(covar_root,  os.path.join("S21Cwinter", region +"_S21Cwinter.tif"))
         self.S2_file = {0: self.S2spring_file, 1: self.S2summer_file, 2: self.S2autumn_file, 3: self.S2winter_file}
         self.season_dict = {0: "spring", 1: "summer", 2: "autumn", 3: "winter"}
         self.inv_season_dict = {v: k for k, v in self.season_dict.items()}
@@ -122,7 +129,10 @@ class Population_Dataset_target(Dataset):
         self.y_stats['min'] = float(self.y_stats['min'])
 
         # load the dataset stats
-        self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified.json'))
+        if self.use2A:
+            self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
+        else:
+            self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified.json'))
         for mkey in self.dataset_stats.keys():
             if isinstance(self.dataset_stats[mkey], dict):
                 for key,val in self.dataset_stats[mkey].items():
@@ -248,6 +258,7 @@ class Population_Dataset_target(Dataset):
 
         # return dictionary
         return {'input': X,
+                **indata,
                 'y': torch.from_numpy(np.asarray(census_sample["POP20"])).type(torch.FloatTensor),
                 'admin_mask': admin_mask,
                 'img_coords': (xmin,ymin), 'valid_coords':  (xmin, xmax, ymin, ymax),

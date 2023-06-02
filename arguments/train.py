@@ -26,6 +26,8 @@ parser.add_argument('-b', '--batch_size', help='', type=int, default=64)
 parser.add_argument('-f', '--feature_dim', help='', type=int, default=32)
 parser.add_argument("-m", "--model", help='', type=str, default="JacobsUNet")
 parser.add_argument("-dw", "--down", help='', type=int, default=2)
+parser.add_argument("-dw2", "--down2", help='', type=int, default=2)
+parser.add_argument("-lra", "--lam_raw", help='', type=float, default=1.0)
 parser.add_argument('-fe', '--feature_extractor', type=str, help=' ', default="resnet18")
 parser.add_argument('-smo', '--supmode', type=str, help="'unsup', 'weaksup'", default="unsup")
 
@@ -60,7 +62,7 @@ parser.add_argument("-ld", "--lam_dense", help='', type=float, default=1.)
 
 # misc
 parser.add_argument('--save-dir', default='/scratch2/metzgern/HAC/POMELOv2_results', help='Path to directory where models and logs should be saved')
-parser.add_argument('-w', '--num_workers', help='', type=int, default=6)
+parser.add_argument('-w', '--num_workers', help='', type=int, default=8)
 parser.add_argument("-wp", "--wandb_project", help='', type=str, default="POMELOv2")
 parser.add_argument('-lt', '--logstep_train', help='', type=int, default=5)
 parser.add_argument('-val', '--val_every_n_epochs', help='', type=int, default=1)
@@ -69,7 +71,7 @@ parser.add_argument('--save-model', default='both', choices=['last', 'best', 'no
 parser.add_argument('-ms', '--max_samples', help='', type=int, default=1e15)
 parser.add_argument('-mws', '--max_weak_samples', help='', type=int, default=None)
 parser.add_argument("--in_memory", action='store_true', help='')
-parser.add_argument("--merge_aug", type=int, help='Number of Admin regions to merge, Default is 1 with equivalent to no augmentations. Must be a power of 2 and a divisor of the batchsize.', default=None)
+parser.add_argument("--merge_aug", type=int, default=2, help='Number of Admin regions to merge, Defaults 1 with equivalent to no augmentations, so better not use this. Must be a power of 2 and a divisor of the batchsize.')
 parser.add_argument("-wma", "--weak_merge_aug", action='store_true', help='')
 
 args = parser.parse_args()

@@ -58,7 +58,7 @@ class Trainer:
         seed_all(args.seed)
 
         # define input channels based on the number of input modalities
-        input_channels = args.Sentinel1*2  + args.NIR*1 + args.Sentinel2*3 + args.VIIRS*1
+        # input_channels = args.Sentinel1*2  + args.NIR*1 + args.Sentinel2*3 + args.VIIRS*1
 
         # define architecture
         if args.model in model_dict:
@@ -66,6 +66,11 @@ class Trainer:
             self.model = model_dict[args.model](**model_kwargs).cuda()
         else:
             raise ValueError(f"Unknown model: {args.model}")
+        
+        if args.model in ["BoostUNet"]:
+            self.boosted = True
+        else:
+            self.boosted = False
 
         # number of params
         args.pytorch_total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
@@ -189,14 +194,6 @@ class Trainer:
 
                 # forward pass
                 sample = to_cuda_inplace(sample)
-                # with open('objs.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
-                #     pickle.dump(sample, f)
-                # with open('objs.pkl', "rb") as f:  # Python 3: open(..., 'rb')
-                #     trainsample = pickle.load(f)
-                # train_output = self.model(trainsample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
-                # sample_b = sample.copy()
-                # sample_b["input"] = sample["input"][3:4]
-                # output_b = self.model(sample_b, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
                 
                 output = self.model(sample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
             
@@ -205,6 +202,14 @@ class Trainer:
                                            lam_adv=args.lam_adv if self.args.adversarial else 0.0,
                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                            lam_mmd=args.lam_mmd if self.args.MMD else 0.0 )
+                if self.boosted:
+                    loss_raw, loss_dict_raw = get_loss(output["intermediate"], sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
+                                           lam_adv=args.lam_adv if self.args.adversarial else 0.0,
+                                           lam_coral=args.lam_coral if self.args.CORAL else 0.0,
+                                           lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
+                                           tag="intermediate")
+                    
+                    loss += loss_raw * self.args.lam_raw
                 
                 # update loss
                 optim_loss += loss
@@ -299,11 +304,19 @@ class Trainer:
                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                            lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
                                            )
+                if self.boosted:
+                    loss_raw, loss_dict_raw = get_loss(output["intermediate"], sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
+                                           lam_adv=args.lam_adv if self.args.adversarial else 0.0,
+                                           lam_coral=args.lam_coral if self.args.CORAL else 0.0,
+                                           lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
+                                           tag="intermediate")
+                    loss_dict = {**loss_dict, **loss_dict_raw}
 
                 # accumulate stats
                 for key in loss_dict:
                     self.val_stats[key] += loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key] 
             
+                    
             # Compute average metrics
             self.val_stats = {k: v / len(self.dataloaders['val']) for k, v in self.val_stats.items()}
 
@@ -356,9 +369,16 @@ class Trainer:
                                                 lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                                 lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
                                                )
+                    if self.boosted:
+                        loss_raw, loss_dict_raw = get_loss(output["intermediate"], sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
+                                            lam_adv=args.lam_adv if self.args.adversarial else 0.0,
+                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
+                                            lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
+                                            tag="intermediate")
+                        loss_dict = {**loss_dict, **loss_dict_raw}
 
-                    for key in loss_dict:
-                        self.test_stats[key] += loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key]
+                        for key in loss_dict:
+                            self.test_stats[key] += loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key]
                 
                 #fine_eval for Zurich
                 if zh_eval:
@@ -437,6 +457,8 @@ class Trainer:
                 output_map = torch.zeros((h, w))
                 output_map_var = torch.zeros((h, w))
                 output_map_count = torch.zeros((h, w))
+                output_map_raw = torch.zeros((h, w))
+                output_map_var_raw = torch.zeros((h, w))
 
                 for sample in tqdm(testdataloader, leave=False):
                     sample = to_cuda_inplace(sample)
@@ -447,20 +469,12 @@ class Trainer:
                     mask = sample["mask"][0].bool()
 
                     # get the output with a forward pass
-                    
                     output = self.model(sample, padding=False)
-                    # sample_b = sample.copy()
-                    # sample_b["input"] = sample_b["input"][:,:,450:550,450:550]
-                    # plot_2dmatrix(sample_b["input"][0,0] )
-                    # output_b = self.model(sample_b, padding=False)
-                    # output_b = self.model(sample_b, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
-                    # add the output to the output map
-                    # import torchvision
-                    # torchvision.transforms.TenCrop(224)
-                    if mask.sum()<(921600-1):
-                        print("sus...")
                     output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu()
                     output_map_var[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popvarmap"][0][mask].cpu()
+                    if self.boosted:
+                        output_map_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap_raw"][0][mask].cpu()
+                        output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popvarmap_raw"][0][mask].cpu()
                     output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
 
                 # average over the number of times each pixel was visited
@@ -479,43 +493,6 @@ class Trainer:
                 self.target_test_stats = {**self.target_test_stats,
                                           **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="census_pos")}
                 
-                # scatter_data = [wandb.Scatter(x=census_pred, y=census_gt, mode='markers')]
-
-                # self.target_test_stats["census/scatter_plot"] = wandb.Plotly([wandb.Scatter(x=census_pred, y=census_gt, mode='markers')])
-                # self.target_test_stats["census/scatter_plot"] = wandb.Plotly([wandb.plot.scatter(x=census_pred, y=census_gt)])
-                # # wandb.log({"scatter_plot": wandb.Plotly(scatter_data)})
-
-                # data = [[x, y] for (x, y) in zip(census_pred, census_gt)]
-                # table = wandb.Table(data=[[x, y] for (x, y) in zip(census_pred, census_gt)], columns = ["predicted", "Census"])
-                # self.target_test_stats["census/scatter_plot"] = wandb.plot.scatter(
-                # self.target_test_stats["data"] = wandb.Table(data=[[x, y] for (x, y) in zip(census_pred.reshape(-1,), census_gt.reshape(-1,))], columns = ["Predicted", "Census"])
-                # self.target_test_stats["my_custom_id"] = wandb.plot.scatter(
-                #     wandb.Table(data=[[x, y] for (x, y) in zip(census_pred.tolist(), census_gt.tolist())], columns = ["Predicted", "Census"]) ,
-                #     "Predicted", "Census", title="Puerto Rico")
-
-                # wandb.log({"my_custom_id" : wandb.plot.scatter(table, "class_x", "class_y")})
-
-                # Generate random data for class_x_prediction_scores and class_y_prediction_scores
-                # num_samples = 50
-                # class_x_prediction_scores = np.random.rand(num_samples)
-                # class_y_prediction_scores = np.random.rand(num_samples)
-
-                # # Zip the data arrays and create a table with columns 'class_x' and 'class_y'
-                # data = [[x, y] for (x, y) in zip(class_x_prediction_scores, class_y_prediction_scores)]
-                # table = wandb.Table(data=data, columns=["class_x", "class_y"])
-                # self.target_test_stats["census/scatter_plot_dummy"] = wandb.plot.scatter(table, "class_x", "class_y")
-
-                # data = [[x, y] for (x, y) in zip(class_x_prediction_scores, class_x_prediction_scores)]
-                # table = wandb.Table(data, columns = ["x", "y"])
-                # wandb.log({"my_custom_plot_id" : wandb.plots.scatter(table, "x", "y", title="Custom Y vs X Scatter Plot")})
-
-                # import math
-                # data = [[i, random.random() + math.sin(i / 10)] for i in range(100)]
-                # table = wandb.Table(data=data, columns=["step", "height"])
-                
-                # self.target_test_stats["scatter_PRI"] =  wandb.Image(scatter_plot(census_pred.tolist(), census_gt.tolist()) )
-
-                # scatter_plot(census_pred.tolist(), census_gt.tolist()).save("last_scatter.png")
                 scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
                 if scatterplot is not None:
                     self.target_test_stats["scatter_PRI"] = wandb.Image(scatterplot)
@@ -593,7 +570,7 @@ class Trainer:
         if args.da:
             f_names_unlab = []
             for reg in args.target_regions:
-                f_names_unlab.extend(get_fnames_unlab_reg(os.path.join(pop_map_root, os.path.join("EE", reg)), force_recompute=force_recompute))
+                f_names_unlab.extend(get_fnames_unlab_reg(os.path.join(pop_map_root, os.path.join("EE", reg)), force_recompute=True))
         else:
             f_names_unlab = []
 

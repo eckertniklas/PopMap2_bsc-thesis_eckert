@@ -15,12 +15,11 @@ from utils.plot import plot_2dmatrix
 import random
 from scipy.interpolate import griddata
 
-
 from torch.utils.data import DataLoader
 
 from tqdm import tqdm
 
-mm_scaler = load(os.path.join(config_path, 'dataset_stats', 'mm_scaler.joblib'))
+# mm_scaler = load(os.path.join(config_path, 'dataset_stats', 'mm_scaler.joblib'))
 
 
 def load_json(file):
@@ -64,35 +63,35 @@ class PopulationDataset_Reg(Dataset):
         self.y_stats['max'] = float(self.y_stats['max'])
         self.y_stats['min'] = float(self.y_stats['min'])
 
-        if self.use2A:
-            self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
-        else:
-            self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified.json'))
+        # if self.use2A:
+        #     self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
+        # else:
+        #     self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified.json'))
         
-        for mkey in self.dataset_stats.keys():
-            if isinstance(self.dataset_stats[mkey], dict):
-                for key,val in self.dataset_stats[mkey].items():
-                    self.dataset_stats[mkey][key] = torch.tensor(val)
-            else:
-                self.dataset_stats[mkey] = torch.tensor(val)
+        # for mkey in self.dataset_stats.keys():
+        #     if isinstance(self.dataset_stats[mkey], dict):
+        #         for key,val in self.dataset_stats[mkey].items():
+        #             self.dataset_stats[mkey][key] = torch.tensor(val)
+        #     else:
+        #         self.dataset_stats[mkey] = torch.tensor(val)
 
         # Memory Mode
-        self.all_samples = {}
-        if in_memory:
-            print("Loading to memory for Dataset: ", mode)
-            self.move_to_memory = True              
-            for idx in tqdm(range(len(self.all_ids))):
-                # self.all_samples[self.list_IDs[idx]] = self[idx]
-                self.all_samples[self.all_ids[idx]] = self[idx]
-            self.move_to_memory = False 
-            print("Done Loading to memory for Dataset: ", mode)
+        # self.all_samples = {}
+        # if in_memory:
+        #     print("Loading to memory for Dataset: ", mode)
+        #     self.move_to_memory = True              
+        #     for idx in tqdm(range(len(self.all_ids))):
+        #         # self.all_samples[self.list_IDs[idx]] = self[idx]
+        #         self.all_samples[self.all_ids[idx]] = self[idx]
+        #     self.move_to_memory = False 
+        #     print("Done Loading to memory for Dataset: ", mode)
 
     def __getitem__(self, idx):
-        if self.in_memory and not self.move_to_memory:
-            sample = self.all_samples[self.all_ids[idx]] 
-            if self.transform:
-                sample["input"] = self.transform(sample["input"])
-            return sample
+        # if self.in_memory and not self.move_to_memory:
+        #     sample = self.all_samples[self.all_ids[idx]] 
+        #     if self.transform:
+        #         sample["input"] = self.transform(sample["input"])
+        #     return sample
 
         # query the data ID
         ID_temp = self.all_ids[idx]
@@ -124,25 +123,27 @@ class PopulationDataset_Reg(Dataset):
             return {**indata, **auxdata, 'y': y, 'y_norm': y_norm, 'identifier': ID, 'source': source}
         
         # Modality-wise transformations
-        if self.transform:
-            if "S2" in self.transform and "S2" in indata:
-                indata["S2"] = self.transform["S2"](indata["S2"])
-            if "S1" in self.transform and "S1" in indata:
-                indata["S1"] = self.transform["S1"](indata["S1"])
+        # if self.transform:
+        #     if "S2" in self.transform and "S2" in indata:
+        #         indata["S2"] = self.transform["S2"](indata["S2"])
+        #     if "S1" in self.transform and "S1" in indata:
+        #         indata["S1"] = self.transform["S1"](indata["S1"])
 
         # Normalizations
-        indata = self.normalize_indata(indata)
+        # indata = self.normalize_indata(indata)
 
         # merge inputs
-        X = torch.concatenate([indata[key] for key in ["S2", "S1", "VIIRS"] if key in indata], dim=0)
+        # X = torch.concatenate([indata[key] for key in ["S2", "S1", "VIIRS"] if key in indata], dim=0)
 
-        # General transformations
-        if self.transform:
-            X = self.transform["general"](X) if "general" in self.transform.keys() else X
+        # # General transformations
+        # if self.transform:
+        #     X = self.transform["general"](X) if "general" in self.transform.keys() else X
         
         # Collect all variables
-        sample = {'input': X, **auxdata, 'y': y, 'y_norm': y_norm, 'identifier': ID, 'source': source,
-                  **indata}
+        sample = {
+            # 'input': X,
+            **auxdata, 'y': y, 'y_norm': y_norm, 'identifier': ID, 'source': source,
+            **indata}
         return sample
 
 
@@ -217,19 +218,21 @@ class PopulationDataset_Reg(Dataset):
                 if fake:
                     indata["S2"] = np.random.randint(0, 10000, size=(4,img_rows, img_cols))
                 else:
+                    indata["S2"] = np.zeros((4,img_rows, img_cols))
                     with rasterio.open(ID_sen2, "r") as src:
                         # indata["S2"] = src.read((4,3,2,8))
-                        indata["S2"] = src.read((3,2,1,4))
+                        indata["S2"][:] = src.read((3,2,1,4)).astype(np.float32) 
             else:
                 if fake:
                     indata["S2"] = np.random.randint(0, 10000, size=(3,img_rows, img_cols))
                 else:
+                    indata["S2"] = np.zeros((3,img_rows, img_cols))
                     with rasterio.open(ID_sen2, "r") as src:
                         # indata["S2"] = src.read((4,3,2))
-                        indata["S2"] = src.read((3,2,1))
+                        indata["S2"][:] = src.read((3,2,1)).astype(np.float32) 
 
             # if torch.isnan(torch.tensor(indata["S2"])).any():
-            indata["S2"] = indata["S2"].astype(np.float32)
+            # indata["S2"] = indata["S2"].astype(np.float32)
             if np.isnan(indata["S2"]).any():
                 if torch.isnan(torch.tensor(indata["S2"])).sum() / torch.numel(torch.tensor(indata["S2"])) < 0.2:
                     indata["S2"] = self.interpolate_nan(indata["S2"])
@@ -249,8 +252,13 @@ class PopulationDataset_Reg(Dataset):
             if fake:
                 indata["S1"] = np.random.randint(0, 10000, size=(2,img_rows, img_cols))
             else:
+                indata["S1"] = np.zeros((2,img_rows, img_cols))
                 with rasterio.open(ID_sen1, "r") as src:
-                    indata["S1"] = src.read((1,2))
+                    indata["S1"][:] = src.read((1,2)).astype(np.float32)
+                    # src.close()
+                    # del src
+                # indata["S1"] = np.random.randint(0, 10000, size=(2,img_rows, img_cols))
+
             assert indata["S1"].shape[1] == img_rows
             assert indata["S1"].shape[2] == img_cols
 
@@ -259,7 +267,7 @@ class PopulationDataset_Reg(Dataset):
                 indata["VIIRS"] = np.random.randint(0, 10000, size=(1,img_rows, img_cols))
             else:
                 with rasterio.open(ID_viirs, "r") as src:
-                    indata["VIIRS"] = src.read(1)
+                    indata["VIIRS"] = src.read(1).astype(np.float32)
 
         auxdata = {}
         # if finegrained cencus is available

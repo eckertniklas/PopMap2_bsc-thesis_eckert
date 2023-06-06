@@ -175,13 +175,14 @@
             ]
         },
         {
-            "name": "03_merge_tiffs.py, 2017",
+            "name": "03_merge_tiffs.py, rwa",
             "type": "python",
             "request": "launch",
             "program": "utils/03_merge_tiffs.py",
             "console": "integratedTerminal",
             "args": [
-                "/scratch/metzgern/HAC/data/PopMapData/raw/EE/pri2017"
+                "/scratch2/metzgern/HAC/data/PopMapData/raw/EE/rwa",
+                "/scratch/metzgern/HAC/data/PopMapData"
             ]
         },
         {
@@ -696,6 +697,7 @@
                 // "1e-4",
                 "-l",
                 "log_l1_aug_loss",
+                // "log_l1_loss",
                 // "l1_loss",
                 // "log_l1_loss",
                 // "gaussian_nll",
@@ -721,13 +723,14 @@
                 "--lr_gamma", "0.75",
                 "--full_aug",
                 "--CORAL",
-                // "--lam_coral", "100.0",
-                "--lam_coral", "1.0",
+                "--lam_coral", "10.0",
+                "--num_workers", "6",
+                // "--lam_coral", "1.0",
                 // "-adv", 
                 // "-ladv", "0.01",
                 // "--classif", "v8",
                 // "--MMD",
-                // "--lam_mmd", "0.1",
+                // "--lam_mmd", "1.0",
             ]
         },
         {
@@ -762,7 +765,7 @@
                 "-e",
                 "200",
                 "-b",
-                "256",
+                "128",
                 "-lr",
                 "1e-4",
                 // "1e-4",

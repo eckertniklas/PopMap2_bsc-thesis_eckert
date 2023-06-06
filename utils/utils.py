@@ -13,6 +13,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep, ResBlocksSqueeze
 from model.ownmodels import BoostUNet
+import json
+
 
 def to_cuda(sample):
     sampleout = {}
@@ -44,6 +46,8 @@ def to_cuda_inplace(sample):
                 else:
                     new_val.append(val)
             sample[key] = new_val
+        elif isinstance(val, dict):
+            sample[key] = to_cuda_inplace(val)
         else:
             sample[key] = val
     return sample
@@ -226,5 +230,78 @@ def get_model_kwargs(args, model_name):
         # kwargs['head'] = args.head
         kwargs['down'] = args.down
         kwargs['down2'] = args.down2
+        kwargs['useallfeatures'] = args.useallfeatures
     return kwargs
 
+
+def load_json(file):
+    with open(file, 'r') as f:
+        a = json.load(f)
+    return a
+
+
+def apply_normalize(indata, dataset_stats):
+
+    # S2
+    if "S2" in indata:
+        if indata["S2"].shape[0] == 4:
+            # indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2springNIR"]['p2'][:,None,None], self.dataset_stats["sen2springNIR"]['p2'][:,None,None], indata["S2"])
+            indata["S2"] = ((indata["S2"].permute((0,2,3,1)) - dataset_stats["sen2springNIR"]['mean'] ) / dataset_stats["sen2springNIR"]['std']).permute((0,3,1,2))
+        else: 
+            # indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], indata["S2"])
+            # indata["S2"] = ((indata["S2"].permute((1,2,0)) - dataset_stats["sen2spring"]['mean'] ) / dataset_stats["sen2spring"]['std']).permute((2,0,1))
+            indata["S2"] = ((indata["S2"].permute((0,2,3,1)) - dataset_stats["sen2spring"]['mean'].cuda() ) / dataset_stats["sen2spring"]['std'].cuda()).permute((0,3,1,2))
+
+    # S1
+    if "S1" in indata:
+        # indata["S1"] = torch.where(indata["S1"] > self.dataset_stats["sen1"]['p2'][:,None,None], self.dataset_stats["sen1"]['p2'][:,None,None], indata["S1"])
+        indata["S1"] = ((indata["S1"].permute((0,2,3,1)) - dataset_stats["sen1"]['mean'].cuda() ) / dataset_stats["sen1"]['std'].cuda()).permute((0,3,1,2))
+
+    # VIIRS
+    if "VIIRS" in indata:
+        # indata["VIIRS"] = torch.where(indata["VIIRS"] > self.dataset_stats["viirs"]['p2'][:,None,None], self.dataset_stats["viirs"]['p2'][:,None,None], indata["VIIRS"])
+        indata["VIIRS"] = ((indata["VIIRS"].permute((0,3,1,2)) - dataset_stats["viirs"]['mean'].cuda() ) / dataset_stats["viirs"]['std'].cuda()).permute((0,3,1,2))
+
+    return indata
+
+
+def apply_transformations_and_normalize(sample, transform, dataset_stats):
+    """
+    :param image: image to be transformed
+    :param mask: mask to be transformed
+    :param transform: transform to be applied to the image
+    :param transform_mask: transform to be applied to the mask
+    :return: transformed image and mask
+    """
+    # transforms
+
+    # Modality-wise transformations
+    if transform is not None:
+        if "S2" in transform and "S2" in sample:
+            sample["S2"] = transform["S2"](sample["S2"])
+        if "S1" in transform and "S1" in sample:
+            sample["S1"] = transform["S1"](sample["S1"])
+        if "VIIRS" in transform and "VIIRS" in sample:
+            sample["VIIRS"] = transform["VIIRS"](sample["VIIRS"])
+
+    # Normalizations
+    sample = apply_normalize(sample, dataset_stats)
+    # sample = normalize_indata(sample, normalization)
+    
+    # merge inputs
+    sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS"] if key in sample], dim=1)
+
+    # General transformations
+    if transform is not None:
+        # apply the transformation to the image
+
+        if "general" in transform.keys():
+            # if masked
+            if "mask" in sample.keys(): 
+                sample["input"], sample["mask"] = transform["general"]((sample["input"], sample["mask"])) 
+            else:
+                sample["input"] = transform["general"](sample["input"])
+            
+    
+
+    return sample

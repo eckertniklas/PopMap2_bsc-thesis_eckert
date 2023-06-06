@@ -38,7 +38,7 @@ class CustomUNet(smp.Unet):
             center=True if encoder_name.startswith("vgg") else False
         )
 
-        # replace first layer with 3x3 conv instead of 7x7
+        # replace first layer with 3x3 conv instead of 7x7 (better suitable for remote sensing datasets)
         if encoder_name.startswith("resnet"):
             conv1w = self.encoder.conv1.weight # old kernel
             self.encoder.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, stride=2, padding=1, bias=False)
@@ -52,8 +52,7 @@ class CustomUNet(smp.Unet):
             )
         else:
             self.decoder.center = nn.Identity()
-
-        # self.remove_batchnorm(self.encoder)
+ 
         self.remove_batchnorm(self)
 
         # initialize

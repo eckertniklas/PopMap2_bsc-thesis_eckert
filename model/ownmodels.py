@@ -24,12 +24,14 @@ class BoostUNet(nn.Module):
     '''
     PomeloUNet
     '''
-    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1", down=2, down2=4):
+    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1", down=2, down2=4,
+                 useallfeatures=False):
         super(BoostUNet, self).__init__()
         
         # Padding Params
         self.p = 14
         self.p2d = (self.p, self.p, self.p, self.p)
+        self.useallfeatures = useallfeatures
 
         # Build the main model
         self.unetmodel1 = CustomUNet(feature_extractor, in_channels=2, classes=feature_dim, down=down) # Sentinel1
@@ -105,21 +107,17 @@ class BoostUNet(nn.Module):
 
         #### STAGE 1 ####
         # Forward the main model1
-        # self.maxi[data.max(dim=2)[0].max(dim=2)[0].max(dim=0)[0].cpu()>self.maxi] = data.max(dim=2)[0].max(dim=2)[0].max(dim=0)[0].cpu()[data.max(dim=2)[0].max(dim=2)[0].max(dim=0)[0].cpu()>self.maxi]
-        features, decoder_features = self.unetmodel1(data, return_features=return_features)
-
-        # revert padding
-        # features = self.revert_padding(features, (px1,px2,py1,py2))
+        features, decoder_features_raw = self.unetmodel1(data, return_features=return_features)
 
         # Forward the head1
         out = self.head1(features)
 
         # Foward the domain classifier
-        if self.domain_classifier is not None and return_features and alpha>0:
-            reverse_features = ReverseLayerF.apply(decoder_features.unsqueeze(3), alpha) # apply gradient reversal layer
-            domain_raw = self.domain_classifier(reverse_features.permute(0,2,3,1).reshape(-1, reverse_features.size(1))).view(reverse_features.size(0),-1)
-        else:
-            domain_raw = None
+        # if self.domain_classifier is not None and return_features and alpha>0 and self.useallfeatures:
+        #     reverse_features = ReverseLayerF.apply(decoder_features.unsqueeze(3), alpha) # apply gradient reversal layer
+        #     domain_raw = self.domain_classifier(reverse_features.permute(0,2,3,1).reshape(-1, reverse_features.size(1))).view(reverse_features.size(0),-1)
+        # else:
+        #     domain_raw = None
 
         # Population map and total count, raw
         popdensemap_raw = nn.functional.relu(out[:,0])
@@ -135,8 +133,8 @@ class BoostUNet(nn.Module):
             popvar_raw = popvarmap_raw.sum((1,2))
 
         
-        #### STAGE 2 ####
 
+        #### STAGE 2 #### 
         # Add padding
         data, (px1,px2,py1,py2) = self.add_padding(inputs["S2"], padding)
 
@@ -152,15 +150,19 @@ class BoostUNet(nn.Module):
         # Forward the head2
         out = self.head2(features)
 
+
+
+
+        #### Post #### 
         # Foward the domain classifier
         if self.domain_classifier is not None and return_features and alpha>0:
+            if self.useallfeatures:
+                decoder_features = torch.cat([decoder_features, decoder_features_raw], dim=1)
             reverse_features = ReverseLayerF.apply(decoder_features.unsqueeze(3), alpha) # apply gradient reversal layer
             domain = self.domain_classifier(reverse_features.permute(0,2,3,1).reshape(-1, reverse_features.size(1))).view(reverse_features.size(0),-1)
         else:
             domain = None
-        
-
-
+    
         # Population map and total count
         popdensemap = nn.functional.relu(out[:,0])
         if "admin_mask" in inputs.keys():
@@ -174,7 +176,6 @@ class BoostUNet(nn.Module):
         else:
             popvar = popvarmap.sum((1,2))
 
-
         # Building map
         builtdensemap = nn.functional.softplus(out[:,2])
         builtcount = builtdensemap.sum((1,2))
@@ -182,9 +183,8 @@ class BoostUNet(nn.Module):
         # Builtup mask
         builtupmap = torch.sigmoid(out[:,3])
 
-
         return {"popcount": popcount, "popdensemap": popdensemap, "popvar": popvar ,"popvarmap": popvarmap, 
-                "intermediate": {"popcount": popcount_raw, "popdensemap": popdensemap_raw, "popvar": popvar_raw ,"popvarmap": popvarmap_raw, "domain": domain_raw, "decoder_features": None}, 
+                "intermediate": {"popcount": popcount_raw, "popdensemap": popdensemap_raw, "popvar": popvar_raw ,"popvarmap": popvarmap_raw, "domain": None, "decoder_features": None}, 
                 "popvar": popvar ,"popvarmap": popvarmap, 
                 "builtdensemap": builtdensemap, "builtcount": builtcount,
                 "builtupmap": builtupmap, "domain": domain, "features": features,

@@ -29,6 +29,9 @@ from data.PopulationDataset_target import Population_Dataset_target, Population_
 from utils.losses import get_loss, r2
 from utils.metrics import get_test_metrics
 from utils.utils import new_log, to_cuda, to_cuda_inplace, detach_tensors_in_dict, seed_all, get_model_kwargs, model_dict
+from utils.utils import load_json, apply_transformations_and_normalize, apply_normalize
+from utils.constants import config_path
+
 
 from utils.plot import plot_2dmatrix, plot_and_save, scatter_plot3
 from utils.utils import get_fnames_labs_reg, get_fnames_unlab_reg
@@ -52,7 +55,7 @@ class Trainer:
             self.args.da = False
 
         # set up dataloaders
-        self.dataloaders = self.get_dataloaders(args)
+        self.dataloaders = self.get_dataloaders(self, args)
         
         # set up model
         seed_all(args.seed)
@@ -140,7 +143,7 @@ class Trainer:
         """
         Train for one epoch
         """
-        self.train_stats = defaultdict(float)
+        train_stats = defaultdict(float)
 
         # set model to train mode
         self.model.train()
@@ -148,7 +151,7 @@ class Trainer:
         # get GPU memory usage
         handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
         info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
-        self.train_stats["gpu_used"] = info.used / 1e9 # in GB 
+        train_stats["gpu_used"] = info.used / 1e9 # in GB 
 
         # check if we are in unsupervised or supervised mode and adjust dataloader accordingly
         dataloader = self.dataloaders['train']
@@ -162,6 +165,7 @@ class Trainer:
                 self.optimizer.zero_grad()
                 optim_loss = 0.0
                 loss_dict_weak = {}
+                loss_dict_raw = {}
 
                 #  check if sample is weakly target supervised or source supervised 
                 if self.args.supmode=="weaksup":
@@ -174,7 +178,9 @@ class Trainer:
                         sample_weak = next(self.dataloaders["weak_target_iter"])
 
                     # forward pass and loss computation 
-                    sample_weak = to_cuda_inplace(sample_weak)
+                    sample_weak = to_cuda_inplace(sample_weak) 
+                    sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats)
+
                     output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False)
 
                     # merge augmented samples
@@ -194,6 +200,7 @@ class Trainer:
 
                 # forward pass
                 sample = to_cuda_inplace(sample)
+                sample = apply_transformations_and_normalize(sample, self.data_transform, self.dataset_stats)
                 
                 output = self.model(sample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
             
@@ -211,6 +218,8 @@ class Trainer:
                                            tag="train_intermediate")
                     
                     loss += loss_raw * self.args.lam_raw
+                    loss_dict_raw = detach_tensors_in_dict(loss_dict_raw)
+                    # loss_dict = {**loss_dict, **loss_dict_raw}
                 
                 # update loss
                 optim_loss += loss
@@ -218,11 +227,13 @@ class Trainer:
                 # Detach tensors
                 loss_dict = detach_tensors_in_dict(loss_dict)
 
-                # accumulate statistics 
+                # accumulate statistics of all dicts
                 for key in loss_dict:
-                    self.train_stats[key] += loss_dict[key].cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key]
+                    train_stats[key] += loss_dict[key].cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key]
                 for key in loss_dict_weak:
-                    self.train_stats[key] += loss_dict_weak[key].cpu().item() if torch.is_tensor(loss_dict_weak[key]) else loss_dict_weak[key]
+                    train_stats[key] += loss_dict_weak[key].cpu().item() if torch.is_tensor(loss_dict_weak[key]) else loss_dict_weak[key]
+                for key in loss_dict_raw:
+                    train_stats[key] += loss_dict_raw[key].cpu().item() if torch.is_tensor(loss_dict_raw[key]) else loss_dict_raw[key]
 
                 # detect NaN loss 
                 if torch.isnan(loss):
@@ -237,8 +248,11 @@ class Trainer:
                         clip_grad_norm_(self.model.parameters(), self.args.gradient_clip)
 
                     self.optimizer.step()
-                    optim_loss = optim_loss.detach()
-                    # torch.cuda.empty_cache()
+                    optim_loss = optim_loss.detach()  
+                    output = detach_tensors_in_dict(output)
+                    del output
+                    del sample 
+                    gc.collect()
 
                 # update info
                 self.info["iter"] += 1
@@ -256,37 +270,34 @@ class Trainer:
 
                 # logging and stuff
                 if (i + 1) % min(self.args.logstep_train, len(self.dataloaders['train'])) == 0:
-                    self.log_train((inner_tnr, tnr))
+                    train_stats = self.log_train(train_stats,(inner_tnr, tnr))
+                    train_stats = defaultdict(float)
     
     def update_param(self, p, k=10):
         return 2. / (1. + np.exp(-k * p)) - 1
 
-    def log_train(self, tqdmstuff=None):
-        self.train_stats = {k: v / self.args.logstep_train for k, v in self.train_stats.items()}
+    def log_train(self, train_stats, tqdmstuff=None):
+        train_stats = {k: v / self.args.logstep_train for k, v in train_stats.items()}
 
         # print logs to console via tqdm
         if tqdmstuff is not None:
             inner_tnr, tnr = tqdmstuff
-            inner_tnr.set_postfix(training_loss=self.train_stats['optimization_loss'])
+            inner_tnr.set_postfix(training_loss=train_stats['optimization_loss'])
             if tnr is not None:
-                tnr.set_postfix(training_loss=self.train_stats['optimization_loss'],
+                tnr.set_postfix(training_loss=train_stats['optimization_loss'],
                                 validation_loss=self.val_stats['optimization_loss'],
                                 best_validation_loss=self.best_optimization_loss)
 
         # upload logs to wandb
-        wandb.log({**{k + '/train': v for k, v in self.train_stats.items()}, **self.info}, self.info["iter"])
+        wandb.log({**{k + '/train': v for k, v in train_stats.items()}, **self.info}, self.info["iter"])
         
         # reset metrics
-        self.train_stats = defaultdict(float)
+        # train_stats = defaultdict(float)
 
     def validate(self):
         self.val_stats = defaultdict(float)
 
         self.model.eval()
-
-        # with open('objs.pkl', "rb") as f:  # Python 3: open(..., 'rb')
-        #     trainsample = pickle.load(f)
-        # train_output = self.model(trainsample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
 
         with torch.no_grad():
             pred, gt = [], []
@@ -294,6 +305,9 @@ class Trainer:
 
                 # forward pass
                 sample = to_cuda_inplace(sample)
+                sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats)
+                # sample = apply_normalize(sample, self.dataset_stats)
+
                 output = self.model(sample)
                 
                 # Colellect predictions and samples
@@ -322,7 +336,7 @@ class Trainer:
             self.val_stats = {k: v / len(self.dataloaders['val']) for k, v in self.val_stats.items()}
 
             # Compute non-averagable metrics
-            self.val_stats["Population/r2"] = r2(torch.cat(pred), torch.cat(gt))
+            self.val_stats["Population_val_main/r2"] = r2(torch.cat(pred), torch.cat(gt))
 
             wandb.log({**{k + '/val': v for k, v in self.val_stats.items()}, **self.info}, self.info["iter"])
             
@@ -360,6 +374,9 @@ class Trainer:
 
                 # forward pass
                 sample = to_cuda_inplace(sample)
+                sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats)
+                # sample = apply_normalize(sample, self.dataset_stats)
+
                 output = self.model(sample)
                 
                 # Colellect predictions and samples
@@ -444,7 +461,7 @@ class Trainer:
             
                 wandb.log({**{k + '/testZH': v for k, v in self.test_statsZH.items()}, **self.info}, self.info["iter"])
 
-    def test_target(self, save=False):
+    def test_target(self, save=False, full=True):
         # Test on target domain
         self.model.eval()
         self.test_stats = defaultdict(float)
@@ -463,6 +480,8 @@ class Trainer:
 
                 for sample in tqdm(testdataloader, leave=False):
                     sample = to_cuda_inplace(sample)
+                    # sample = apply_normalize(sample, self.dataset_stats)
+                    sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats)
 
                     # get the valid coordinates
                     xmin, xmax, ymin, ymax = [val.item() for val in sample["valid_coords"]]
@@ -473,7 +492,7 @@ class Trainer:
                     output = self.model(sample, padding=False)
                     output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu()
                     output_map_var[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popvarmap"][0][mask].cpu()
-                    if self.boosted:
+                    if self.boosted and full:
                         output_map_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popdensemap"][0][mask].cpu()
                         output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popvarmap"][0][mask].cpu()
                     output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
@@ -489,7 +508,7 @@ class Trainer:
                     # save the output map
                     testdataloader.dataset.save(output_map, self.experiment_folder)
                     testdataloader.dataset.save(output_map_var, self.experiment_folder, tag="VAR")
-                    if self.boosted:
+                    if self.boosted and full:
                         testdataloader.dataset.save(output_map_raw, self.experiment_folder, tag="RAW")
                         testdataloader.dataset.save(output_map_var_raw, self.experiment_folder, tag="VAR_RAW")
                 
@@ -519,7 +538,7 @@ class Trainer:
         
 
     @staticmethod
-    def get_dataloaders(args, force_recompute=False): 
+    def get_dataloaders(self, args, force_recompute=False): 
         """
         Get dataloaders for the source and target domains
         Inputs:
@@ -531,9 +550,9 @@ class Trainer:
 
         input_defs = {'S1': args.Sentinel1, 'S2': args.Sentinel2, 'VIIRS': args.VIIRS, 'NIR': args.NIR}
         params = {'dim': (img_rows, img_cols), "satmode": args.satmode, 'in_memory': args.in_memory, **input_defs}
-        data_transform = {}
+        self.data_transform = {}
         if args.full_aug:
-            data_transform["general"] = transforms.Compose([
+            self.data_transform["general"] = transforms.Compose([
                 AddGaussianNoise(std=0.1, p=0.9), 
                 # RandomHorizontalVerticalFlip(p=0.5),
                 RandomVerticalFlip(p=0.5), RandomHorizontalFlip(p=0.5),
@@ -541,34 +560,48 @@ class Trainer:
             ])
         else: 
             if not args.Sentinel1: 
-                data_transform["general"] = transforms.Compose([
+                self.data_transform["general"] = transforms.Compose([
                     # HazeAdditionModule()
                     # AddGaussianNoise(std=0.1, p=0.9),
                     # transforms.RandomHorizontalFlip(p=0.5), transforms.RandomVerticalFlip(p=0.5),
                     # RandomRotationTransform(angles=[90, 180, 270], p=0.75), 
                 ])
             else:
-                data_transform["general"] = transforms.Compose([
+                self.data_transform["general"] = transforms.Compose([
                     # AddGaussianNoise(std=0.1, p=0.9),
                     # RandomHorizontalVerticalFlip(p=0.5), transforms.RandomVerticalFlip(p=0.5),
                     # RandomRotationTransform(angles=[90, 180, 270], p=0.75), 
                 ])
-        data_transform["S2"] = OwnCompose([
-            RandomBrightness(p=0.9),
-            RandomGamma(p=0.9, gamma_limit=(0.2, 5.0)),
-            HazeAdditionModule(p=0.9, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3))
+        # self.data_transform["S2"] = OwnCompose([
+        #     RandomBrightness(p=0.9),
+        #     RandomGamma(p=0.9, gamma_limit=(0.2, 5.0)),
+        #     HazeAdditionModule(p=0.9, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3))
+        # ])
+        self.data_transform["S2"] = OwnCompose([
+            RandomBrightness(p=0.9, beta_limit=(0.666, 1.5)),
+            RandomGamma(p=0.9, gamma_limit=(0.6666, 1.5)),
+            # HazeAdditionModule(p=0.5, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3))
         ])
-        data_transform["S1"] = transforms.Compose([
+        
+        self.data_transform["S1"] = transforms.Compose([
             # RandomBrightness(p=0.95),
             # RandomGamma(p=0.95),
             # HazeAdditionModule(p=0.95)
         ])
         
+        # load normalization stats
+        self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
+        for mkey in self.dataset_stats.keys():
+            if isinstance(self.dataset_stats[mkey], dict):
+                for key,val in self.dataset_stats[mkey].items():
+                    self.dataset_stats[mkey][key] = torch.tensor(val)
+            else:
+                self.dataset_stats[mkey] = torch.tensor(val)
+
         # source domain samples
         val_size = 0.2 
         f_names, labels = get_fnames_labs_reg(all_patches_mixed_train_part1, force_recompute=force_recompute)
 
-    
         # remove elements that contain "zurich" as a substring
         if args.excludeZH:
             f_namesX = []
@@ -592,7 +625,7 @@ class Trainer:
 
         # create the raw source dataset
         train_dataset = PopulationDataset_Reg(f_names_train, labels_train, f_names_unlab=f_names_unlab, mode="train",
-                                            transform=data_transform,random_season=args.random_season, **params)
+                                            transform=None,random_season=args.random_season, **params)
         datasets = {
             "train": train_dataset,
             "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", transform=None, **params),
@@ -609,9 +642,9 @@ class Trainer:
 
         # create the dataloaders
         dataloaders =  {
-            "train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, sampler=custom_sampler, shuffle=shuffle, drop_last=True, pin_memory=True),
+            "train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, sampler=custom_sampler, shuffle=shuffle, drop_last=True, pin_memory=False),
             "val":  DataLoader(datasets["val"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False, pin_memory=True),
-            "test":  DataLoader(datasets["test"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False,pin_memory=True),
+            "test":  DataLoader(datasets["test"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False, pin_memory=True),
             "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False) for datasets["test_target"] in datasets["test_target"] ]
         }
         
@@ -623,7 +656,7 @@ class Trainer:
             weak_datasets = []
             for reg in args.target_regions:
                 weak_datasets.append( Population_Dataset_target(reg, mode="weaksup", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
-                                                                fourseasons=args.random_season, transform=data_transform, **input_defs)  )
+                                                                fourseasons=args.random_season, transform=None, **input_defs)  )
             dataloaders["weak_target_dataset"] = ConcatDataset(weak_datasets)
             
             # create own simulation of a dataloader for the weakdataset
@@ -637,6 +670,7 @@ class Trainer:
             dataloaders["weak_target_iter"] = iter(dataloaders["weak_target"])
         
         return dataloaders
+   
 
     def save_model(self, prefix=''):
         """

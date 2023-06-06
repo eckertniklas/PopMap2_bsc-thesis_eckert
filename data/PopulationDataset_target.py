@@ -129,16 +129,16 @@ class Population_Dataset_target(Dataset):
         self.y_stats['min'] = float(self.y_stats['min'])
 
         # load the dataset stats
-        if self.use2A:
-            self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
-        else:
-            self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified.json'))
-        for mkey in self.dataset_stats.keys():
-            if isinstance(self.dataset_stats[mkey], dict):
-                for key,val in self.dataset_stats[mkey].items():
-                    self.dataset_stats[mkey][key] = torch.tensor(val)
-            else:
-                self.dataset_stats[mkey] = torch.tensor(val)
+        # if self.use2A:
+        #     self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
+        # else:
+        #     self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified.json'))
+        # for mkey in self.dataset_stats.keys():
+        #     if isinstance(self.dataset_stats[mkey], dict):
+        #         for key,val in self.dataset_stats[mkey].items():
+        #             self.dataset_stats[mkey][key] = torch.tensor(val)
+        #     else:
+        #         self.dataset_stats[mkey] = torch.tensor(val)
 
     def get_patch_indices(self, patchsize, overlap):
         """
@@ -238,26 +238,27 @@ class Population_Dataset_target(Dataset):
         indata = {key:torch.from_numpy(np.asarray(val, dtype=np.float32)).type(torch.FloatTensor) for key,val in indata.items()}
 
         # Modality wise transformations
-        if self.transform:
-            if "S2" in self.transform and "S2" in indata:
-                indata["S2"] = self.transform["S2"](indata["S2"])
-            if "S1" in self.transform and "S1" in indata:
-                indata["S1"] = self.transform["S1"](indata["S1"])
+        # if self.transform:
+        #     if "S2" in self.transform and "S2" in indata:
+        #         indata["S2"] = self.transform["S2"](indata["S2"])
+        #     if "S1" in self.transform and "S1" in indata:
+        #         indata["S1"] = self.transform["S1"](indata["S1"])
 
         # Normalization
-        indata = self.normalize_indata(indata)
+        # indata = self.normalize_indata(indata)
 
         # merge inputs
-        X = torch.concatenate([indata[key] for key in ["S2", "S1", "VIIRS"] if key in indata], dim=0)
+        # X = torch.concatenate([indata[key] for key in ["S2", "S1", "VIIRS"] if key in indata], dim=0)
 
         # General transformations
-        if self.transform:
-            if "general" in self.transform:
-                X, admin_mask = self.transform["general"]((X, admin_mask.unsqueeze(0)))
-                admin_mask = admin_mask.squeeze(0)
+        # if self.transform:
+        #     if "general" in self.transform:
+        #         X, admin_mask = self.transform["general"]((X, admin_mask.unsqueeze(0)))
+        #         admin_mask = admin_mask.squeeze(0)
 
         # return dictionary
-        return {'input': X,
+        return {
+                # 'input': X,
                 **indata,
                 'y': torch.from_numpy(np.asarray(census_sample["POP20"])).type(torch.FloatTensor),
                 'admin_mask': admin_mask,
@@ -293,29 +294,31 @@ class Population_Dataset_target(Dataset):
         ymax = y+self.patchsize-self.overlap
 
         # transform the input data with augmentations
-        if self.transform:
-            if "S2" in self.transform and "S2" in indata:
-                indata["S2"] = self.transform["S2"](indata["S2"])
-            if "S1" in self.transform and "S1" in indata:
-                indata["S1"] = self.transform["S1"](indata["S1"])
+        # if self.transform:
+        #     if "S2" in self.transform and "S2" in indata:
+        #         indata["S2"] = self.transform["S2"](indata["S2"])
+        #     if "S1" in self.transform and "S1" in indata:
+        #         indata["S1"] = self.transform["S1"](indata["S1"])
 
         # Normalization
-        indata = self.normalize_indata(indata)
+        # indata = self.normalize_indata(indata)
 
         # merge inputs
-        X = torch.concatenate([indata[key] for key in ["S2", "S1", "VIIRS"] if key in indata], dim=0)
+        # X = torch.concatenate([indata[key] for key in ["S2", "S1", "VIIRS"] if key in indata], dim=0)
 
-        if torch.any(torch.isnan(X)):
-            raise Exception("Nan in X")
+        # if torch.any(torch.isnan(X)):
+        #     raise Exception("Nan in X")
 
-        # General transformations
-        if self.transform:
-            if "general" in self.transform:
-                X, mask = self.transform["general"]((X, mask.unsqueeze(0)))
-                admin_mask = admin_mask.squeeze(0)
+        # # General transformations
+        # if self.transform:
+        #     if "general" in self.transform:
+        #         X, mask = self.transform["general"]((X, mask.unsqueeze(0)))
+        #         admin_mask = admin_mask.squeeze(0)
 
         # return dictionary
-        return {'input': X, 'img_coords': (x,y), 'valid_coords':  (xmin, xmax, ymin, ymax),
+        return {
+                # 'input': X,
+                'img_coords': (x,y), 'valid_coords':  (xmin, xmax, ymin, ymax),
                 **indata,
                 'season': season.item(), 'mask': mask, 'season_str': self.season_dict[season.item()]}
     

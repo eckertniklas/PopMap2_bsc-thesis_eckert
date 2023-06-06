@@ -45,7 +45,8 @@ class AddGaussianNoise(object):
         else:
             x, mask = x
         if torch.rand(1) < self.p:
-            x += torch.randn(x.size()) * self.std + self.mean
+            # x += torch.randn(x.size()) * self.std + self.mean
+            x += torch.randn_like(x) * self.std + self.mean
         return x if mask is None else (x, mask)
     
     def __repr__(self):
@@ -258,6 +259,7 @@ class HazeAdditionModule(torch.nn.Module):
             if len(x.shape) == 3:
                 num_channels, height, width = x.shape
                 x = x.unsqueeze(0)  # Add a batch dimension
+                batch_size = 1
                 batched = False
             else:
                 batch_size, num_channels, height, width = x.shape 
@@ -268,7 +270,7 @@ class HazeAdditionModule(torch.nn.Module):
             haze_density = np.random.uniform(self.haze_limit[0], self.haze_limit[1]) # Sample Haze density
 
             # Create the haze layer
-            haze_layer = torch.ones((1, num_channels, height, width), dtype=torch.float32) * atmosphere_light
+            haze_layer = torch.ones((batch_size, num_channels, height, width), dtype=x.dtype, device=x.device) * atmosphere_light
 
             # Apply haze to the input image
             x = x / self.s2_max

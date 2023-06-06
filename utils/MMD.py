@@ -5,7 +5,7 @@ from torch import nn
 import pytest
 # from utils.plot import plot_2dmatrix
 
-# from https://github.com/yiftachbeer/mmd_loss_pytorch
+# adapted from https://github.com/yiftachbeer/mmd_loss_pytorch
 class RBF(nn.Module):
 
     def __init__(self, n_kernels=5, mul_factor=2.0, bandwidth=None):

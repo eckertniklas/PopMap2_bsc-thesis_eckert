@@ -30,16 +30,21 @@ def process(parent_dir, output_dir):
         # ty = subdir.split("/")[-1]
         output_file = os.path.join(os.path.join(output_dir, ty), name + "_" + ty + ".tif" )
 
+
+
         # Skip if file already exists
-        if isfile(output_file):
+        if isfile(output_file) or ty in ["S2spring", "S2summer", "S2autumn", "S2winter"]:
             print("File already exists, skipping") 
-        else:
+        elif ty in ["S1spring", "S1summer", "S1autumn", "S1winter"]:
             print("Merging files to", output_file)
             # Merge files
-            g = gdal.Warp(output_file, files_to_mosaic, format="GTiff", options=["COMPRESS=LZW"]) # if you want
+            g = gdal.Warp(output_file, files_to_mosaic, format="GTiff", options=["COMPRESS=LZW"])
             g = None
 
+
+
         if ty in ["S2spring", "S2summer", "S2autumn", "S2winter"]:
+            continue
             # Create same file but only keep bands 2,3,4,8
             ty1C = ty.replace("S2", "S21C")
             output_file1C = output_file.replace("S2", "S21C")
@@ -53,11 +58,23 @@ def process(parent_dir, output_dir):
             # g = gdal.Warp(output_file, files_to_mosaic, format="GTiff", options=["COMPRESS=LZW", "BANDS=2,3,4,8"]) # if you want 
             # g = None
 
-            print("Cutting files to", output_file)
+            print("Merging/Putting files to", output_file)
             # load file and only save bands 2,3,4,8
             g = gdal.Open(output_file)
-            g = gdal.Translate(output_file1C, g, format="GTiff", bandList=[2,3,4,8], options=["COMPRESS=LZW"])
+            g = gdal.Translate(output_file1C, g, format="GTiff", bandList=[2,3,4,8], outputType=gdal.GDT_UInt16, options=["COMPRESS=LZW"])
             g = None
+
+        if ty in ["S2Aspring", "S2Asummer", "S2Aautumn", "S2Awinter"]:
+            # Skip if file already exists
+            if isfile(output_file):
+                print("File already exists, skipping")
+                continue
+            print("Merging files to", output_file)
+            # Merge files
+            g = gdal.Warp(output_file, files_to_mosaic, format="GTiff", outputType=gdal.GDT_UInt16, options=["COMPRESS=LZW,bandList=[2,3,4,8]"]) 
+            g = None
+
+
 
     return None
 

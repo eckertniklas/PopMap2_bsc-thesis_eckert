@@ -31,7 +31,7 @@ from utils.metrics import get_test_metrics
 from utils.utils import new_log, to_cuda, to_cuda_inplace, detach_tensors_in_dict, seed_all, get_model_kwargs, model_dict
 from utils.utils import load_json, apply_transformations_and_normalize, apply_normalize
 from utils.constants import config_path
-
+from utils.scheduler import CustomLRScheduler
 
 from utils.plot import plot_2dmatrix, plot_and_save, scatter_plot3
 from utils.utils import get_fnames_labs_reg, get_fnames_unlab_reg
@@ -93,8 +93,8 @@ class Trainer:
         elif args.optimizer == "SGD":
             self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weightdecay)
 
-        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
-
+        # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
+        self.scheduler = CustomLRScheduler(self.optimizer, drop_epochs=[5, 10, 20, 30, 40, 50, 60], gamma=0.5)
         # set up info
         self.info = { "epoch": 0,  "iter": 0,  "sampleitr": 0}
         self.info["alpha"], self.info["beta"] = 0.0, 0.0
@@ -446,8 +446,9 @@ class Trainer:
                 self.test_stats = {k: v / len(self.dataloaders['val']) for k, v in self.test_stats.items()}
 
                 # Compute non-averagable metrics
-                self.test_stats["Population/r2"] = r2(torch.cat(pred), torch.cat(gt))
-                self.test_stats["Population/Correlation"] = r2(torch.cat(pred), torch.cat(gt))
+                self.test_stats["Population_test_main/r2"] = r2(torch.cat(pred), torch.cat(gt))
+                self.test_stats["Population_test_main/Correlation"] =  torch.corrcoef(torch.stack([torch.cat(pred),torch.cat(gt)]))[0,1]
+                # self.test_stats["Population/Correlation"] = corr(torch.cat(pred), torch.cat(gt))
                 wandb.log({**{k + '/test': v for k, v in self.test_stats.items()}, **self.info}, self.info["iter"])
 
             #fine_eval for Zurich
@@ -495,7 +496,7 @@ class Trainer:
                     if self.boosted and full:
                         output_map_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popdensemap"][0][mask].cpu()
                         output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popvarmap"][0][mask].cpu()
-                    output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
+                    # output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
 
                 # average over the number of times each pixel was visited
                 output_map[output_map_count>0] = output_map[output_map_count>0] / output_map_count[output_map_count>0]

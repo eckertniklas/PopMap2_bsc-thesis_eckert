@@ -18,9 +18,21 @@ from utils.plot import plot_2dmatrix, plot_and_save
 class JacobsUNet(nn.Module):
     '''
     PomeloUNet
+    Description:
+        - UNet with a regression head
+
     '''
     def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1", head="v1", down=5):
         super(JacobsUNet, self).__init__()
+        """
+        Args:
+            - input_channels (int): number of input channels
+            - feature_dim (int): number of output channels of the feature extractor
+            - feature_extractor (str): name of the feature extractor
+            - classifier (str): name of the classifier
+            - head (str): name of the regression head
+            - down (int): number of downsampling steps in the feature extractor
+        """
 
         self.down = down
         
@@ -60,6 +72,8 @@ class JacobsUNet(nn.Module):
                 nn.Conv2d(feature_dim, 32, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(32, 5, kernel_size=1, padding=0)
             )
+
+        self.head.bias.data = 1.5 * torch.ones(5)
 
         # Build the domain classifier
         # latent_dim = self.unetmodel.latent_dim
@@ -114,14 +128,18 @@ class JacobsUNet(nn.Module):
 
                                   
     def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True):
-
+        """
+        Forward pass of the model
+        Assumptions:
+            - inputs["input"] is the input image (Concatenation of Sentinel-1 and/or Sentinel-2)
+            - inputs["input"].shape = [batch_size, input_channels, height, width]
+        """
         data = inputs["input"]
 
         # Add padding
         data, (px1,px2,py1,py2) = self.add_padding(data, padding)
 
         # Forward the main model
-        # self.maxi[data.max(dim=2)[0].max(dim=2)[0].max(dim=0)[0].cpu()>self.maxi] = data.max(dim=2)[0].max(dim=2)[0].max(dim=0)[0].cpu()[data.max(dim=2)[0].max(dim=2)[0].max(dim=0)[0].cpu()>self.maxi]
         features, decoder_features = self.unetmodel(data, return_features=return_features)
 
         # revert padding
@@ -146,7 +164,6 @@ class JacobsUNet(nn.Module):
             popcount = popdensemap.sum((1,2))
 
         popvarmap = nn.functional.softplus(out[:,1])
-        # popvarmap = nn.functional.relu(out[:,1])
         if "admin_mask" in inputs.keys():
             # make the following line work for both 2D and 3D
             popvar = (popvarmap * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
@@ -159,7 +176,6 @@ class JacobsUNet(nn.Module):
 
         # Builtup mask
         builtupmap = torch.sigmoid(out[:,3])
-
 
         return {"popcount": popcount, "popdensemap": popdensemap,
                 "popvar": popvar ,"popvarmap": popvarmap, 
@@ -260,6 +276,8 @@ class ResBlocks(nn.Module):
             Block(feature_dim, k1=k1b, k2=k2),
         )
         self.head = nn.Conv2d(feature_dim, 4, kernel_size=1, padding=0)
+        
+
 
         a = torch.zeros((1,6,128,128))
         a[0,:,64,64] = 500

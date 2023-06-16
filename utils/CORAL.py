@@ -23,8 +23,7 @@ def compute_covariance(input_data: Tensor) -> Tensor:
     :return: covariance matrix (d * d)
     """
     n = input_data.size(0)
-    device = input_data.device
-    id_row = torch.ones(n).view(1, n).to(device=device)
+    id_row = torch.ones(n).view(1, n).to(device=input_data.device)
     sum_column = torch.mm(id_row, input_data)
     mean_column = torch.div(sum_column, n)
     term_mul_2 = torch.mm(mean_column.t(), mean_column)

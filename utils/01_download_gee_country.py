@@ -396,11 +396,13 @@ def download(minx, miny, maxx, maxy, name):
     # find the EPSG code for the local projection
     # exportarea3035 = exportarea.transform('EPSG:3035')
 
-    S1 = True
+    S1 = False
     # S2 = True
     S2 = False
-    S2A = False
+    S2A = True
+    # S2A = False
     VIIRS = True
+    # VIIRS = False
 
     if S1:
         ########################### Processing Sentinel 1 #############################################

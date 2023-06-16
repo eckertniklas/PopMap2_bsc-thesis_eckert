@@ -25,17 +25,21 @@ class BoostUNet(nn.Module):
     PomeloUNet
     '''
     def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1", down=2, down2=4,
-                 useallfeatures=False):
+                 useallfeatures=False, occupancymodel=False):
         super(BoostUNet, self).__init__()
         
         # Padding Params
         self.p = 14
         self.p2d = (self.p, self.p, self.p, self.p)
         self.useallfeatures = useallfeatures
+        self.occupancymodel = occupancymodel
 
         # Build the main model
-        self.unetmodel1 = CustomUNet(feature_extractor, in_channels=2, classes=feature_dim, down=down) # Sentinel1
-        self.unetmodel2 = CustomUNet(feature_extractor, in_channels=input_channels-2+1, classes=feature_dim, down=down2) # Sentinel2
+        self.unetmodel1 = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=down) # Sentinel1
+        # self.unetmodel1 = CustomUNet(feature_extractor, in_channels=2, classes=feature_dim, down=down) # Sentinel1
+        self.unetmodel2 = CustomUNet(feature_extractor, in_channels=input_channels+1, classes=feature_dim, down=down2) # Sentinel2
+        # self.unetmodel2 = CustomUNet(feature_extractor, in_channels=input_channels-2+1, classes=feature_dim, down=down2) # Sentinel2
+        # self.unetmodel2 = CustomUNet(feature_extractor, in_channels=input_channels-2+1+feature_dim, classes=feature_dim, down=down2) # Sentinel2
 
         # Define batchnorm layer for the feature extractor
         # self.bn = nn.BatchNorm2d(input_channels)
@@ -44,6 +48,8 @@ class BoostUNet(nn.Module):
         # Build the regression head
         self.head1 = nn.Conv2d(feature_dim, 5, kernel_size=1, padding=0)
         self.head2 = nn.Conv2d(feature_dim, 5, kernel_size=1, padding=0)
+        # self.head1.bias.data = 1.5 * torch.ones(5)
+        # self.head2.bias.data = 1.5 * torch.ones(5)
 
         # Build the domain classifier
         # latent_dim = self.unetmodel.latent_dim
@@ -58,37 +64,47 @@ class BoostUNet(nn.Module):
         elif classifier=="v5":
             self.domain_classifier = DomainClassifier_v5(feature_dim)
         elif classifier=="v6":
-            self.domain_classifier = DomainClassifier_v6(feature_dim)
+            self.domain_classifier = nn.Sequential(
+                nn.Conv2d(feature_dim, 32, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(100, 100, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(32, 1, kernel_size=1, padding=0), nn.Sigmoid()
+            )
         elif classifier=="v7":
-            self.domain_classifier = nn.Sequential(nn.Conv2d(feature_dim, 1, kernel_size=1, padding=0), nn.Sigmoid())
+            self.domain_classifier = nn.Sequential(
+                nn.Conv2d(self.unetmodel2.latent_dim, 100,  kernel_size=3, padding=1), nn.ReLU(),
+                nn.Conv2d(100, 1,  kernel_size=3, padding=1),  nn.Sigmoid()
+            )
         elif classifier=="v8":
             self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel.latent_dim, 100), nn.ReLU(),
+                nn.Linear(self.unetmodel2.latent_dim, 100), nn.ReLU(),
                 nn.Linear(100, 1),  nn.Sigmoid()
             )
         elif classifier=="v9":
             self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel.latent_dim, 64), nn.ReLU(),
-                nn.Linear(64, 64),  nn.ReLU(),
-                nn.Linear(64, 1),  nn.Sigmoid()
+                nn.Linear(self.unetmodel2.latent_dim, 100), nn.ReLU(),
+                nn.Linear(100, 100),  nn.ReLU(),
+                nn.Linear(100, 1),  nn.Sigmoid()
             )
         elif classifier=="v10":
             self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel.latent_dim, 32), nn.ReLU(),
-                nn.Linear(32, 1),  nn.Sigmoid()
+                nn.Linear(self.unetmodel2.latent_dim, 256), nn.ReLU(),
+                nn.Linear(256, 256),  nn.ReLU(),
+                nn.Linear(256, 1),  nn.Sigmoid()
             )
         elif classifier=="v11":
             self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel.latent_dim, 8), nn.ReLU(),
-                nn.Linear(8, 1),  nn.Sigmoid()
+                nn.Linear(self.unetmodel2.latent_dim, 256), nn.ReLU(),
+                nn.Linear(256, 256),  nn.ReLU(),
+                nn.Linear(256, 256),  nn.ReLU(),
+                nn.Linear(256, 1),  nn.Sigmoid()
             )
         elif classifier=="v12":
+            # with dropouts like in the paper
             self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel.latent_dim, 64), nn.ReLU(),
-                nn.Linear(64, 64),  nn.ReLU(),
-                nn.Linear(64, 64),  nn.ReLU(),
-                nn.Linear(64, 64),  nn.ReLU(),
-                nn.Linear(64, 1),  nn.Sigmoid()
+                nn.Linear(self.unetmodel2.latent_dim, 256), nn.BatchNorm1d(256), nn.ReLU(), nn.Dropout2d(),
+                nn.Linear(256, 256),   nn.BatchNorm1d(256), nn.ReLU(), nn.Dropout2d(),
+                nn.Linear(256, 256),   nn.BatchNorm1d(256), nn.ReLU(), nn.Dropout2d(),
+                nn.Linear(256, 1),  nn.Sigmoid()
             )
         else:
             self.domain_classifier = None
@@ -100,10 +116,11 @@ class BoostUNet(nn.Module):
                                   
     def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True):
 
-        data = inputs["input"]
+        # data = inputs["input"]
 
         # Add padding
-        data, (px1,px2,py1,py2) = self.add_padding(inputs["S1"], padding)
+        data, (px1,px2,py1,py2) = self.add_padding(inputs["input"], padding)
+        # data, (px1,px2,py1,py2) = self.add_padding(inputs["S1"], padding)
 
         #### STAGE 1 ####
         # Forward the main model1
@@ -121,10 +138,13 @@ class BoostUNet(nn.Module):
 
         # Population map and total count, raw
         popdensemap_raw = nn.functional.relu(out[:,0])
+        popdensemap_raw_valid = self.revert_padding(popdensemap_raw, (px1,px2,py1,py2))
+        # features_valid = self.revert_padding(features, (px1,px2,py1,py2))
+
         if "admin_mask" in inputs.keys():
-            popcount_raw = (popdensemap_raw * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
+            popcount_raw = (popdensemap_raw_valid * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
         else:
-            popcount_raw = popdensemap_raw.sum((1,2))
+            popcount_raw = popdensemap_raw_valid.sum((1,2))
 
         popvarmap_raw = nn.functional.softplus(out[:,1])
         if "admin_mask" in inputs.keys():
@@ -132,14 +152,20 @@ class BoostUNet(nn.Module):
         else:
             popvar_raw = popvarmap_raw.sum((1,2))
 
+        stop_grads = True
+        if stop_grads:
+            popdensemap_raw = popdensemap_raw.detach()
+            popdensemap_raw_valid = popdensemap_raw_valid.detach()
         
 
         #### STAGE 2 #### 
         # Add padding
-        data, (px1,px2,py1,py2) = self.add_padding(inputs["S2"], padding)
+        data, (px1,px2,py1,py2) = self.add_padding(inputs["input"], padding)
+        # data, (px1,px2,py1,py2) = self.add_padding(inputs["S2"], padding)
 
         # Concatenate the output of the main model with the input of the second model
         newinput = torch.cat([data, popdensemap_raw.unsqueeze(1)], dim=1)
+        # newinput = torch.cat([data, popdensemap_raw.unsqueeze(1), features], dim=1)
 
         # Forward the main model2
         features, decoder_features = self.unetmodel2(newinput, return_features=return_features)
@@ -152,12 +178,13 @@ class BoostUNet(nn.Module):
 
 
 
+        # Merge the output of the two decoders
+        if self.useallfeatures:
+            decoder_features = torch.cat([decoder_features, decoder_features_raw], dim=1)
 
         #### Post #### 
         # Foward the domain classifier
         if self.domain_classifier is not None and return_features and alpha>0:
-            if self.useallfeatures:
-                decoder_features = torch.cat([decoder_features, decoder_features_raw], dim=1)
             reverse_features = ReverseLayerF.apply(decoder_features.unsqueeze(3), alpha) # apply gradient reversal layer
             domain = self.domain_classifier(reverse_features.permute(0,2,3,1).reshape(-1, reverse_features.size(1))).view(reverse_features.size(0),-1)
         else:
@@ -165,6 +192,12 @@ class BoostUNet(nn.Module):
     
         # Population map and total count
         popdensemap = nn.functional.relu(out[:,0])
+        if self.occupancymodel:
+            # popdensemap = nn.functional.relu(out[:,0])
+            popdensemap = popdensemap * popdensemap_raw_valid
+        # else:
+            # popdensemap = nn.functional.relu(out[:,0])
+
         if "admin_mask" in inputs.keys():
             popcount = (popdensemap * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
         else:
@@ -184,7 +217,7 @@ class BoostUNet(nn.Module):
         builtupmap = torch.sigmoid(out[:,3])
 
         return {"popcount": popcount, "popdensemap": popdensemap, "popvar": popvar ,"popvarmap": popvarmap, 
-                "intermediate": {"popcount": popcount_raw, "popdensemap": popdensemap_raw, "popvar": popvar_raw ,"popvarmap": popvarmap_raw, "domain": None, "decoder_features": None}, 
+                "intermediate": {"popcount": popcount_raw, "popdensemap": popdensemap_raw_valid, "popvar": popvar_raw ,"popvarmap": popvarmap_raw, "domain": None, "decoder_features": None}, 
                 "popvar": popvar ,"popvarmap": popvarmap, 
                 "builtdensemap": builtdensemap, "builtcount": builtcount,
                 "builtupmap": builtupmap, "domain": domain, "features": features,
@@ -213,8 +246,14 @@ class BoostUNet(nn.Module):
     
     def revert_padding(self, data, padding):
         px1,px2,py1,py2 = padding
+        # if len(data.shape)==3:
         if px1 is not None or px2 is not None:
-            data = data[:,:,px1:-px2,:]
+            data = data[...,px1:-px2,:]
         if py1 is not None or py2 is not None:
-            data = data[:,:,:,py1:-py2]
+            data = data[...,py1:-py2]
+        # else:
+        #     if px1 is not None or px2 is not None:
+        #         data = data[:,:,px1:-px2,:]
+        #     if py1 is not None or py2 is not None:
+        #         data = data[:,:,:,py1:-py2]
         return data

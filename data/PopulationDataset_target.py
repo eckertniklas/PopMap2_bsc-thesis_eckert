@@ -90,6 +90,7 @@ class Population_Dataset_target(Dataset):
             with rasterio.open(self.boundary_file, "r") as src:
                 self.img_shape = src.shape
                 self._meta = src.meta.copy()
+            # self._meta.update(count=1, dtype='float16')
             self._meta.update(count=1, dtype='float32')
 
             # get a list of indices of the possible patches
@@ -377,30 +378,30 @@ class Population_Dataset_target(Dataset):
                 else:
                     with rasterio.open(S2_file, "r") as src:
                         # indata["S2"] = src.read((4,3,2,8), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
-                        indata["S2"] = src.read((3,2,1,4), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
+                        indata["S2"] = src.read((3,2,1,4), window=((x,x+patchsize_x),(y,y+patchsize_y))).astype(np.float32) 
             else:
                 if fake:
                     indata["S2"] = np.random.randint(0, 10000, size=(3,patchsize_x,patchsize_y))
                 else:
                     with rasterio.open(S2_file, "r") as src:
                         # indata["S2"] = src.read((4,3,2), window=((x,x+patchsize_x),(y,y+patchsize_y)))
-                        indata["S2"] = src.read((3,2,1), window=((x,x+patchsize_x),(y,y+patchsize_y)))
-            mask = mask & (indata["S2"].sum(axis=0) != 0)
+                        indata["S2"] = src.read((3,2,1), window=((x,x+patchsize_x),(y,y+patchsize_y))).astype(np.float32) 
+            # mask = mask & (indata["S2"].sum(axis=0) != 0)
         if self.S1:
             S1_file = self.S1_file[season]
             if fake:
                 indata["S1"] = np.random.randint(0, 10000, size=(2,patchsize_x,patchsize_y))
             else:
                 with rasterio.open(S1_file, "r") as src:
-                    indata["S1"] = src.read((1,2), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
-            mask = mask & (indata["S1"].sum(axis=0) != 0)
+                    indata["S1"] = src.read((1,2), window=((x,x+patchsize_x),(y,y+patchsize_y))).astype(np.float32) 
+            # mask = mask & (indata["S1"].sum(axis=0) != 0)
         if self.VIIRS:
             if fake:
                 indata["VIIRS"] = np.random.randint(0, 10000, size=(1,patchsize_x,patchsize_y))
             else:
                 with rasterio.open(self.VIIRS_file, "r") as src:
-                    indata["VIIRS"] = src.read(1, window=((x,x+patchsize_x),(y,y+patchsize_y))) 
-            mask = mask & (indata["VIIRS"].sum(axis=0) != 0)
+                    indata["VIIRS"] = src.read(1, window=((x,x+patchsize_x),(y,y+patchsize_y))).astype(np.float32) 
+            # mask = mask & (indata["VIIRS"].sum(axis=0) != 0)
 
         # # load administrative mask
         # admin_mask = self.cr_regions[x:x+patchsize_x, y:y+patchsize_y]==idx

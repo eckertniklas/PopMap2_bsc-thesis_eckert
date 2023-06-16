@@ -6,10 +6,11 @@ import os
 import rasterio
 from tqdm import tqdm
 
-done = ["S2spring", "S2summer", "S2winter", "S2autumn",
-        "S2Aspring", "S2Asummer", "S2Awinter", "S2Aautumn",
-        "S1spring", "S1summer", "S1winter", "S1autumn",
-        "VIIRS"]
+done = [
+    "S2spring", "S2summer", "S2winter", "S2autumn",
+    # "S2Aspring", "S2Asummer", "S2Awinter", "S2Aautumn",
+    # "S1spring", "S1summer", "S1winter", "S1autumn",
+]
 
 def process(input_path, output_dir, tile_size=100):
     '''
@@ -79,6 +80,15 @@ def process(input_path, output_dir, tile_size=100):
                         'transform': rasterio.windows.transform(window, src.transform),
                         'count': src.count
                     })
+                    
+                    if ty in ["S2Aspring", "S2Asummer", "S2Awinter", "S2Aautumn"]:
+                        metadata.update({
+                            'dtype': 'uint16'
+                        })
+                    elif ty in ["S1spring", "S1summer", "S1winter", "S1autumn"]:
+                        metadata.update({
+                            'dtype': 'float32'
+                        })
                     
                     # read the window from the source file and write it to the new file
                     with rasterio.open(output_file, 'w', **metadata) as dst:

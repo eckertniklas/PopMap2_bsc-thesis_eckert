@@ -230,6 +230,7 @@ def get_model_kwargs(args, model_name):
         # kwargs['head'] = args.head
         kwargs['down'] = args.down
         kwargs['down2'] = args.down2
+        kwargs['occupancymodel'] = args.occupancymodel 
         kwargs['useallfeatures'] = args.useallfeatures
     return kwargs
 

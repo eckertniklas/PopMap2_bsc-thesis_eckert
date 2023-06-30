@@ -73,7 +73,7 @@ class JacobsUNet(nn.Module):
                 nn.Conv2d(32, 5, kernel_size=1, padding=0)
             )
 
-        self.head.bias.data = 1.5 * torch.ones(5)
+        self.head.bias.data = 0.75 * torch.ones(5)
 
         # Build the domain classifier
         # latent_dim = self.unetmodel.latent_dim
@@ -144,6 +144,7 @@ class JacobsUNet(nn.Module):
 
         # revert padding
         features = self.revert_padding(features, (px1,px2,py1,py2))
+
 
         # Forward the head
         out = self.head(features)

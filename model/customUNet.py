@@ -12,7 +12,9 @@ import segmentation_models_pytorch as smp
 class CustomUNet(smp.Unet):
     def __init__(self, encoder_name, in_channels, classes, down=3):
         # instanciate the base model
-        super().__init__(encoder_name, encoder_weights="imagenet",
+        # super().__init__(encoder_name, encoder_weights="imagenet",
+        super().__init__(encoder_name, encoder_weights=None,
+        # super().__init__(encoder_name, encoder_weights="swsl",
                         in_channels=in_channels, classes=classes, decoder_channels=(64,32,16), 
                         decoder_use_batchnorm=False, encoder_depth=3, activation=nn.ReLU)
         # self.decoder_channels = (256,256,128,128,64)[-down:]
@@ -21,14 +23,13 @@ class CustomUNet(smp.Unet):
         self.latent_dim = sum(self.decoder_channels)
         self.fsub = 16
 
-        # Adjust the U-Net depth to 2
+        # Adjust the U-Net depth to 2 or lower here
         self.encoder = smp.encoders.get_encoder(
             encoder_name,
             in_channels=in_channels,
             depth=down,
             weights="imagenet",
         )
-        # self.encoder.set_swish(memory_efficient=True)
 
         self.decoder = smp.decoders.unet.model.UnetDecoder(
             encoder_channels=self.encoder.out_channels,
@@ -64,6 +65,9 @@ class CustomUNet(smp.Unet):
         self.num_effective_params(down=down, verbose=True)
 
     def remove_batchnorm(self, model):
+        """
+        remove batchnorm layers from model
+        """
         for name, module in model.named_children():
             if isinstance(module, nn.BatchNorm2d):
                 setattr(model, name, nn.Identity())
@@ -71,6 +75,9 @@ class CustomUNet(smp.Unet):
                 self.remove_batchnorm(module)
 
     def num_effective_params(self, down=5, verbose=False):
+        """
+        print number of parameters that are actually used
+        """
         stages_param_count = 0
 
         # encoder params

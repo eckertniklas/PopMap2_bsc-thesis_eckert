@@ -63,7 +63,12 @@ class RandomHorizontalVerticalFlip(object):
         else:
             x, mask = x
         if torch.rand(1) < self.p:
-            return TF.hflip(TF.vflip(x)) if mask is None else (TF.hflip(TF.vflip(x)), TF.hflip(TF.vflip(mask)))
+            selection = torch.rand(x.shape[0])<self.p
+            x[selection] = TF.hflip(TF.vflip(x))[selection]
+            if mask is not None:
+                mask[selection] = TF.hflip(TF.vflip(mask))[selection]
+            return x if mask is None else (x, mask)
+            # return TF.hflip(TF.vflip(x)) if mask is None else (TF.hflip(TF.vflip(x)), TF.hflip(TF.vflip(mask)))
         return x if mask is None else (x, mask)
     
     def __repr__(self):
@@ -80,7 +85,13 @@ class RandomVerticalFlip(object):
         else:
             x, mask = x
         if torch.rand(1) < self.p:
-            return TF.vflip(x) if mask is None else (TF.vflip(x), TF.vflip(mask))
+            # random horizontal flip with probability 0.5 for each sample in batch
+            selection = torch.rand(x.shape[0])<self.p
+            x[selection] = TF.vflip(x)[selection]
+            if mask is not None:
+                mask[selection] = TF.vflip(mask)[selection]
+            return x if mask is None else (x, mask)
+            # return TF.vflip(x) if mask is None else (TF.vflip(x), TF.vflip(mask))
         return x if mask is None else (x, mask)
         
     def __repr__(self):
@@ -97,7 +108,13 @@ class RandomHorizontalFlip(object):
         else:
             x, mask = x
         if torch.rand(1) < self.p:
-            return TF.hflip(x) if mask is None else (TF.hflip(x), TF.hflip(mask))
+            # random horizontal flip with probability 0.5 for each sample in batch
+            selection = torch.rand(x.shape[0])<self.p
+            x[selection] = TF.hflip(x)[selection]
+            if mask is not None:
+                mask[selection] = TF.hflip(mask)[selection]
+            return x if mask is None else (x, mask)
+            # return TF.hflip(x) if mask is None else (TF.hflip(x), TF.hflip(mask))
         return x if mask is None else (x, mask)
         
     def __repr__(self):

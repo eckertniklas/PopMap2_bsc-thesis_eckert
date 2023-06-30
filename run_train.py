@@ -14,6 +14,8 @@ from utils.transform import OwnCompose
 from utils.transform import RandomRotationTransform, RandomHorizontalFlip, RandomVerticalFlip, RandomHorizontalVerticalFlip, RandomBrightness, RandomGamma, HazeAdditionModule, AddGaussianNoise
 from tqdm import tqdm
 
+from torchcontrib.optim import SWA
+
 import itertools
 import random
 from sklearn import model_selection
@@ -93,8 +95,13 @@ class Trainer:
         elif args.optimizer == "SGD":
             self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weightdecay)
 
-        # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
-        self.scheduler = CustomLRScheduler(self.optimizer, drop_epochs=[5, 10, 20, 30, 40, 50, 60], gamma=0.5)
+        if args.stochasticWA:
+            self.optimizer = SWA(self.optimizer, swa_start=2, swa_freq=1, swa_lr=0.05)
+            self.optimizer.optimizer.defaults = None
+
+
+        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
+        # self.scheduler = CustomLRScheduler(self.optimizer, drop_epochs=[3, 5, 10, 15, 20, 25, 30, 40, 50, 70, 90, 110, 150, ], gamma=0.75)
         # set up info
         self.info = { "epoch": 0,  "iter": 0,  "sampleitr": 0}
         self.info["alpha"], self.info["beta"] = 0.0, 0.0
@@ -211,7 +218,9 @@ class Trainer:
                                            lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
                                            tag="train_main")
                 if self.boosted:
-                    loss_raw, loss_dict_raw = get_loss(output["intermediate"], sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
+                    boosted_loss = [el.replace("gaussian", "l1") if el in ["gaussian_nll", "log_gaussian_nll", "gaussian_aug_loss", "log_gaussian_aug_loss"] else el for el in args.loss]
+                    boosted_loss = [el.replace("laplace", "l1") if el in ["laplacian_nll", "log_laplacian_nll", "laplace_aug_loss", "log_laplace_aug_loss"] else el for el in boosted_loss]
+                    loss_raw, loss_dict_raw = get_loss(output["intermediate"], sample, loss=boosted_loss, lam=args.lam, merge_aug=args.merge_aug,
                                            lam_adv=args.lam_adv if self.args.adversarial else 0.0,
                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                            lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
@@ -272,6 +281,9 @@ class Trainer:
                 if (i + 1) % min(self.args.logstep_train, len(self.dataloaders['train'])) == 0:
                     train_stats = self.log_train(train_stats,(inner_tnr, tnr))
                     train_stats = defaultdict(float)
+        
+        if self.args.stochasticWA:
+            self.optimizer.swap_swa_sgd()
     
     def update_param(self, p, k=10):
         return 2. / (1. + np.exp(-k * p)) - 1

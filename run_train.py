@@ -30,7 +30,9 @@ from data.So2Sat import PopulationDataset_Reg
 from data.PopulationDataset_target import Population_Dataset_target, Population_Dataset_collate_fn
 from utils.losses import get_loss, r2
 from utils.metrics import get_test_metrics
-from utils.utils import new_log, to_cuda, to_cuda_inplace, detach_tensors_in_dict, seed_all, get_model_kwargs, model_dict
+from utils.utils import new_log, to_cuda, to_cuda_inplace, detach_tensors_in_dict, seed_all
+# from utils.utils import new_log, to_cuda, to_cuda_inplace, detach_tensors_in_dict, seed_all, get_model_kwargs, model_dict
+from model.get_model import get_model_kwargs, model_dict
 from utils.utils import load_json, apply_transformations_and_normalize, apply_normalize
 from utils.constants import config_path
 from utils.scheduler import CustomLRScheduler
@@ -38,7 +40,7 @@ from utils.scheduler import CustomLRScheduler
 from utils.plot import plot_2dmatrix, plot_and_save, scatter_plot3
 from utils.utils import get_fnames_labs_reg, get_fnames_unlab_reg
 from utils.datasampler import LabeledUnlabeledSampler
-from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1, pop_map_root, inference_patch_size, overlap
+from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1, pop_map_root, testlevels, overlap
 from utils.constants import inference_patch_size as ips
 
 import nvidia_smi
@@ -55,6 +57,11 @@ class Trainer:
             self.args.da = True
         else:
             self.args.da = False
+
+        if args.loss in ["gaussian_nll", "log_gaussian_nll", "laplacian_nll", "log_laplacian_nll", "gaussian_aug_loss", "log_gaussian_aug_loss", "laplacian_aug_loss", "log_laplacian_aug_loss"]:
+            self.args.probabilistic = True
+        else:
+            self.args.probabilistic = False
 
         # set up dataloaders
         self.dataloaders = self.get_dataloaders(self, args)
@@ -481,6 +488,7 @@ class Trainer:
         # self.model.train()
 
         with torch.no_grad(): 
+            self.target_test_stats = defaultdict(float)
             for testdataloader in self.dataloaders["test_target"]:
 
                 # inputialize the output map
@@ -497,57 +505,63 @@ class Trainer:
                     sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats)
 
                     # get the valid coordinates
-                    xmin, xmax, ymin, ymax = [val.item() for val in sample["valid_coords"]]
+                    # xmin, xmax, ymin, ymax = [val.item() for val in sample["valid_coords"]]
                     xl,yl = [val.item() for val in sample["img_coords"]]
                     mask = sample["mask"][0].bool()
 
                     # get the output with a forward pass
                     output = self.model(sample, padding=False)
                     output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu()
-                    output_map_var[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popvarmap"][0][mask].cpu()
+                    if self.args.probabilistic:
+                        output_map_var[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popvarmap"][0][mask].cpu()
                     if self.boosted and full:
                         output_map_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popdensemap"][0][mask].cpu()
-                        output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popvarmap"][0][mask].cpu()
+                        if self.args.probabilistic:
+                            output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popvarmap"][0][mask].cpu()
                     # output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
 
                 # average over the number of times each pixel was visited
                 output_map[output_map_count>0] = output_map[output_map_count>0] / output_map_count[output_map_count>0]
-                output_map_var[output_map_count>0] = output_map_var[output_map_count>0] / output_map_count[output_map_count>0]
+                if self.args.probabilistic:
+                    output_map_var[output_map_count>0] = output_map_var[output_map_count>0] / output_map_count[output_map_count>0]
                 if self.boosted:
                     output_map_raw[output_map_count>0] = output_map_raw[output_map_count>0] / output_map_count[output_map_count>0]
-                    output_map_var_raw[output_map_count>0] = output_map_var_raw[output_map_count>0] / output_map_count[output_map_count>0]
+                    if self.args.probabilistic: 
+                        output_map_var_raw[output_map_count>0] = output_map_var_raw[output_map_count>0] / output_map_count[output_map_count>0]
 
                 if save:
                     # save the output map
                     testdataloader.dataset.save(output_map, self.experiment_folder)
-                    testdataloader.dataset.save(output_map_var, self.experiment_folder, tag="VAR")
+                    if self.args.probabilistic:
+                        testdataloader.dataset.save(output_map_var, self.experiment_folder, tag="VAR_{}".format(testdataloader.dataset.region))
                     if self.boosted and full:
-                        testdataloader.dataset.save(output_map_raw, self.experiment_folder, tag="RAW")
-                        testdataloader.dataset.save(output_map_var_raw, self.experiment_folder, tag="VAR_RAW")
+                        testdataloader.dataset.save(output_map_raw, self.experiment_folder, tag="RAW_{}".format(testdataloader.dataset.region))
+                        if self.args.probabilistic:
+                            testdataloader.dataset.save(output_map_var_raw, self.experiment_folder, tag="VAR_RAW_{}".format(testdataloader.dataset.region))
                 
                 # convert populationmap to census
-                census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True)
-                self.target_test_stats = get_test_metrics(census_pred, census_gt.float().cuda(), tag="MainCensus")
-                built_up = census_gt>10
-                self.target_test_stats = {**self.target_test_stats,
-                                          **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="MainCensusPos")}
-                
-                if self.boosted:
-                    census_pred_raw, census_gt_raw = testdataloader.dataset.convert_popmap_to_census(output_map_raw, gpu_mode=True)
+                for level in testlevels[testdataloader.dataset.region]:
+                    census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True, level=level)
                     self.target_test_stats = {**self.target_test_stats,
-                                              **get_test_metrics(census_pred_raw, census_gt_raw.float().cuda(), tag="CensusRaw")}
-                    built_up = census_gt_raw>10
+                                              **get_test_metrics(census_pred, census_gt.float().cuda(), tag="MainCensus_{}_{}".format(testdataloader.dataset.region, level))}
+                    built_up = census_gt>10
                     self.target_test_stats = {**self.target_test_stats,
-                                              **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos")}
-
-                
+                                              **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="MainCensusPos_{}_{}".format(testdataloader.dataset.region, level))}
+                    
+                    if self.boosted:
+                        census_pred_raw, census_gt_raw = testdataloader.dataset.convert_popmap_to_census(output_map_raw, gpu_mode=True, level=level)
+                        self.target_test_stats = {**self.target_test_stats,
+                                                  **get_test_metrics(census_pred_raw, census_gt_raw.float().cuda(), tag="CensusRaw_{}_{}".format(testdataloader.dataset.region, level))}
+                        built_up = census_gt_raw>10
+                        self.target_test_stats = {**self.target_test_stats,
+                                                  **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos_{}_{}".format(testdataloader.dataset.region, level))}
+    
                 scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
                 if scatterplot is not None:
-                    self.target_test_stats["scatter_PRI"] = wandb.Image(scatterplot)
+                    self.target_test_stats["Scatter/Scatter_{}_{}".format(testdataloader.dataset.region, level)] = wandb.Image(scatterplot)
                     scatterplot.save("last_scatter.png")
 
-                wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}, **self.info}, self.info["iter"])
-                
+            wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}, **self.info}, self.info["iter"])
         
 
     @staticmethod
@@ -632,7 +646,7 @@ class Trainer:
         if args.da:
             f_names_unlab = []
             for reg in args.target_regions:
-                f_names_unlab.extend(get_fnames_unlab_reg(os.path.join(pop_map_root, os.path.join("EE", reg)), force_recompute=True))
+                f_names_unlab.extend(get_fnames_unlab_reg(os.path.join(pop_map_root, os.path.join("EE", reg)), force_recompute=False))
         else:
             f_names_unlab = []
 

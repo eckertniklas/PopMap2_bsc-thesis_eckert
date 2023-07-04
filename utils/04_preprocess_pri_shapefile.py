@@ -150,7 +150,7 @@ def main():
     parser.add_argument("sh_path", default="/scratch/metzgern/HAC/data/PopMapData/raw/boundaries/pri2017", type=str, help="Shapefile with boundaries and census")
     parser.add_argument("output_tif_file", default="/scratch/metzgern/HAC/data/PopMapData/processed/pri2017/boundaries.tif", type=str, help="")
     parser.add_argument("output_census_file", default="/scratch/metzgern/HAC/data/PopMapData/processed/pri2017/census.csv", type=str, help="")
-    parser.add_argument("template_file", default="/scratch/metzgern/HAC/data/PopMapData/raw/EE/pri/S1/pri_S1.tif", type=str, help="")
+    parser.add_argument("template_file", default="/scratch/metzgern/HAC/data/PopMapData/merged/EE/pri/S1/pri_S1.tif", type=str, help="")
     args = parser.parse_args()
 
     process(args.sh_path, args.output_tif_file, args.output_census_file, args.template_file, gpu_mode=True)

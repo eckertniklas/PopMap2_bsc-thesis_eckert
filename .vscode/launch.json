@@ -144,7 +144,6 @@
                 "-2.7948970488002317",
                 "RWA_test",
                 "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/GEEraster/RWA",
-                // "P_2020"
             ]
         },{
             "name": "02_preprocess_rwa_shapefile.py",
@@ -153,14 +152,14 @@
             "program": "utils/02_preprocess_rwa_shapefile.py",
             "console": "integratedTerminal",
             "args": [
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/HumDataOCHA/RWA/rwa_adm3_2006_NISR_WGS1984_20181002.shp",
-                // "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/HumDataOCHA/RWA/rwa_humdata_regions.tif",
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/WorldPopGIS/Mastergrid/Global_2000_2020/RWA/Subnational/Shapefile",
-                // "../../data/OtherBuildings/RWA/rwa_wpop_regions.tif",
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/WorldPopGIS/Population/Global_2000_2020/CensusTables/rwa_population_2000_2020.csv",
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/processed/RWA/",
-                "rwa",
-                "P_2020"
+                "--hd_regions_path", "/scratch2/metzgern/HAC/data/PopMapData/raw/HumDataOCHA/RWA/rwa_adm3_2006_NISR_WGS1984_20181002.shp",
+                "--wp_regions_path","/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopGIS/Mastergrid/Global_2000_2020/RWA/Subnational/Shapefile",
+                "--census_data_path", "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopGIS/Population/Global_2000_2020/CensusTables/rwa_population_2000_2020.csv",
+                "--kigali_census_data_path", "/scratch2/metzgern/HAC/data/pop_growth_dataset/ancillary_data/population_grid_level_2020_kigali.tiff",
+                "--output_path", "/scratch2/metzgern/HAC/data/PopMapData/processed/rwa/",
+                "--dataset_name", "rwa",
+                "--target_col", "P_2020",
+                "--template_file", "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa/S2Aspring/rwa_S2Aspring.tif",
             ]
         },
         {
@@ -353,7 +352,7 @@
             "args": [
                 "-o",
                 "-s",
-                // "--max_samples", "20000",
+                // "--max_samples", "1000",
                 "-e",
                 "200",
                 "-b",
@@ -376,8 +375,8 @@
                 "-la",
                 "1.0",
                 // "0.1",
-                "-dw","2",
-                "-dw2","4",
+                "-dw","4",
+                "-dw2","2",
                 "-S2",
                 "-S1",
                 // "-NIR",
@@ -386,6 +385,7 @@
                 "-rse",
                 "-treg",
                 "pricp2",
+                "rwa",
                 // "-ladv", "0.01",
                 "-exZH",
                 "--val", "1",
@@ -397,8 +397,8 @@
                 "--num_workers", "6",
                 // "--useallfeatures",
                 // "--lam_coral", "1.0",
-                "-adv", 
-                "-ladv", "0.01",
+                // "-adv", 
+                // "-ladv", "0.01",
                 // "--classif", "v8",
                 // "--MMD",
                 // "--lam_mmd", "10.0",
@@ -483,6 +483,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
+                "--model", "BoostUNet",
                 "-dw", "4",
                 "-S2",
                 "-S1",
@@ -491,6 +492,26 @@
                 "-rse",
                 "-treg", "pricp2",
                 "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_652_125/best_model.pth"
+            ]
+        },
+        {
+            "name": "eval, rwa",
+            "type": "python",
+            "request": "launch",
+            "program": "run_eval.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--model", "BoostUNet",
+                "-dw","2",
+                "-dw2","4",
+                "-S2",
+                "-S1",
+                // "-NIR",
+                "-f", "16",
+                // "-rse",
+                "-treg", "rwa",
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_905_626/best_model.pth"
             ]
         },
         {

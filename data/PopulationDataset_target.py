@@ -16,7 +16,7 @@ import random
 from typing import Dict, Tuple
 
 from utils.constants import pop_map_root_large, pop_map_covariates, pop_map_covariates_large, config_path 
-
+from utils.constants import datalocations
 from utils.plot import plot_2dmatrix
 
 
@@ -63,15 +63,23 @@ class Population_Dataset_target(Dataset):
         region_root = os.path.join(pop_map_root_large, region)
 
         # load the boundary and census data
-        self.boundary_file = os.path.join(region_root, "boundaries4.tif")
-        self.census_file = os.path.join(region_root, "census4.csv")
-        self.coarse_boundary_file = os.path.join(region_root, "boundaries_COUNTYFP20.tif")
-        self.coarse_census_file = os.path.join(region_root, "census_COUNTYFP20.csv")
-        
+        levels = datalocations[region].keys()
+        self.file_paths = {}
+        for level in levels:
+            self.file_paths[level] = {}
+            for data_type in ["boundary", "census"]:
+                self.file_paths[level][data_type] = os.path.join(region_root, datalocations[region][level][data_type])
+
+            # self.boundary_file = os.path.join(region_root, datalocations[region]["fine"]["boundary"])
+            # self.census_file = os.path.join(region_root, datalocations[region]["fine"]["census"])
+            # self.coarse_boundary_file = os.path.join(region_root, datalocations[region]["coarse"]["boundary"])
+            # self.coarse_census_file = os.path.join(region_root, datalocations[region]["coarse"]["census"])
+            
         # weaksup data specific preparation
         if self.mode == "weaksup":
             # read the census file
-            self.coarse_census = pd.read_csv(self.coarse_census_file)
+            self.coarse_census = pd.read_csv(self.file_paths["coarse"]["census"])
+            # self.coarse_census = pd.read_csv(self.coarse_census_file)
             max_pix = 2e6
             print("Kicking out ", (self.coarse_census["count"]>=max_pix).sum(), "samples with more than ", int(max_pix), " pixels")
             self.coarse_census = self.coarse_census[self.coarse_census["count"]<max_pix].reset_index(drop=True)
@@ -85,16 +93,18 @@ class Population_Dataset_target(Dataset):
             with rasterio.open(self.coarse_boundary_file, "r") as src:
                 self.cr_regions = src.read(1)
 
-        elif self.mode=="test": # testdata specific preparation
-            # get the shape of the images
-            with rasterio.open(self.boundary_file, "r") as src:
+        elif self.mode=="test":
+            # testdata specific preparation
+            # get the shape and metadata of the images
+            with rasterio.open(self.file_paths[list(self.file_paths.keys())[0]]["boundary"], "r") as src:
                 self.img_shape = src.shape
                 self._meta = src.meta.copy()
-            # self._meta.update(count=1, dtype='float16')
-            self._meta.update(count=1, dtype='float32')
+            self._meta.update(count=1, dtype='float32', nodata=None)
 
             # get a list of indices of the possible patches
             self.patch_indices = self.get_patch_indices(patchsize, overlap)
+        else:
+            raise ValueError("Mode not recognized")
 
         # get the path to the data files
         covar_root = os.path.join(pop_map_covariates, region)
@@ -408,41 +418,46 @@ class Population_Dataset_target(Dataset):
 
         return indata, mask
 
-    def convert_popmap_to_census(self, pred, gpu_mode=False):
+    def convert_popmap_to_census(self, pred, gpu_mode=False, level="fine"):
         """
         Converts the predicted population to the census data
         inputs:
             :param pred: predicted population
-            :param gpu_mode: if aggregation is done on gpu (can use a lot of memory, but is a lot faster)
+            :param gpu_mode: if aggregation is done on gpu (can use a bit more GPU memory, but is a lot faster)
         outputs:
             :return: the predicted population for each census region
         """
 
+        boundary_file = self.file_paths[level]["boundary"]
+        census_file = self.file_paths[level]["census"]
+
         # raise NotImplementedError
-        with rasterio.open(self.boundary_file, "r") as src:
+        with rasterio.open(boundary_file, "r") as src:
             boundary = src.read(1)
+        boundary = torch.from_numpy(boundary)
 
         # read the census file
-        census = pd.read_csv(self.census_file)
+        census = pd.read_csv(census_file)
 
         if gpu_mode:
             pred = pred.cuda()
-            boundary = torch.from_numpy(boundary).cuda()
+            boundary = boundary.cuda()
+            census_pred = torch.zeros(len(census), dtype=torch.float32).cuda()
 
             # iterate over census regions and get totals
-            census_pred = torch.zeros(len(census), dtype=torch.float32).cuda() 
-            for i,bbox in (zip(census["idx"], census["bbox"])):
-                xmin, xmax, ymin, ymax = tuple(map(int, census.loc[i]["bbox"].strip('()').split(',')))
-                census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==i].sum()
+            # for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"])), total=len(census)):
+            for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"]))):
+                xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
+                census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].sum()
 
         else:
-            boundary = torch.from_numpy(boundary)
+            census_pred = torch.zeros(len(census), dtype=torch.float32)
 
             # iterate over census regions and get totals
-            census_pred = torch.zeros(len(census), dtype=torch.float32)
-            for i in tqdm(range(len(census))):
-                xmin, xmax, ymin, ymax = tuple(map(int, census.loc[3]["bbox"].strip('()').split(',')))
-                census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==i].sum()
+            for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
+                xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
+                # xmin, xmax, ymin, ymax = tuple(map(int, tuple(map(int, bbox.strip('()').strip('[]').split(','))).split(',')))
+                census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].sum()
         
         del boundary, pred
         torch.cuda.empty_cache()

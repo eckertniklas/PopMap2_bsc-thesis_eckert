@@ -52,6 +52,68 @@ pop_map_root_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.join("P
 pop_map_covariates = os.path.join(current_dir_path, os.path.join("PopMapData", os.path.join("merged", "EE")))
 pop_map_covariates_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.join("PopMapData", os.path.join("merged", "EE")))
 
+# Definitions of where to find the census data and the boundaries of the target areas
+datalocations = {
+    'pricp2': {
+        'fine': {
+            'boundary': "boundaries4.tif",
+            'census': "census4.csv",
+        },
+        'fineBlockCE': {
+            'boundary': "boundaries_BLOCKCE20.tif",
+            'census': "census_BLOCKCE20.csv",
+        },
+        'fineCountyFP': {
+            'boundary': "boundaries_COUNTYFP20.tif",
+            'census': "census_COUNTYFP20.csv",
+        },
+        'fineTRACTCE': {
+            'boundary': "boundaries_TRACTCE20.tif",
+            'census': "census_TRACTCE20.csv",
+        },
+        'coarse': {
+            'boundary': "boundaries_COUNTYFP20.tif",
+            'census': "census_COUNTYFP20.csv",
+        }
+    },
+    'rwa': {
+        'fine': {
+            'boundary': "boundaries_kigali100.tif",
+            'census': "census_kigali100.csv",
+        },
+        'fine100': {
+            'boundary': "boundaries_kigali100.tif",
+            'census': "census_kigali100.csv",
+        },
+        'fine200': {
+            'boundary': "boundaries_kigali200.tif",
+            'census': "census_kigali200.csv",
+        },
+        'fine400': {
+            'boundary': "boundaries_kigali400.tif",
+            'census': "census_kigali400.csv",
+        },
+        'fine500': {
+            'boundary': "boundaries_kigali500.tif",
+            'census': "census_kigali500.csv",
+        },
+        'fine1000': {
+            'boundary': "boundaries_kigali1000.tif",
+            'census': "census_kigali1000.csv",
+        },
+        'coarse': {
+            'boundary': "boundaries_coarse.tif",
+            'census': "census_coarse.csv",
+        } 
+    }
+}
+
+testlevels = {
+    'pricp2': ["fine", "coarse"],
+    'rwa': ["fine100", "fine200", "fine400", "fine500", "fine1000", "coarse"]
+}
+
+    
 src_path = os.path.dirname(os.path.dirname(__file__))
 config_path = os.path.join(os.path.join(src_path, 'data'), 'config')
 exp_path = os.path.join(os.path.dirname(src_path), 'results')

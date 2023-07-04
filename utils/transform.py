@@ -13,6 +13,10 @@ from utils.utils import *
 from utils.plot import plot_2dmatrix
 
 
+from model.cycleGAN.models import create_model
+
+
+
 class OwnCompose(object):
     def __init__(self, transforms):
         self.transforms = transforms
@@ -25,6 +29,45 @@ class OwnCompose(object):
         for t in self.transforms:
             x = t(x)
         return x if mask is None else (x, mask)
+
+class Namespace:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+
+class Eu2PRI(object):
+    def __init__(self, model_checkpoint="eu2rwa_cyclegan"):
+        
+        opt = Namespace(model="test", name=model_checkpoint, input_nc=3, ngf=64, netG='resnet_9blocks', norm='instance', no_dropout=True, init_type="normal", init_gain=0.02 )
+        self.model = create_model(opt)      # create a model given opt.model and other options
+        self.model.setup(opt)               # regular setup: load and print networks; create schedulers
+        self.model.eval()
+
+    def __call__(self, x):
+        if torch.is_tensor(x):
+            mask = None
+        else:
+            x, mask = x
+
+        if torch.rand(1) < self.p:
+            selection = torch.rand(x.shape[0])<self.p
+
+            # TODO: Preprocess
+
+            # CycleGAn expects a dictionary with the key 'A' and 'A_paths'
+            # data = {'A': x[selection], 'A_paths': None, 'B': None, 'B_paths': None}
+            data = {'A': x[selection], 'A_paths': None}
+            self.model.set_input(data)  # unpack data from data loader
+            self.model.test()           # run inference
+
+            # TODO: Postprocess
+
+            x[selection] = self.model.fake # G(real)
+
+        return x if mask is None else (x, mask)
+    
+
+
     
 
 class AddGaussianNoise(object):
@@ -44,6 +87,7 @@ class AddGaussianNoise(object):
             mask = None
         else:
             x, mask = x
+
         if torch.rand(1) < self.p:
             # x += torch.randn(x.size()) * self.std + self.mean
             x += torch.randn_like(x) * self.std + self.mean

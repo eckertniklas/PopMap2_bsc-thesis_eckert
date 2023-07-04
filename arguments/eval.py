@@ -12,7 +12,11 @@ parser.add_argument("-NIR", "--NIR", action='store_true', help="")
 parser.add_argument("-VIIRS", "--VIIRS", action='store_true', help="")
 parser.add_argument('-f', '--feature_dim', help='', type=int, default=32)
 parser.add_argument("-m", "--model", help='', type=str, default="JacobsUNet")
+parser.add_argument("-omo", "--occupancymodel", help='', action='store_true')
+parser.add_argument("-uaf", "--useallfeatures", action='store_true', help="")
+parser.add_argument("-fs", "--fourseasons", action='store_true', help="")
 parser.add_argument("-dw", "--down", help='', type=int, default=2)
+parser.add_argument("-dw2", "--down2", help='', type=int, default=2)
 parser.add_argument('-fe', '--feature_extractor', type=str, help=' ', default="resnet18")
 
 #Training

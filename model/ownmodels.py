@@ -37,6 +37,7 @@ class BoostUNet(nn.Module):
         # Build the main model
         self.unetmodel1 = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=down) # Sentinel1
         # self.unetmodel1 = CustomUNet(feature_extractor, in_channels=2, classes=feature_dim, down=down) # Sentinel1
+        # self.unetmodel2 = CustomUNet("vgg16", in_channels=input_channels+1, classes=feature_dim, down=down2) # Sentinel2
         self.unetmodel2 = CustomUNet(feature_extractor, in_channels=input_channels+1, classes=feature_dim, down=down2) # Sentinel2
         # self.unetmodel2 = CustomUNet(feature_extractor, in_channels=input_channels-2+1, classes=feature_dim, down=down2) # Sentinel2
         # self.unetmodel2 = CustomUNet(feature_extractor, in_channels=input_channels-2+1+feature_dim, classes=feature_dim, down=down2) # Sentinel2

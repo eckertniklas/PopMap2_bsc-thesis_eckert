@@ -132,18 +132,19 @@ def process(hd_regions_path, wp_regions_path,
     ##############################
     # now process the fine census data
     # read kigali census data
-    with rasterio.open(kigali_census_data_path, 'r') as src:
-        kigali_census_map = src.read(1)
-        kigali_census_meta = src.meta.copy()
 
     for res in [100,200,400,500,1000]:
+    # for res in [400,1000]:
+
+        with rasterio.open(kigali_census_data_path, 'r') as src:
+            kigali_census_map = src.read(1)
+            kigali_census_meta = src.meta.copy()
 
         this_outputfile = os.path.join(output_path, 'boundaries_kigali{}.tif'.format(res))
         this_censusfile = os.path.join(output_path, 'census_kigali{}.csv'.format(res))
-        tmp_path = os.path.join(output_path, "tmp")
+        tmp_path = os.path.join(output_path, "tmp.tif")
 
         # pool the image to the desired resolution
-
         scale = int(res/100)
         if scale!=1:
             # pool the image

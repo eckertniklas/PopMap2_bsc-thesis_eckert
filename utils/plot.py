@@ -137,7 +137,7 @@ def scatter_plot3(predicted, ground_truth):
 
     # Remove zeros from x and y
     mask = (x != 0) & (y != 0)
-    if mask.sum() == 0:
+    if mask.sum() <= 2:
         return None
     
     x = x[mask]

@@ -70,10 +70,10 @@ class Population_Dataset_target(Dataset):
             for data_type in ["boundary", "census"]:
                 self.file_paths[level][data_type] = os.path.join(region_root, datalocations[region][level][data_type])
 
-            # self.boundary_file = os.path.join(region_root, datalocations[region]["fine"]["boundary"])
-            # self.census_file = os.path.join(region_root, datalocations[region]["fine"]["census"])
-            # self.coarse_boundary_file = os.path.join(region_root, datalocations[region]["coarse"]["boundary"])
-            # self.coarse_census_file = os.path.join(region_root, datalocations[region]["coarse"]["census"])
+            self.boundary_file = os.path.join(region_root, datalocations[region]["fine"]["boundary"])
+            self.census_file = os.path.join(region_root, datalocations[region]["fine"]["census"])
+            self.coarse_boundary_file = os.path.join(region_root, datalocations[region]["coarse"]["boundary"])
+            self.coarse_census_file = os.path.join(region_root, datalocations[region]["coarse"]["census"])
             
         # weaksup data specific preparation
         if self.mode == "weaksup":
@@ -431,6 +431,9 @@ class Population_Dataset_target(Dataset):
         boundary_file = self.file_paths[level]["boundary"]
         census_file = self.file_paths[level]["census"]
 
+        # boundary_file = self.boundary_file
+        # census_file = self.census_file
+
         # raise NotImplementedError
         with rasterio.open(boundary_file, "r") as src:
             boundary = src.read(1)
@@ -446,7 +449,8 @@ class Population_Dataset_target(Dataset):
 
             # iterate over census regions and get totals
             # for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"])), total=len(census)):
-            for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"]))):
+            for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
+            # for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"]))):
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
                 census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].sum()
 

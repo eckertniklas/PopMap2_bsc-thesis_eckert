@@ -155,26 +155,27 @@ class Trainer:
                 
                 # convert populationmap to census
 
+                # convert populationmap to census
                 for level in testlevels[testdataloader.dataset.region]:
-                    census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True)
+                    census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True, level=level)
                     self.target_test_stats = {**self.target_test_stats,
-                                              **get_test_metrics(census_pred, census_gt.float().cuda(), tag="census")}
+                                              **get_test_metrics(census_pred, census_gt.float().cuda(), tag="MainCensus_{}_{}".format(testdataloader.dataset.region, level))}
                     built_up = census_gt>10
                     self.target_test_stats = {**self.target_test_stats,
-                                            **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="census_pos")}
-
+                                              **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="MainCensusPos_{}_{}".format(testdataloader.dataset.region, level))}
+                    
                     if self.boosted:
-                        census_pred_raw, census_gt_raw = testdataloader.dataset.convert_popmap_to_census(output_map_raw, gpu_mode=True)
+                        census_pred_raw, census_gt_raw = testdataloader.dataset.convert_popmap_to_census(output_map_raw, gpu_mode=True, level=level)
                         self.target_test_stats = {**self.target_test_stats,
-                                                **get_test_metrics(census_pred_raw, census_gt_raw.float().cuda(), tag="CensusRaw_{}_{}".format(testdataloader.dataset.region, level))}
+                                                  **get_test_metrics(census_pred_raw, census_gt_raw.float().cuda(), tag="CensusRaw_{}_{}".format(testdataloader.dataset.region, level))}
                         built_up = census_gt_raw>10
                         self.target_test_stats = {**self.target_test_stats,
-                                                **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos_{}_{}".format(testdataloader.dataset.region, level))}
-
+                                                  **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos_{}_{}".format(testdataloader.dataset.region, level))}
+    
                     scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
                     if scatterplot is not None:
                         self.target_test_stats["Scatter/Scatter_{}".format(testdataloader.dataset.region)] = wandb.Image(scatterplot)
-                        scatterplot.save("last_scatter.png")
+                        # scatterplot.save("last_scatter.png")
 
                 print("Domain:", testdataloader.dataset.region)
                 print(self.target_test_stats)

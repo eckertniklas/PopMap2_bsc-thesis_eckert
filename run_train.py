@@ -12,6 +12,7 @@ from torchvision.transforms import Normalize
 from torchvision import transforms
 from utils.transform import OwnCompose
 from utils.transform import RandomRotationTransform, RandomHorizontalFlip, RandomVerticalFlip, RandomHorizontalVerticalFlip, RandomBrightness, RandomGamma, HazeAdditionModule, AddGaussianNoise
+from utils.transform import Eu2Rwa
 from tqdm import tqdm
 
 from torchcontrib.optim import SWA
@@ -556,10 +557,10 @@ class Trainer:
                         self.target_test_stats = {**self.target_test_stats,
                                                   **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos_{}_{}".format(testdataloader.dataset.region, level))}
     
-                scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
-                if scatterplot is not None:
-                    self.target_test_stats["Scatter/Scatter_{}_{}".format(testdataloader.dataset.region, level)] = wandb.Image(scatterplot)
-                    scatterplot.save("last_scatter.png")
+                    scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
+                    if scatterplot is not None:
+                        self.target_test_stats["Scatter/Scatter_{}_{}".format(testdataloader.dataset.region, level)] = wandb.Image(scatterplot)
+                        # scatterplot.save("last_scatter.png")
 
             wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}, **self.info}, self.info["iter"])
         
@@ -586,29 +587,18 @@ class Trainer:
                 RandomRotationTransform(angles=[90, 180, 270], p=0.75),
             ])
         else: 
-            if not args.Sentinel1: 
-                self.data_transform["general"] = transforms.Compose([
-                    # HazeAdditionModule()
-                    # AddGaussianNoise(std=0.1, p=0.9),
-                    # transforms.RandomHorizontalFlip(p=0.5), transforms.RandomVerticalFlip(p=0.5),
-                    # RandomRotationTransform(angles=[90, 180, 270], p=0.75), 
-                ])
-            else:
-                self.data_transform["general"] = transforms.Compose([
-                    # AddGaussianNoise(std=0.1, p=0.9),
-                    # RandomHorizontalVerticalFlip(p=0.5), transforms.RandomVerticalFlip(p=0.5),
-                    # RandomRotationTransform(angles=[90, 180, 270], p=0.75), 
-                ])
-        # self.data_transform["S2"] = OwnCompose([
-        #     RandomBrightness(p=0.9),
-        #     RandomGamma(p=0.9, gamma_limit=(0.2, 5.0)),
-        #     HazeAdditionModule(p=0.9, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3))
+            self.data_transform["general"] = transforms.Compose([
+                # AddGaussianNoise(std=0.1, p=0.9),
+            ])
         # ])
-        self.data_transform["S2"] = OwnCompose([
-            RandomBrightness(p=0.9, beta_limit=(0.666, 1.5)),
-            RandomGamma(p=0.9, gamma_limit=(0.6666, 1.5)),
-            # HazeAdditionModule(p=0.5, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3))
-        ])
+        S2augs = [  RandomBrightness(p=0.9, beta_limit=(0.666, 1.5)),
+                    RandomGamma(p=0.9, gamma_limit=(0.6666, 1.5)),
+                    # HazeAdditionModule(p=0.5, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3))
+        ]
+        if args.eu2rwa:
+            S2augs.append(Eu2Rwa())
+        self.data_transform["S2"] = OwnCompose(S2augs)
+
         
         self.data_transform["S1"] = transforms.Compose([
             # RandomBrightness(p=0.95),

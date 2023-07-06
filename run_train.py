@@ -43,6 +43,9 @@ from utils.utils import get_fnames_labs_reg, get_fnames_unlab_reg
 from utils.datasampler import LabeledUnlabeledSampler
 from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1, pop_map_root, testlevels, overlap
 from utils.constants import inference_patch_size as ips
+from utils.utils import Namespace
+
+from model.cycleGAN.models import create_model
 
 import nvidia_smi
 nvidia_smi.nvmlInit()
@@ -72,6 +75,29 @@ class Trainer:
 
         # define input channels based on the number of input modalities
         # input_channels = args.Sentinel1*2  + args.NIR*1 + args.Sentinel2*3 + args.VIIRS*1
+        
+        if args.CyCADA:
+            # load the pretrained cycleGAN model 
+            opt = Namespace(model="cycle_gan", name=args.CyCADAGANcheckpoint, input_nc=3, output_nc=3, ngf=64, ndf=64,
+                            netG='resnet_9blocks', netD='basic', n_layers_D=3, norm='instance', windows_size=100, direction='AtoB',
+                            no_dropout=True, init_type="normal", init_gain=0.02, epoch="latest", load_iter=0, isTrain=True, gpu_ids=[0],
+                            preprocess=None, continue_train=True, gan_mode="lsgan", pool_size=50, beta1=0.5, lambda_identity=0.5, lr=0.0002, 
+                            dataset_mode="unaligned", verbose=False, lr_policy="linear", epoch_count=1, n_epochs=args.num_epochs, n_epochs_decay=args.num_epochs,
+                            # model_suffix="_A", 
+                            checkpoints_dir="/scratch2/metzgern/HAC/code/CycleGANAugs/pytorch-CycleGAN-and-pix2pix/checkpoints/" )
+            self.CyCADAmodel = create_model(opt)      # create a model given opt.model and other options
+            self.CyCADAmodel.setup(opt)               # regular setup: load and print networks; create schedulers
+
+            # load the pretrained population model
+            if args.model in model_dict:
+                model_kwargs = get_model_kwargs(args, args.model)
+                self.sourcemodel = model_dict[args.model](**model_kwargs).cuda()
+                # load weights
+                self.sourcemodel.load_state_dict(torch.load(args.CyCADASourcecheckpoint)['model'])
+                
+            else:
+                raise ValueError(f"Unknown model: {args.model}")
+            
 
         # define architecture
         if args.model in model_dict:
@@ -216,6 +242,12 @@ class Trainer:
                 # forward pass
                 sample = to_cuda_inplace(sample)
                 sample = apply_transformations_and_normalize(sample, self.data_transform, self.dataset_stats)
+
+                if self.args.CyCADA:
+                    # TODO: implement CyCADA forward pass and loss computation
+                    # output = self.model(sample, train=True, alpha=0., return_features=False, padding=False)
+                    # loss += self.args.lam_cycada * self.cycada_loss(sample, output, self.model, self.args)
+                    pass
                 
                 output = self.model(sample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
             

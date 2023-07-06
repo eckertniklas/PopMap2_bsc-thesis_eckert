@@ -12,6 +12,7 @@ from utils.file_folder_ops import load_json
 
 from utils.utils import *
 from utils.plot import plot_2dmatrix
+from utils.utils import Namespace
 
 # CycleGAN
 from model.cycleGAN.models import create_model
@@ -31,9 +32,6 @@ class OwnCompose(object):
             x = t(x)
         return x if mask is None else (x, mask)
 
-class Namespace:
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
 
 class UnNormalize(object):
     def __init__(self, mean, std):

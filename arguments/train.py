@@ -50,6 +50,8 @@ parser.add_argument("-mmd", "--MMD", action='store_true', help="")
 parser.add_argument("-lmmd", "--lam_mmd", help='', type=float, default=1.0)
 parser.add_argument("-clasif", "--classifier", default="v8", help="")
 parser.add_argument("-CyCADA", "--CyCADA", action='store_true', help="")
+parser.add_argument("-CyCADAGcheck", "--CyCADAGANcheckpoint", type=str, default="eu2rwa_cycleganFreeze", help="")
+parser.add_argument("-CyCADAScheck", "--CyCADASourcecheckpoint", type=str, default="", help="")
 parser.add_argument("-e2rwa", "--eu2rwa", action='store_true', help="")
 
 parser.add_argument("-head", "--head", default="v1", help="")

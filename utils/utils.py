@@ -234,6 +234,9 @@ def get_fnames_unlab_reg(parent_dir, force_recompute=False):
 #         kwargs['useallfeatures'] = args.useallfeatures
 #     return kwargs
 
+class Namespace:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
 
 def load_json(file):
     with open(file, 'r') as f:
@@ -302,7 +305,5 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats):
                 sample["input"], sample["mask"] = transform["general"]((sample["input"], sample["mask"])) 
             else:
                 sample["input"] = transform["general"](sample["input"])
-            
     
-
     return sample

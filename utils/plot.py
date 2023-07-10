@@ -127,6 +127,8 @@ def scatter_plot2(predicted, ground_truth):
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
 from scipy.stats import gaussian_kde
 
 def scatter_plot3(predicted, ground_truth):

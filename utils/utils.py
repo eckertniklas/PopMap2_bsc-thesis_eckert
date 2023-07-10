@@ -243,14 +243,20 @@ def load_json(file):
         a = json.load(f)
     return a
 
+def single_normalize(data, stat):
+    """
+    nomalize th data witht the given statistics
+
+    """
+
 
 def apply_normalize(indata, dataset_stats):
 
     # S2
     if "S2" in indata:
-        if indata["S2"].shape[0] == 4:
+        if indata["S2"].shape[1] == 4:
             # indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2springNIR"]['p2'][:,None,None], self.dataset_stats["sen2springNIR"]['p2'][:,None,None], indata["S2"])
-            indata["S2"] = ((indata["S2"].permute((0,2,3,1)) - dataset_stats["sen2springNIR"]['mean'] ) / dataset_stats["sen2springNIR"]['std']).permute((0,3,1,2))
+            indata["S2"] = ((indata["S2"].permute((0,2,3,1)) - dataset_stats["sen2springNIR"]['mean'].cuda() ) / dataset_stats["sen2springNIR"]['std'].cuda()).permute((0,3,1,2))
         else: 
             # indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], indata["S2"])
             # indata["S2"] = ((indata["S2"].permute((1,2,0)) - dataset_stats["sen2spring"]['mean'] ) / dataset_stats["sen2spring"]['std']).permute((2,0,1))

@@ -1,0 +1,96 @@
+2023-07-07 13:49:54,985 INFO    StreamThr :3205821 [internal.py:wandb_internal():86] W&B internal server running at pid: 3205821, started at: 2023-07-07 13:49:54.985060
+2023-07-07 13:49:54,986 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status
+2023-07-07 13:49:54,997 INFO    WriterThread:3205821 [datastore.py:open_for_write():85] open: /scratch2/metzgern/HAC/code/PopMap2/wandb/run-20230707_134954-s7vf79in/run-s7vf79in.wandb
+2023-07-07 13:49:54,998 DEBUG   SenderThread:3205821 [sender.py:send():375] send: header
+2023-07-07 13:49:55,002 DEBUG   SenderThread:3205821 [sender.py:send():375] send: run
+2023-07-07 13:49:55,476 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: check_version
+2023-07-07 13:49:55,478 INFO    SenderThread:3205821 [dir_watcher.py:__init__():219] watching files in: /scratch2/metzgern/HAC/code/PopMap2/wandb/run-20230707_134954-s7vf79in/files
+2023-07-07 13:49:55,478 INFO    SenderThread:3205821 [sender.py:_start_run_threads():1124] run started: s7vf79in with start time 1688730594.991699
+2023-07-07 13:49:55,478 DEBUG   SenderThread:3205821 [sender.py:send_request():402] send_request: summary_record
+2023-07-07 13:49:55,478 INFO    SenderThread:3205821 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-07-07 13:49:55,478 DEBUG   SenderThread:3205821 [sender.py:send_request():402] send_request: check_version
+2023-07-07 13:49:55,571 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: run_start
+2023-07-07 13:49:55,576 DEBUG   HandlerThread:3205821 [system_info.py:__init__():31] System info init
+2023-07-07 13:49:55,576 DEBUG   HandlerThread:3205821 [system_info.py:__init__():46] System info init done
+2023-07-07 13:49:55,576 INFO    HandlerThread:3205821 [system_monitor.py:start():181] Starting system monitor
+2023-07-07 13:49:55,577 INFO    HandlerThread:3205821 [system_monitor.py:probe():201] Collecting system info
+2023-07-07 13:49:55,577 INFO    SystemMonitor:3205821 [system_monitor.py:_start():145] Starting system asset monitoring threads
+2023-07-07 13:49:55,578 INFO    SystemMonitor:3205821 [interfaces.py:start():190] Started cpu monitoring
+2023-07-07 13:49:55,579 INFO    SystemMonitor:3205821 [interfaces.py:start():190] Started disk monitoring
+2023-07-07 13:49:55,580 INFO    SystemMonitor:3205821 [interfaces.py:start():190] Started gpu monitoring
+2023-07-07 13:49:55,581 INFO    SystemMonitor:3205821 [interfaces.py:start():190] Started memory monitoring
+2023-07-07 13:49:55,581 INFO    SystemMonitor:3205821 [interfaces.py:start():190] Started network monitoring
+2023-07-07 13:49:55,607 DEBUG   HandlerThread:3205821 [system_info.py:probe():195] Probing system
+2023-07-07 13:49:55,608 DEBUG   HandlerThread:3205821 [system_info.py:_probe_git():180] Probing git
+2023-07-07 13:49:55,613 DEBUG   HandlerThread:3205821 [system_info.py:_probe_git():188] Probing git done
+2023-07-07 13:49:55,613 DEBUG   HandlerThread:3205821 [system_info.py:probe():240] Probing system done
+2023-07-07 13:49:55,613 DEBUG   HandlerThread:3205821 [system_monitor.py:probe():210] {'os': 'Linux-5.15.0-76-generic-x86_64-with-glibc2.35', 'python': '3.10.6', 'heartbeatAt': '2023-07-07T11:49:55.607701', 'startedAt': '2023-07-07T11:49:54.977625', 'docker': None, 'cuda': None, 'args': ('-o', '-s', '-e', '200', '-b', '32', '-lr', '1e-5', '--model', 'BoostUNet', '-l', 'log_l1_aug_loss', '--merge_aug', '2', '-la', '1.0', '-dw', '2', '-dw2', '4', '-S2', '-S1', '-f', '16', '-rse', '-treg', 'rwa', '-exZH', '--val', '1', '--lr_step', '5', '--lr_gamma', '0.75', '--full_aug', '--num_workers', '6', '--seed', '1612', '-gc', '0.001', '--CyCADA', '--CyCADASourcecheckpoint', '/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_905_626/best_model.pth', '--lam_selfsupervised_consistency', '10', '--lam_targetconsistency', '10'), 'state': 'running', 'program': 'run_train.py', 'codePath': 'run_train.py', 'git': {'remote': 'git@github.com:nandometzger/PopMap2.git', 'commit': 'cd17c99adac7f1839de8660f76531f50ac6ca11b'}, 'email': 'metzgern@ethz.ch', 'root': '/scratch2/metzgern/HAC/code/PopMap2', 'host': 'pf-pc40', 'username': 'metzgern', 'executable': '/scratch2/metzgern/HAC/code/PopMap2/PopMapEnv/bin/python', 'cpu_count': 8, 'cpu_count_logical': 16, 'cpu_freq': {'current': 3788.455125, 'min': 2200.0, 'max': 3800.0}, 'cpu_freq_per_core': [{'current': 3800.0, 'min': 2200.0, 'max': 3800.0}, {'current': 3800.0, 'min': 2200.0, 'max': 3800.0}, {'current': 3800.0, 'min': 2200.0, 'max': 3800.0}, {'current': 3615.282, 'min': 2200.0, 'max': 3800.0}, {'current': 3800.0, 'min': 2200.0, 'max': 3800.0}, {'current': 3800.0, 'min': 2200.0, 'max': 3800.0}, {'current': 3800.0, 'min': 2200.0, 'max': 3800.0}, {'current': 3800.0, 'min': 2200.0, 'max': 3800.0}, {'current': 3800.0, 'min': 2200.0, 'max': 3800.0}, {'current': 3800.0, 'min': 2200.0, 'max': 3800.0}, {'current': 3800.0, 'min': 2200.0, 'max': 3800.0}, {'current': 3800.0, 'min': 2200.0, 'max': 3800.0}, {'current': 3800.0, 'min': 2200.0, 'max': 3800.0}, {'current': 3800.0, 'min': 2200.0, 'max': 3800.0}, {'current': 3800.0, 'min': 2200.0, 'max': 3800.0}, {'current': 3800.0, 'min': 2200.0, 'max': 3800.0}], 'disk': {'total': 88.03287506103516, 'used': 35.371700286865234}, 'gpu': 'NVIDIA GeForce RTX 3090 Ti', 'gpu_count': 1, 'gpu_devices': [{'name': 'NVIDIA GeForce RTX 3090 Ti', 'memory_total': 25757220864}], 'memory': {'total': 62.703392028808594}}
+2023-07-07 13:49:55,613 INFO    HandlerThread:3205821 [system_monitor.py:probe():211] Finished collecting system info
+2023-07-07 13:49:55,613 INFO    HandlerThread:3205821 [system_monitor.py:probe():214] Publishing system info
+2023-07-07 13:49:55,613 DEBUG   HandlerThread:3205821 [system_info.py:_save_pip():51] Saving list of pip packages installed into the current environment
+2023-07-07 13:49:55,614 DEBUG   HandlerThread:3205821 [system_info.py:_save_pip():67] Saving pip packages done
+2023-07-07 13:49:55,614 DEBUG   HandlerThread:3205821 [system_info.py:_save_code():89] Saving code
+2023-07-07 13:49:55,615 DEBUG   HandlerThread:3205821 [system_info.py:_save_code():110] Saving code done
+2023-07-07 13:49:55,616 DEBUG   HandlerThread:3205821 [system_info.py:_save_patches():127] Saving git patches
+2023-07-07 13:49:55,737 DEBUG   HandlerThread:3205821 [system_info.py:_save_patches():169] Saving git patches done
+2023-07-07 13:49:55,741 INFO    HandlerThread:3205821 [system_monitor.py:probe():216] Finished publishing system info
+2023-07-07 13:49:55,744 DEBUG   SenderThread:3205821 [sender.py:send():375] send: files
+2023-07-07 13:49:55,744 INFO    SenderThread:3205821 [sender.py:_save_file():1378] saving file wandb-metadata.json with policy now
+2023-07-07 13:49:55,744 INFO    SenderThread:3205821 [sender.py:_save_file():1378] saving file code/run_train.py with policy now
+2023-07-07 13:49:55,744 INFO    SenderThread:3205821 [sender.py:_save_file():1378] saving file diff.patch with policy now
+2023-07-07 13:49:55,744 INFO    SenderThread:3205821 [sender.py:_save_file():1378] saving file upstream_diff_f52ba82f9082841ff93783d2c43283a82553af54.patch with policy now
+2023-07-07 13:49:55,751 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: stop_status
+2023-07-07 13:49:55,751 DEBUG   SenderThread:3205821 [sender.py:send_request():402] send_request: stop_status
+2023-07-07 13:49:56,020 DEBUG   SenderThread:3205821 [sender.py:send():375] send: telemetry
+2023-07-07 13:49:56,020 DEBUG   SenderThread:3205821 [sender.py:send():375] send: telemetry
+2023-07-07 13:49:56,022 DEBUG   SenderThread:3205821 [sender.py:send():375] send: telemetry
+2023-07-07 13:49:56,228 INFO    wandb-upload_0:3205821 [upload_job.py:push():137] Uploaded file /tmp/tmpcywgz78owandb/h29m1qgo-wandb-metadata.json
+2023-07-07 13:49:56,406 INFO    wandb-upload_1:3205821 [upload_job.py:push():137] Uploaded file /tmp/tmpcywgz78owandb/k18axm2d-code/run_train.py
+2023-07-07 13:49:56,425 INFO    wandb-upload_3:3205821 [upload_job.py:push():137] Uploaded file /tmp/tmpcywgz78owandb/orvokcwv-upstream_diff_f52ba82f9082841ff93783d2c43283a82553af54.patch
+2023-07-07 13:49:56,463 INFO    wandb-upload_2:3205821 [upload_job.py:push():137] Uploaded file /tmp/tmpcywgz78owandb/mlmlfg5m-diff.patch
+2023-07-07 13:49:56,481 INFO    Thread-17 :3205821 [dir_watcher.py:_on_file_created():278] file/dir created: /scratch2/metzgern/HAC/code/PopMap2/wandb/run-20230707_134954-s7vf79in/files/output.log
+2023-07-07 13:49:56,481 INFO    Thread-17 :3205821 [dir_watcher.py:_on_file_created():278] file/dir created: /scratch2/metzgern/HAC/code/PopMap2/wandb/run-20230707_134954-s7vf79in/files/diff.patch
+2023-07-07 13:49:56,481 INFO    Thread-17 :3205821 [dir_watcher.py:_on_file_created():278] file/dir created: /scratch2/metzgern/HAC/code/PopMap2/wandb/run-20230707_134954-s7vf79in/files/code/run_train.py
+2023-07-07 13:49:56,481 INFO    Thread-17 :3205821 [dir_watcher.py:_on_file_created():278] file/dir created: /scratch2/metzgern/HAC/code/PopMap2/wandb/run-20230707_134954-s7vf79in/files/requirements.txt
+2023-07-07 13:49:56,481 INFO    Thread-17 :3205821 [dir_watcher.py:_on_file_created():278] file/dir created: /scratch2/metzgern/HAC/code/PopMap2/wandb/run-20230707_134954-s7vf79in/files/wandb-metadata.json
+2023-07-07 13:49:56,481 INFO    Thread-17 :3205821 [dir_watcher.py:_on_file_created():278] file/dir created: /scratch2/metzgern/HAC/code/PopMap2/wandb/run-20230707_134954-s7vf79in/files/upstream_diff_f52ba82f9082841ff93783d2c43283a82553af54.patch
+2023-07-07 13:49:56,482 INFO    Thread-17 :3205821 [dir_watcher.py:_on_file_created():278] file/dir created: /scratch2/metzgern/HAC/code/PopMap2/wandb/run-20230707_134954-s7vf79in/files/wandb-summary.json
+2023-07-07 13:49:56,482 INFO    Thread-17 :3205821 [dir_watcher.py:_on_file_created():278] file/dir created: /scratch2/metzgern/HAC/code/PopMap2/wandb/run-20230707_134954-s7vf79in/files/code
+2023-07-07 13:49:58,479 INFO    Thread-17 :3205821 [dir_watcher.py:_on_file_modified():295] file/dir modified: /scratch2/metzgern/HAC/code/PopMap2/wandb/run-20230707_134954-s7vf79in/files/output.log
+2023-07-07 13:50:00,022 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:50:05,023 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:50:10,024 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:50:15,026 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:50:20,026 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:50:25,033 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:50:25,490 INFO    Thread-17 :3205821 [dir_watcher.py:_on_file_modified():295] file/dir modified: /scratch2/metzgern/HAC/code/PopMap2/wandb/run-20230707_134954-s7vf79in/files/config.yaml
+2023-07-07 13:50:30,255 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:50:35,257 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:50:40,259 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:50:45,260 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:50:50,262 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:50:55,263 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:50:55,581 DEBUG   SystemMonitor:3205821 [system_monitor.py:_start():159] Starting system metrics aggregation loop
+2023-07-07 13:50:55,582 DEBUG   SenderThread:3205821 [sender.py:send():375] send: stats
+2023-07-07 13:51:00,584 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:51:05,585 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:51:10,587 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:51:15,587 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:51:20,588 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:51:25,583 DEBUG   SenderThread:3205821 [sender.py:send():375] send: stats
+2023-07-07 13:51:26,584 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:51:31,585 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:51:36,586 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:51:41,587 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:51:46,588 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:51:51,589 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:51:55,584 DEBUG   SenderThread:3205821 [sender.py:send():375] send: stats
+2023-07-07 13:51:57,585 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:52:02,585 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:52:07,586 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:52:12,587 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:52:17,588 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:52:22,588 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:52:25,585 DEBUG   SenderThread:3205821 [sender.py:send():375] send: stats
+2023-07-07 13:52:28,586 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report
+2023-07-07 13:52:33,587 DEBUG   HandlerThread:3205821 [handler.py:handle_request():144] handle_request: status_report

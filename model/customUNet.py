@@ -8,9 +8,10 @@ import torch.nn.functional as F
 # import copy
 import segmentation_models_pytorch as smp
 
+from utils.plot import plot_2dmatrix
 
 class CustomUNet(smp.Unet):
-    def __init__(self, encoder_name, in_channels, classes, down=3):
+    def __init__(self, encoder_name, in_channels, classes, down=3, fsub=16):
         # instanciate the base model
         # super().__init__(encoder_name, encoder_weights="imagenet",
         super().__init__(encoder_name, encoder_weights=None,
@@ -21,7 +22,7 @@ class CustomUNet(smp.Unet):
         self.decoder_channels = (256,128,64,32,16)[-down:]
         # self.decoder_channels = (81,54,36,24,16)[-down:]
         self.latent_dim = sum(self.decoder_channels)
-        self.fsub = 16
+        self.fsub = fsub
 
         # Adjust the U-Net depth to 2 or lower here
         self.encoder = smp.encoders.get_encoder(
@@ -127,7 +128,8 @@ class CustomUNet(smp.Unet):
             x = decoder_block(x, skip)
 
             if return_features:
-                xup = F.interpolate(x, size=(h//self.fsub,w//self.fsub), mode='nearest') # TODO: interpolate to other size
+                # rs, re = torch.randint(self.fsub,self.fsub*2,(1,)).item(), torch.randint(self.fsub*2,self.fsub*2,(1,)).item()
+                xup = F.interpolate(x, size=(h//self.fsub,w//self.fsub), mode='nearest') # interpolate/subsample to other size
                 decoder_features.append(xup.view(bs,x.size(1),-1))
         decoder_output = x
         

@@ -24,7 +24,7 @@ class BoostUNet(nn.Module):
     '''
     PomeloUNet
     '''
-    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1", down=2, down2=4,
+    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v8", down=2, down2=4,
                  useallfeatures=False, occupancymodel=False):
         super(BoostUNet, self).__init__()
         
@@ -53,62 +53,8 @@ class BoostUNet(nn.Module):
         # self.head2.bias.data = 1.5 * torch.ones(5)
 
         # Build the domain classifier
-        # latent_dim = self.unetmodel.latent_dim
-        if classifier=="v1":
-            self.domain_classifier = DomainClassifier(feature_dim)
-        elif classifier=="v2":
-            self.domain_classifier = DomainClassifier1x1(feature_dim)
-        elif classifier=="v3":
-            self.domain_classifier = DomainClassifier_v3(feature_dim)
-        elif classifier=="v4":
-            self.domain_classifier = DomainClassifier_v4(feature_dim)
-        elif classifier=="v5":
-            self.domain_classifier = DomainClassifier_v5(feature_dim)
-        elif classifier=="v6":
-            self.domain_classifier = nn.Sequential(
-                nn.Conv2d(feature_dim, 32, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(100, 100, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(32, 1, kernel_size=1, padding=0), nn.Sigmoid()
-            )
-        elif classifier=="v7":
-            self.domain_classifier = nn.Sequential(
-                nn.Conv2d(self.unetmodel2.latent_dim, 100,  kernel_size=3, padding=1), nn.ReLU(),
-                nn.Conv2d(100, 1,  kernel_size=3, padding=1),  nn.Sigmoid()
-            )
-        elif classifier=="v8":
-            self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel2.latent_dim, 100), nn.ReLU(),
-                nn.Linear(100, 1),  nn.Sigmoid()
-            )
-        elif classifier=="v9":
-            self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel2.latent_dim, 100), nn.ReLU(),
-                nn.Linear(100, 100),  nn.ReLU(),
-                nn.Linear(100, 1),  nn.Sigmoid()
-            )
-        elif classifier=="v10":
-            self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel2.latent_dim, 256), nn.ReLU(),
-                nn.Linear(256, 256),  nn.ReLU(),
-                nn.Linear(256, 1),  nn.Sigmoid()
-            )
-        elif classifier=="v11":
-            self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel2.latent_dim, 256), nn.ReLU(),
-                nn.Linear(256, 256),  nn.ReLU(),
-                nn.Linear(256, 256),  nn.ReLU(),
-                nn.Linear(256, 1),  nn.Sigmoid()
-            )
-        elif classifier=="v12":
-            # with dropouts like in the paper
-            self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel2.latent_dim, 256), nn.BatchNorm1d(256), nn.ReLU(), nn.Dropout2d(),
-                nn.Linear(256, 256),   nn.BatchNorm1d(256), nn.ReLU(), nn.Dropout2d(),
-                nn.Linear(256, 256),   nn.BatchNorm1d(256), nn.ReLU(), nn.Dropout2d(),
-                nn.Linear(256, 1),  nn.Sigmoid()
-            )
-        else:
-            self.domain_classifier = None
+        self.domain_classifier = None
+        # domain_classifier = self.get_domain_classifier(feature_dim, classifier) 
 
         # calculate the number of parameters
         self.params_sum = sum(p.numel() for p in self.unetmodel1.parameters() if p.requires_grad)
@@ -129,13 +75,6 @@ class BoostUNet(nn.Module):
 
         # Forward the head1
         out = self.head1(features)
-
-        # Foward the domain classifier
-        # if self.domain_classifier is not None and return_features and alpha>0 and self.useallfeatures:
-        #     reverse_features = ReverseLayerF.apply(decoder_features.unsqueeze(3), alpha) # apply gradient reversal layer
-        #     domain_raw = self.domain_classifier(reverse_features.permute(0,2,3,1).reshape(-1, reverse_features.size(1))).view(reverse_features.size(0),-1)
-        # else:
-        #     domain_raw = None
 
         # Population map and total count, raw
         popdensemap_raw = nn.functional.relu(out[:,0])
@@ -258,3 +197,70 @@ class BoostUNet(nn.Module):
         #     if py1 is not None or py2 is not None:
         #         data = data[:,:,:,py1:-py2]
         return data
+
+    def get_domain_classifier(self, feature_dim, classifier):
+        
+        # domain_classifier = self.get_domain_classifier(feature_dim, classifier)
+        if classifier=="v1":
+            domain_classifier = DomainClassifier(feature_dim)
+        elif classifier=="v2":
+            domain_classifier = DomainClassifier1x1(feature_dim)
+        elif classifier=="v3":
+            domain_classifier = DomainClassifier_v3(feature_dim)
+        elif classifier=="v4":
+            domain_classifier = DomainClassifier_v4(feature_dim)
+        elif classifier=="v5":
+            domain_classifier = DomainClassifier_v5(feature_dim)
+        elif classifier=="v6":
+            domain_classifier = nn.Sequential(
+                nn.Conv2d(feature_dim, 32, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(100, 100, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(32, 1, kernel_size=1, padding=0), nn.Sigmoid()
+            )
+        elif classifier=="v7":
+            domain_classifier = nn.Sequential(
+                nn.Conv2d(self.unetmodel2.latent_dim, 100,  kernel_size=3, padding=1), nn.ReLU(),
+                nn.Conv2d(100, 1,  kernel_size=3, padding=1),  nn.Sigmoid()
+            )
+        elif classifier=="v8":
+            domain_classifier = nn.Sequential(
+                nn.Linear(self.unetmodel2.latent_dim, 100), nn.ReLU(),
+                nn.Linear(100, 1),  nn.Sigmoid()
+            )
+        elif classifier=="v9":
+            domain_classifier = nn.Sequential(
+                nn.Linear(self.unetmodel2.latent_dim, 100), nn.ReLU(),
+                nn.Linear(100, 100),  nn.ReLU(),
+                nn.Linear(100, 1),  nn.Sigmoid()
+            )
+        elif classifier=="v9_CyCADA":
+            domain_classifier = nn.Sequential(
+                nn.Linear(self.unetmodel2.latent_dim, 500), nn.ReLU(),
+                nn.Linear(500, 500),  nn.ReLU(),
+                nn.Linear(500, 1),  nn.Sigmoid()
+            )
+        elif classifier=="v10":
+            domain_classifier = nn.Sequential(
+                nn.Linear(self.unetmodel2.latent_dim, 256), nn.ReLU(),
+                nn.Linear(256, 256),  nn.ReLU(),
+                nn.Linear(256, 1),  nn.Sigmoid()
+            )
+        elif classifier=="v11":
+            domain_classifier = nn.Sequential(
+                nn.Linear(self.unetmodel2.latent_dim, 256), nn.ReLU(),
+                nn.Linear(256, 256),  nn.ReLU(),
+                nn.Linear(256, 256),  nn.ReLU(),
+                nn.Linear(256, 1),  nn.Sigmoid()
+            )
+        elif classifier=="v12":
+            # with dropouts like in the paper
+            domain_classifier = nn.Sequential(
+                nn.Linear(self.unetmodel2.latent_dim, 256), nn.BatchNorm1d(256), nn.ReLU(), nn.Dropout2d(),
+                nn.Linear(256, 256),   nn.BatchNorm1d(256), nn.ReLU(), nn.Dropout2d(),
+                nn.Linear(256, 256),   nn.BatchNorm1d(256), nn.ReLU(), nn.Dropout2d(),
+                nn.Linear(256, 1),  nn.Sigmoid()
+            )
+        else:
+            domain_classifier = None
+
+        return domain_classifier

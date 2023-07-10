@@ -443,6 +443,7 @@ class Population_Dataset_target(Dataset):
         census = pd.read_csv(census_file)
 
         if gpu_mode:
+            # pred = pred.to(torch.float32).cuda()
             pred = pred.cuda()
             boundary = boundary.cuda()
             census_pred = torch.zeros(len(census), dtype=torch.float32).cuda()
@@ -452,9 +453,10 @@ class Population_Dataset_target(Dataset):
             for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
             # for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"]))):
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
-                census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].sum()
+                census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
 
         else:
+            pred = pred.to(torch.float32)
             census_pred = torch.zeros(len(census), dtype=torch.float32)
 
             # iterate over census regions and get totals

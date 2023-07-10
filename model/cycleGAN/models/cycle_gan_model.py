@@ -208,7 +208,7 @@ class CycleGANModel(BaseModel):
         # combined loss and calculate gradients
         self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_A
         
-        #TODO: may need to retain_graph=True here, or just add the consistency loss to the loss_G
+        # get the supervision of the CyCADA part of the network
         if gt is not None:
             self.convert_preprocessing()
             self.calculate_consistency_loss(gt)
@@ -217,8 +217,8 @@ class CycleGANModel(BaseModel):
             # self.loss_G += self.loss_real_B_consistency * self.opt.lambda_consistencyB
 
             self.loss_fake_B_pop_lam = self.loss_fake_B_pop * self.opt.lambda_popB
-            self.loss_fake_B_consistency_lam = self.loss_fake_B_consistency * self.opt.lambda_consistencyB
-            self.loss_real_B_consistency_lam = self.loss_real_B_consistency * self.opt.lambda_consistencyB 
+            self.loss_fake_B_consistency_lam = self.loss_fake_B_consistency * self.opt.lambda_consistency_fake_B
+            self.loss_real_B_consistency_lam = self.loss_real_B_consistency * self.opt.lambda_consistency_real_B 
             self.loss_G += self.loss_fake_B_pop_lam + self.loss_fake_B_consistency_lam + self.loss_real_B_consistency_lam
 
         self.loss_G.backward(retain_graph=True)
@@ -305,7 +305,8 @@ class CycleGANModel(BaseModel):
         self.real_B_output_popdensemap = self.real_B_output["popdensemap"].unsqueeze(1)
         self.fake_B_output_popdensemap = self.fake_B_output["popdensemap"].unsqueeze(1)
 
-        self.loss_fake_B_pop, dict = get_loss(self.fake_B_output, {"y":gt, "source": torch.ones_like(gt, dtype=bool)}, loss=["log_l1_aug_loss"], lam=[1.0], merge_aug=2, tag="fakeBsource") 
+        self.loss_fake_B_pop, _ = get_loss(self.fake_B_output, {"y":gt, "source": torch.ones_like(gt, dtype=bool)}, loss=["log_l1_aug_loss"], lam=[1.0], merge_aug=2, tag="fakeBsource") 
+        # self.loss_fake_A_pop, _ = get_loss(self.fake_A_output, {"y":gt, "source": torch.ones_like(gt, dtype=bool)}, loss=["log_l1_aug_loss"], lam=[1.0], merge_aug=2, tag="fakeAsource") 
         self.loss_fake_B_consistency = self.criterionFakePop(self.real_A_output["popdensemap"], self.fake_B_output["popdensemap"])
         self.loss_real_B_consistency = self.criterionFakePop(self.real_B_output["popdensemap"], self.fake_A_output["popdensemap"])
 

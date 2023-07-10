@@ -172,6 +172,9 @@ def scatter_plot3(predicted, ground_truth):
     plt.savefig(buffer, format='png')
     buffer.seek(0)
 
+    # close the figure
+    plt.close()
+
     # Open the BytesIO object as a PIL Image and return it
     return Image.open(buffer)
 

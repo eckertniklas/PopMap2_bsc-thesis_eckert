@@ -47,6 +47,7 @@ from utils.utils import Namespace
 
 from model.cycleGAN.models import create_model
 from model.cycleGAN.util.visualizer import Visualizer
+from model.cycleGAN.util.util import tensor2im
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -98,7 +99,8 @@ class Trainer:
                             no_dropout=True, init_type="normal", init_gain=0.02, epoch="latest", load_iter=0, isTrain=True, gpu_ids=[0],
                             preprocess=None, continue_train=self.args.CyCADAcontinue, gan_mode="lsgan", pool_size=50, beta1=0.5, lambda_identity=0.5, lr=0.0002, 
                             dataset_mode="unaligned", verbose=False, lr_policy="linear", epoch_count=1, n_epochs=args.num_epochs, n_epochs_decay=args.num_epochs,
-                            lambda_A=10.0, lambda_B=10.0, lambda_consistencyB=args.lambda_consistencyB, lambda_popB=args.lambda_popB, display_freq=400, save_latest_freq=2500, save_by_iter=False,
+                            lambda_A=10.0, lambda_B=10.0, lambda_consistency_fake_B=args.lambda_consistency_fake_B, lambda_consistency_real_B=args.lambda_consistency_real_B,
+                            lambda_popB=args.lambda_popB, display_freq=400, save_latest_freq=2500, save_by_iter=False,
                             display_id=0, no_html=True, display_port=8097, update_html_freq=1000,
                             use_wandb=True, display_ncols=4,  wandb_project_name="CycleGAN-and-pix2pix", display_winsize=100, display_env="main", display_server="http://localhost",
                             # model_suffix="_A",
@@ -354,8 +356,8 @@ class Trainer:
                         self.optimizer.step()
                         optim_loss = optim_loss.detach()  
                         output = detach_tensors_in_dict(output)
-                        del output
-                        del sample 
+                        # del output
+                        # del sample 
                         gc.collect()
 
                 # update info
@@ -395,7 +397,13 @@ class Trainer:
                         for key in losses_CyCADA:
                             train_stats[key] += losses_CyCADA[key].cpu().item() if torch.is_tensor(losses_CyCADA[key]) else losses_CyCADA[key]
                         train_stats["optimization_loss"] = self.CyCADAmodel.loss_cycle_A
-
+                    
+                    log_target_img = True
+                    if log_target_img and not self.args.GANonly:
+                        wandb_image = wandb.Image(tensor2im(output["popdensemap"][sample["source"]].unsqueeze(1)))
+                        wandb.log({"fake_B_target_popdensemap": wandb_image}, step=self.info["iter"])
+                        wandb_image = wandb.Image(tensor2im(output["popdensemap"][~sample["source"]].unsqueeze(1)))
+                        wandb.log({"real_B_target_popdensemap": wandb_image}, step=self.info["iter"])
                     train_stats = self.log_train(train_stats,(inner_tnr, tnr))
                     train_stats = defaultdict(float)
         

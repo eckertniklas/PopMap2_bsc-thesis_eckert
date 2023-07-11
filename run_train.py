@@ -191,7 +191,7 @@ class Trainer:
                     self.test(plot=((self.info["epoch"]+1) % 20)==0, full_eval=((self.info["epoch"]+1) % 10)==0, zh_eval=True) #ZH
                     torch.cuda.empty_cache()
                 if (self.info["epoch"] + 1) % (1*self.args.val_every_n_epochs) == 0:
-                    self.test_target(save=True)
+                    self.test_target(save=False)
                     torch.cuda.empty_cache()
 
                     if self.args.save_model in ['last', 'both']:

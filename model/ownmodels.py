@@ -116,8 +116,6 @@ class BoostUNet(nn.Module):
         # Forward the head2
         out = self.head2(features)
 
-
-
         # Merge the output of the two decoders
         if self.useallfeatures:
             decoder_features = torch.cat([decoder_features, decoder_features_raw], dim=1)

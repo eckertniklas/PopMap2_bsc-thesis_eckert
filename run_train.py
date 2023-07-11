@@ -92,6 +92,9 @@ class Trainer:
         else:
             self.boosted = False
 
+        # set up model
+        seed_all(args.seed+1)
+
         if args.CyCADA:
             # load the pretrained cycleGAN model 
             self.opt = Namespace(model="cycle_gan", name=args.CyCADAGANcheckpoint, input_nc=5, output_nc=5, ngf=64, ndf=64,
@@ -133,13 +136,17 @@ class Trainer:
         args.pytorch_total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         print("Model", args.model, "; #Params:", args.pytorch_total_params)
 
+
         # set up experiment folder
         self.experiment_folder, self.args.expN, self.args.randN = new_log(os.path.join(args.save_dir, "So2Sat"), args)
         self.args.experiment_folder = self.experiment_folder
-
+        
         # wandb config
-        wandb_run = wandb.init(project=args.wandb_project, dir=self.experiment_folder)
+        wandb.init(project=args.wandb_project, dir=self.experiment_folder)
         wandb.config.update(self.args) 
+        
+        # set up model
+        seed_all(args.seed+2)
 
         # set up optimizer and scheduler
         if args.optimizer == "Adam":

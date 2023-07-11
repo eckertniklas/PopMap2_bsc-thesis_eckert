@@ -301,10 +301,10 @@ class CycleGANModel(BaseModel):
         self.loss_real_B_consistency = self.criterionFakePop(self.real_B_output["popdensemap"], self.fake_A_output["popdensemap"])
 
 
-
-
     def compute_visuals(self):
-        """Calculate additional output images for visdom and HTML visualization"""
+        """
+        Calculate additional output images for visdom and HTML visualization
+        """
 
         if self.real_A.shape[1] == 5:
             self.real_A_S1 = torch.cat((self.real_A[:, 3:, :, :], torch.zeros_like(self.real_A[:, :1, :, :])), dim=1)*0.65

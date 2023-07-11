@@ -141,9 +141,6 @@ class Trainer:
         wandb_run = wandb.init(project=args.wandb_project, dir=self.experiment_folder)
         wandb.config.update(self.args) 
 
-        # if self.args.CyCADA:
-        #     self.visualizer.wandb_run = wandb_run
-
         # set up optimizer and scheduler
         if args.optimizer == "Adam":
             self.optimizer = optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
@@ -266,18 +263,9 @@ class Trainer:
 
                 if self.args.CyCADA:
                     # CyCADA forward pass and loss computation
-                    # data = {"A": self.normalize(sample["S2"][sample["source"]]/4000), "B": self.normalize(sample["S2"][~sample["source"]]/4000), "A_paths": "", "B_paths": ""}
-
                     sample = apply_transformations_and_normalize(sample, self.data_transform, self.dataset_stats)
                     data = {"A": sample["input"][sample["source"]], "B": sample["input"][~sample["source"]], "A_paths": "", "B_paths": ""}
                     self.CyCADAmodel.set_input(data)         # unpack data from dataset and apply preprocessing
-
-                    # Normalize S1
-                    # sample_norm = apply_normalize(sample, self.dataset_stats)
-                    
-                    # self.CyCADAmodel.S1_A = sample_norm["S1"][sample["source"]]
-                    # self.CyCADAmodel.S1_B = sample_norm["S1"][~sample["source"]]
-                    # self.CyCADAmodel.dataset_stats = self.dataset_stats
                     self.CyCADAmodel.optimize_parameters(gt=sample["y"][sample["source"]])
 
                     # replace all existing source domain samples with fake target domain samples

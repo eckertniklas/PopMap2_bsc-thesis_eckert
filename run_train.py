@@ -104,7 +104,8 @@ class Trainer:
                             display_id=0, no_html=True, display_port=8097, update_html_freq=1000,
                             use_wandb=True, display_ncols=4,  wandb_project_name="CycleGAN-and-pix2pix", display_winsize=100, display_env="main", display_server="http://localhost",
                             # model_suffix="_A",
-                            checkpoints_dir= os.path.join(args.save_dir, "checkpointsCyCADA/") )
+                            checkpoints_dir= args.save_dir)
+                            # checkpoints_dir= os.path.join(args.save_dir, "checkpointsCyCADA/") )
                             # checkpoints_dir="/scratch2/metzgern/HAC/code/CycleGANAugs/pytorch-CycleGAN-and-pix2pix/checkpoints/" )
             self.CyCADAmodel = create_model(self.opt)      # create a model given opt.model and other options
             self.CyCADAmodel.setup(self.opt)               # regular setup: load and print networks; create schedulers 

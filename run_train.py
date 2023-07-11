@@ -401,10 +401,11 @@ class Trainer:
                     
                     log_target_img = True
                     if log_target_img and not self.args.GANonly:
-                        wandb_image = wandb.Image(tensor2im(output["popdensemap"][sample["source"]].unsqueeze(1)-0.5))
-                        wandb.log({"fake_B_target_popdensemap": wandb_image}, step=self.info["iter"])
-                        wandb_image = wandb.Image(tensor2im(output["popdensemap"][~sample["source"]].unsqueeze(1)-0.5))
-                        wandb.log({"real_B_target_popdensemap": wandb_image}, step=self.info["iter"])
+                        if self.args.CyCADA:
+                            wandb_image = wandb.Image(tensor2im(output["popdensemap"][sample["source"]].unsqueeze(1)-0.5))
+                            wandb.log({"fake_B_target_popdensemap": wandb_image}, step=self.info["iter"])
+                            wandb_image = wandb.Image(tensor2im(output["popdensemap"][~sample["source"]].unsqueeze(1)-0.5))
+                            wandb.log({"real_B_target_popdensemap": wandb_image}, step=self.info["iter"])
                     train_stats = self.log_train(train_stats,(inner_tnr, tnr))
                     train_stats = defaultdict(float)
         

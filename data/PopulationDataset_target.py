@@ -15,7 +15,7 @@ import random
 
 from typing import Dict, Tuple
 
-from utils.constants import pop_map_root_large, pop_map_covariates, pop_map_covariates_large, config_path 
+from utils.constants import pop_map_root_large, pop_map_root, pop_map_covariates, pop_map_covariates_large, config_path 
 from utils.constants import datalocations
 from utils.plot import plot_2dmatrix
 
@@ -60,7 +60,8 @@ class Population_Dataset_target(Dataset):
         self.use2A = True
 
         # get the path to the data
-        region_root = os.path.join(pop_map_root_large, region)
+        # region_root = os.path.join(pop_map_root_large, region)
+        region_root = os.path.join(pop_map_root, region)
 
         # load the boundary and census data
         levels = datalocations[region].keys()
@@ -108,17 +109,12 @@ class Population_Dataset_target(Dataset):
 
         # get the path to the data files
         covar_root = os.path.join(pop_map_covariates, region)
-        # covar_root = os.path.join(pop_map_covariates_large, region)
         # self.S1_file = os.path.join(covar_root,  os.path.join("S1", region +"_S1.tif"))
         self.S1spring_file = os.path.join(covar_root,  os.path.join("S1spring", region +"_S1spring.tif"))
         self.S1summer_file = os.path.join(covar_root,  os.path.join("S1summer", region +"_S1summer.tif"))
         self.S1autumn_file = os.path.join(covar_root,  os.path.join("S1autumn", region +"_S1autumn.tif"))
         self.S1winter_file = os.path.join(covar_root,  os.path.join("S1winter", region +"_S1winter.tif"))
         self.S1_file = {0: self.S1spring_file, 1: self.S1summer_file, 2: self.S1autumn_file, 3: self.S1winter_file}
-        # self.S2spring_file = os.path.join(covar_root,  os.path.join("S2spring", region +"_S2spring.tif"))
-        # self.S2summer_file = os.path.join(covar_root,  os.path.join("S2summer", region +"_S2summer.tif"))
-        # self.S2autumn_file = os.path.join(covar_root,  os.path.join("S2autumn", region +"_S2autumn.tif"))
-        # self.S2winter_file = os.path.join(covar_root,  os.path.join("S2winter", region +"_S2winter.tif"))
         if self.use2A:
             self.S2spring_file = os.path.join(covar_root,  os.path.join("S2Aspring", region +"_S2Aspring.tif"))
             self.S2summer_file = os.path.join(covar_root,  os.path.join("S2Asummer", region +"_S2Asummer.tif"))
@@ -138,18 +134,6 @@ class Population_Dataset_target(Dataset):
         self.y_stats = load_json(os.path.join(config_path, 'dataset_stats', 'label_stats.json'))
         self.y_stats['max'] = float(self.y_stats['max'])
         self.y_stats['min'] = float(self.y_stats['min'])
-
-        # load the dataset stats
-        # if self.use2A:
-        #     self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
-        # else:
-        #     self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified.json'))
-        # for mkey in self.dataset_stats.keys():
-        #     if isinstance(self.dataset_stats[mkey], dict):
-        #         for key,val in self.dataset_stats[mkey].items():
-        #             self.dataset_stats[mkey][key] = torch.tensor(val)
-        #     else:
-        #         self.dataset_stats[mkey] = torch.tensor(val)
 
     def get_patch_indices(self, patchsize, overlap):
         """

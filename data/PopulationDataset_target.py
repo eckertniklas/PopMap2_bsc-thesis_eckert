@@ -529,7 +529,7 @@ class Population_Dataset_target(Dataset):
 
         # save the predictions
         output_file = os.path.join(output_folder, self.region + f"_predictions{tag}.tif")
-        with rasterio.open(output_file, "w", **self._meta) as dest:
+        with rasterio.open(output_file, "w", CHECK_DISK_FREE_SPACE="NO", **self._meta) as dest:
             dest.write(preds,1)
 
 

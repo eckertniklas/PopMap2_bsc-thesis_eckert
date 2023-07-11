@@ -104,10 +104,10 @@ class Trainer:
                             display_id=0, no_html=True, display_port=8097, update_html_freq=1000,
                             use_wandb=True, display_ncols=4,  wandb_project_name="CycleGAN-and-pix2pix", display_winsize=100, display_env="main", display_server="http://localhost",
                             # model_suffix="_A",
-                            checkpoints_dir="/scratch2/metzgern/HAC/code/CycleGANAugs/pytorch-CycleGAN-and-pix2pix/checkpoints/" )
+                            checkpoints_dir= os.path.join(args.save_dir, "checkpointsCyCADA/") )
+                            # checkpoints_dir="/scratch2/metzgern/HAC/code/CycleGANAugs/pytorch-CycleGAN-and-pix2pix/checkpoints/" )
             self.CyCADAmodel = create_model(self.opt)      # create a model given opt.model and other options
-            self.CyCADAmodel.setup(self.opt)               # regular setup: load and print networks; create schedulers
-            self.normalize = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) 
+            self.CyCADAmodel.setup(self.opt)               # regular setup: load and print networks; create schedulers 
 
             # load the pretrained population model
             if args.model in model_dict:
@@ -400,9 +400,9 @@ class Trainer:
                     
                     log_target_img = True
                     if log_target_img and not self.args.GANonly:
-                        wandb_image = wandb.Image(tensor2im(output["popdensemap"][sample["source"]].unsqueeze(1)))
+                        wandb_image = wandb.Image(tensor2im(output["popdensemap"][sample["source"]].unsqueeze(1)-0.5))
                         wandb.log({"fake_B_target_popdensemap": wandb_image}, step=self.info["iter"])
-                        wandb_image = wandb.Image(tensor2im(output["popdensemap"][~sample["source"]].unsqueeze(1)))
+                        wandb_image = wandb.Image(tensor2im(output["popdensemap"][~sample["source"]].unsqueeze(1)-0.5))
                         wandb.log({"real_B_target_popdensemap": wandb_image}, step=self.info["iter"])
                     train_stats = self.log_train(train_stats,(inner_tnr, tnr))
                     train_stats = defaultdict(float)
@@ -428,8 +428,6 @@ class Trainer:
         # upload logs to wandb
         wandb.log({**{k + '/train': v for k, v in train_stats.items()}, **self.info}, self.info["iter"])
         
-        # reset metrics
-        # train_stats = defaultdict(float)
 
     def validate(self):
         self.val_stats = defaultdict(float)
@@ -442,8 +440,7 @@ class Trainer:
 
                 # forward pass
                 sample = to_cuda_inplace(sample)
-                sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats)
-                # sample = apply_normalize(sample, self.dataset_stats)
+                sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats) 
 
                 output = self.model(sample)
                 

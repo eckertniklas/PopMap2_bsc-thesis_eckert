@@ -240,31 +240,21 @@ class CycleGANModel(BaseModel):
         self.optimizer_D.step()  # update D_A and D_B's weights
 
     def convert_preprocessing(self):
+        """
+        Convert the preprocessing of the images to the preprocessing of the source population model
+        """
 
-
-
-        # raw_real_A = self.unnormalize(self.real_A)*4000
-        # real_A_prep = ((raw_real_A.permute((0,2,3,1)) - self.dataset_stats["sen2spring"]['mean'].cuda() ) / self.dataset_stats["sen2spring"]['std'].cuda()).permute((0,3,1,2))
-        # self.real_A_prep = torch.cat((real_A_prep, self.S1_A), dim=1)
         self.real_A_prep = self.real_A
-
-        # raw_fake_A = self.unnormalize(self.fake_A)*4000
-        # fake_A_prep = ((raw_fake_A.permute((0,2,3,1)) - self.dataset_stats["sen2spring"]['mean'].cuda() ) / self.dataset_stats["sen2spring"]['std'].cuda()).permute((0,3,1,2))
-        # self.fake_A_prep = torch.cat((fake_A_prep, self.S1_B), dim=1)
         self.fake_A_prep = self.fake_A
-
-        # raw_real_B = self.unnormalize(self.real_B)*4000
-        # real_B_prep = ((raw_real_B.permute((0,2,3,1)) - self.dataset_stats["sen2spring"]['mean'].cuda() ) / self.dataset_stats["sen2spring"]['std'].cuda()).permute((0,3,1,2))
-        # self.real_B_prep = torch.cat((real_B_prep, self.S1_B), dim=1)
         self.real_B_prep = self.real_B
-
-        # raw_fake_B = self.unnormalize(self.fake_B)*4000
-        # fake_B_prep = ((raw_fake_B.permute((0,2,3,1)) - self.dataset_stats["sen2spring"]['mean'].cuda() ) / self.dataset_stats["sen2spring"]['std'].cuda()).permute((0,3,1,2))
-        # self.fake_B_prep = torch.cat((fake_B_prep, self.S1_A), dim=1)
         self.fake_B_prep = self.fake_B
 
 
     def calculate_consistency_loss(self, gt, feature_loss = False):
+        """
+        Calculate the consistency losses of the CyCADA model
+        """
+
         feature_loss = False
 
         with torch.no_grad():
@@ -332,5 +322,10 @@ class CycleGANModel(BaseModel):
             self.rec_B = self.rec_B[:, :3, :, :]*0.65
             self.idt_A = self.idt_A[:, :3, :, :]*0.65
             self.idt_B = self.idt_B[:, :3, :, :]*0.65
+
+            self.real_A_output_popdensemap = self.real_A_output_popdensemap - 0.5
+            self.fake_A_output_popdensemap = self.fake_A_output_popdensemap - 0.5
+            self.real_B_output_popdensemap = self.real_B_output_popdensemap - 0.5
+            self.fake_B_output_popdensemap = self.fake_B_output_popdensemap - 0.5
 
         

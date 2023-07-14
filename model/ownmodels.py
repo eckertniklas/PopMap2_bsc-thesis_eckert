@@ -83,12 +83,15 @@ class BoostUNet(nn.Module):
 
         if "admin_mask" in inputs.keys():
             popcount_raw = (popdensemap_raw_valid * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
+            # popcount_raw = popdensemap_raw_valid * (inputs["admin_mask"]).sum((1,2))
         else:
             popcount_raw = popdensemap_raw_valid.sum((1,2))
 
         popvarmap_raw = nn.functional.softplus(out[:,1])
+        popvarmap_raw_valid = self.revert_padding(popvarmap_raw, (px1,px2,py1,py2))
         if "admin_mask" in inputs.keys():
-            popvar_raw = (popvarmap_raw * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
+            popvar_raw = (popvarmap_raw_valid * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
+            # popvar_raw = popvarmap_raw_valid * inputs["admin_mask"].sum((1,2))
         else:
             popvar_raw = popvarmap_raw.sum((1,2))
 
@@ -162,11 +165,11 @@ class BoostUNet(nn.Module):
                 "decoder_features": decoder_features}
 
 
-    def add_padding(self, data, force=True):
+    def add_padding(self, data, force=True, mode='reflect'):
         # Add padding
         px1,px2,py1,py2 = None, None, None, None
         if force:
-            data  = nn.functional.pad(data, self.p2d, mode='reflect')
+            data  = nn.functional.pad(data, self.p2d, mode=mode)
             px1,px2,py1,py2 = self.p, self.p, self.p, self.p
         else:
             # pad to make sure it is divisible by 32
@@ -174,11 +177,11 @@ class BoostUNet(nn.Module):
                 px1 = (64 - data.shape[2] % 64) //2
                 px2 = (64 - data.shape[2] % 64) - px1
                 # data = nn.functional.pad(data, (px1,0,px2,0), mode='reflect') 
-                data = nn.functional.pad(data, (0,0,px1,px2,), mode='reflect') 
+                data = nn.functional.pad(data, (0,0,px1,px2,), mode=mode) 
             if (data.shape[3] % 32) != 0:
                 py1 = (64 - data.shape[3] % 64) //2
                 py2 = (64 - data.shape[3] % 64) - py1
-                data = nn.functional.pad(data, (py1,py2,0,0), mode='reflect')
+                data = nn.functional.pad(data, (py1,py2,0,0), mode=mode)
 
         return data, (px1,px2,py1,py2)
     
@@ -189,11 +192,6 @@ class BoostUNet(nn.Module):
             data = data[...,px1:-px2,:]
         if py1 is not None or py2 is not None:
             data = data[...,py1:-py2]
-        # else:
-        #     if px1 is not None or px2 is not None:
-        #         data = data[:,:,px1:-px2,:]
-        #     if py1 is not None or py2 is not None:
-        #         data = data[:,:,:,py1:-py2]
         return data
 
     def get_domain_classifier(self, feature_dim, classifier):
@@ -259,6 +257,6 @@ class BoostUNet(nn.Module):
                 nn.Linear(256, 1),  nn.Sigmoid()
             )
         else:
-            domain_classifier = None
+            raise Exception("Unknown classifier version {}".format(classifier))
 
         return domain_classifier

@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 # from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep, ResBlocksSqueeze
 # from model.ownmodels import BoostUNet
 import json
-
+from utils.plot import plot_2dmatrix
 
 def to_cuda(sample):
     sampleout = {}
@@ -277,10 +277,11 @@ def apply_normalize(indata, dataset_stats):
 
 def apply_transformations_and_normalize(sample, transform, dataset_stats):
     """
-    :param image: image to be transformed
-    :param mask: mask to be transformed
+    :param sample: image to be transformed
     :param transform: transform to be applied to the image
-    :param transform_mask: transform to be applied to the mask
+    :param dataset_stats: dataset statistics for normalization
+    :param sample["mask"]: mask corresponding to the image (not mandatory)
+    :param sample["admin_mask"]: mask corresponding to the image (not mandatory)
     :return: transformed image and mask
     """
     # transforms
@@ -308,7 +309,9 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats):
         if "general" in transform.keys():
             # if masked
             if "mask" in sample.keys(): 
-                sample["input"], sample["mask"] = transform["general"]((sample["input"], sample["mask"])) 
+                sample["input"], sample["mask"] = transform["general"]((sample["input"], sample["mask"]))
+            if "admin_mask" in sample.keys():
+                sample["input"], sample["admin_mask"] = transform["general"]((sample["input"], sample["admin_mask"]))
             else:
                 sample["input"] = transform["general"](sample["input"])
     

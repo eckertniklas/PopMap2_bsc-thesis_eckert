@@ -94,9 +94,6 @@ class Eu2Rwa(object):
         return x if mask is None else (x, mask)
     
 
-
-    
-
 class AddGaussianNoise(object):
     """Add gaussian noise to a tensor image with a given probability.
     Args:
@@ -125,68 +122,105 @@ class AddGaussianNoise(object):
     
 
 class RandomHorizontalVerticalFlip(object):
-    def __init__(self, p=0.5): 
+    def __init__(self, p=0.5, allsame=False): 
         self.p = p
+        self.allsame = allsame
         
     def __call__(self, x):
         if torch.is_tensor(x):
             mask = None
         else:
             x, mask = x
-        if torch.rand(1) < self.p:
+
+        if self.allsame:
+            if torch.rand(1) < self.p:
+                x = TF.hflip(TF.vflip(x))
+                if mask is not None:
+                    mask = TF.hflip(TF.vflip(mask))
+                    return x, mask
+                return x
+            else:
+                if mask is not None:
+                    return x, mask
+                return x
+        else:
             selection = torch.rand(x.shape[0])<self.p
             x[selection] = TF.hflip(TF.vflip(x))[selection]
             if mask is not None:
                 mask[selection] = TF.hflip(TF.vflip(mask))[selection]
-            return x if mask is None else (x, mask)
-            # return TF.hflip(TF.vflip(x)) if mask is None else (TF.hflip(TF.vflip(x)), TF.hflip(TF.vflip(mask)))
-        return x if mask is None else (x, mask)
+                return x, mask
+            return x
     
     def __repr__(self):
         return self.__class__.__name__ + '(p={0}'.format(self.p)
 
 
+
 class RandomVerticalFlip(object):
-    def __init__(self, p=0.5): 
+    def __init__(self, p=0.5, allsame=False): 
         self.p = p
+        self.allsame = allsame
         
     def __call__(self, x):
         if torch.is_tensor(x):
             mask = None
         else:
             x, mask = x
-        if torch.rand(1) < self.p:
+        
+        if self.allsame:
+            if torch.rand(1) < self.p:
+                x = TF.vflip(x)
+                if mask is not None:
+                    mask = TF.vflip(mask)
+                    return x, mask
+                return x
+            else:
+                if mask is not None:
+                    return x, mask
+                return x
+        else:
             # random horizontal flip with probability 0.5 for each sample in batch
             selection = torch.rand(x.shape[0])<self.p
             x[selection] = TF.vflip(x)[selection]
             if mask is not None:
                 mask[selection] = TF.vflip(mask)[selection]
-            return x if mask is None else (x, mask)
-            # return TF.vflip(x) if mask is None else (TF.vflip(x), TF.vflip(mask))
-        return x if mask is None else (x, mask)
+                return x, mask
+            return x 
         
     def __repr__(self):
         return self.__class__.__name__ + '(p={0}'.format(self.p)
 
 
 class RandomHorizontalFlip(object):
-    def __init__(self, p=0.5): 
+    def __init__(self, p=0.5, allsame=False): 
         self.p = p
+        self.allsame = allsame
         
     def __call__(self, x):
         if torch.is_tensor(x):
             mask = None
         else:
             x, mask = x
-        if torch.rand(1) < self.p:
+        
+        if self.allsame:
+            if torch.rand(1) < self.p:
+                x = TF.hflip(x)
+                if mask is not None:
+                    mask = TF.hflip(mask)
+                    return x, mask
+                return x
+            else:
+                if mask is not None:
+                    return x, mask
+                return x
+        else:
             # random horizontal flip with probability 0.5 for each sample in batch
             selection = torch.rand(x.shape[0])<self.p
             x[selection] = TF.hflip(x)[selection]
             if mask is not None:
                 mask[selection] = TF.hflip(mask)[selection]
-            return x if mask is None else (x, mask)
-            # return TF.hflip(x) if mask is None else (TF.hflip(x), TF.hflip(mask))
-        return x if mask is None else (x, mask)
+                return x, mask
+            return x
         
     def __repr__(self):
         return self.__class__.__name__ + '(p={0}'.format(self.p)
@@ -214,7 +248,10 @@ class RandomRotationTransform(torch.nn.Module):
             x, mask = x
         if torch.rand(1) < self.p:
             angle = random.choice(self.angles)
-            return TF.rotate(x, angle) if mask is None else (TF.rotate(x, angle), TF.rotate(mask, angle))
+            if mask is not None:
+                return TF.rotate(x, angle, expand=True), TF.rotate(mask, angle, expand=True, fill=-1)
+                # return x.permute(0,1,3,2), mask.permute(0,1,3,2)
+            return TF.rotate(x, angle)
         return x if mask is None else (x, mask)
 
 

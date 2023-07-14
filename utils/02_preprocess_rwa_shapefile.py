@@ -78,6 +78,7 @@ def process(hd_regions_path, wp_regions_path,
     metadata.update({"count": 1, "dtype": rasterio.int32})
     
     this_outputfile = os.path.join(output_path, 'boundaries_coarse.tif')
+    this_outputfile_densities = os.path.join(output_path, 'densities_coarse.tif')
     this_censusfile = os.path.join(output_path, 'census_coarse.csv')
 
     if not os.path.exists(output_path):
@@ -125,9 +126,21 @@ def process(hd_regions_path, wp_regions_path,
     hd_regions["POP20"] = hd_regions["pop_count"]
     hd_regions[["idx", "POP20", "bbox", "count"]].to_csv(this_censusfile)
 
+    # create map of densities
+    densities = torch.zeros_like(burned, dtype=torch.float32)
+    for row in hd_regions.itertuples():
+        densities[burned==row.idx] = row.pop_count/row.count
+
     if burned.is_cuda:
         burned = burned.cpu()
+        densities = densities.cpu()
 
+    #save densities
+    metadatad = metadata.copy()
+    metadatad.update({"dtype": rasterio.float32})
+    with rasterio.open(this_outputfile_densities, 'w+', **metadatad) as out:
+        out.write_band(1, densities.numpy())
+    
 
     ##############################
     # now process the fine census data

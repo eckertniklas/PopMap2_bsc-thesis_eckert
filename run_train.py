@@ -126,16 +126,16 @@ class Trainer:
 
                 # initialize the target model
                 self.model.load_state_dict(torch.load(args.CyCADASourcecheckpoint)['model']) 
-                if args.adversarial:
-                    self.model.domain_classifier = self.model.get_domain_classifier(args.feature_dim, args.classifier).cuda()
                 
             else:
                 raise ValueError(f"Unknown model: {args.model}")
+
+        if args.adversarial:
+            self.model.domain_classifier = self.model.get_domain_classifier(args.feature_dim, args.classifier).cuda()
             
         # number of params
         args.pytorch_total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         print("Model", args.model, "; #Params:", args.pytorch_total_params)
-
 
         # set up experiment folder
         self.experiment_folder, self.args.expN, self.args.randN = new_log(os.path.join(args.save_dir, "So2Sat"), args)
@@ -180,6 +180,7 @@ class Trainer:
             tnr.set_postfix(training_loss=np.nan, validation_loss=np.nan, best_validation_loss=np.nan)
             for _ in tnr:
                 self.train_epoch(tnr)
+                torch.cuda.empty_cache()
 
                 # in domain validation
                 if (self.info["epoch"] + 1) % self.args.val_every_n_epochs == 0:
@@ -191,7 +192,7 @@ class Trainer:
                     self.test(plot=((self.info["epoch"]+1) % 20)==0, full_eval=((self.info["epoch"]+1) % 10)==0, zh_eval=True) #ZH
                     torch.cuda.empty_cache()
                 if (self.info["epoch"] + 1) % (1*self.args.val_every_n_epochs) == 0:
-                    self.test_target(save=False)
+                    self.test_target(save=True)
                     torch.cuda.empty_cache()
 
                     if self.args.save_model in ['last', 'both']:
@@ -247,14 +248,20 @@ class Trainer:
                     # forward pass and loss computation 
                     sample_weak = to_cuda_inplace(sample_weak) 
                     sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats)
-
+                    # print(sample_weak["input"].shape[2:])
                     output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False)
 
                     # merge augmented samples
                     if self.args.weak_merge_aug:
                         output_weak["popcount"] = output_weak["popcount"].sum(dim=0, keepdim=True)
+                        if "popvar" in output_weak:
+                            output_weak["popvar"] = output_weak["popvar"].sum(dim=0, keepdim=True) 
                         sample_weak["y"] = sample_weak["y"].sum(dim=0, keepdim=True)
                         sample_weak["source"] = sample_weak["source"][0]
+                        if self.boosted:
+                            output_weak["intermediate"]["popcount"] = output_weak["intermediate"]["popcount"].sum(dim=0, keepdim=True)
+                            if "popvar" in output_weak["intermediate"]:
+                                output_weak["intermediate"]["popvar"] = output_weak["intermediate"]["popvar"].sum(dim=0, keepdim=True)
 
                     loss_weak, loss_dict_weak = get_loss(
                         output_weak, sample_weak, tag="weak", loss=args.loss, lam=args.lam, merge_aug=args.merge_aug)
@@ -264,6 +271,8 @@ class Trainer:
 
                     # update loss
                     optim_loss += loss_weak * self.args.lam_weak #* self.info["beta"]
+                else:
+                    output_weak = None
 
                 # forward pass
                 sample = to_cuda_inplace(sample)
@@ -282,7 +291,7 @@ class Trainer:
                     sample = apply_transformations_and_normalize(sample, self.data_transform, self.dataset_stats)
                 
 
-                if not self.args.GANonly:
+                if not self.args.GANonly and not self.args.nomain:
                     # forward pass for the main model
                     output = self.model(sample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
                 
@@ -323,6 +332,7 @@ class Trainer:
                 else:
                     loss_dict = {}
                     loss_dict_raw = {}
+                    output = None
 
                 # Detach tensors
                 loss_dict = detach_tensors_in_dict(loss_dict)
@@ -341,8 +351,8 @@ class Trainer:
                     if torch.isnan(optim_loss):
                         raise Exception("detected NaN loss..")
                     
-                    if self.info["epoch"] > 0 or not self.args.skip_first:
-                        # TODO: self.set_requires_grad([self.netD_A, self.netD_B], False)
+                    if self.info["epoch"] > 0 or not self.args.no_opt:
+                        # backprop
                         optim_loss.backward()
 
                         # gradient clipping
@@ -350,10 +360,15 @@ class Trainer:
                             clip_grad_norm_(self.model.parameters(), self.args.gradient_clip)
 
                         self.optimizer.step()
-                        optim_loss = optim_loss.detach()  
-                        output = detach_tensors_in_dict(output)
-                        # del output
-                        # del sample 
+                        optim_loss = optim_loss.detach()
+                        if output is not None:  
+                            output = detach_tensors_in_dict(output)
+                            del output
+                        if output_weak is not None:
+                            output_weak = detach_tensors_in_dict(output_weak)
+                            del output_weak
+                        torch.cuda.empty_cache()
+                        del sample 
                         gc.collect()
 
                 # update info
@@ -368,7 +383,7 @@ class Trainer:
                 if self.args.supmode=="weaksup":
                     self.info["beta"] = self.update_param(float(i + self.info["epoch"] * len(self.dataloaders['train'])) / self.args.num_epochs / len(self.dataloaders['train']))
                     if self.dataloaders["weak_indices"][i%len(self.dataloaders["weak_indices"])] == self.dataloaders["weak_indices"][-1]:  
-                        random.shuffle(self.dataloaders["weak_indices"]); self.log_train(); break
+                        random.shuffle(self.dataloaders["weak_indices"]); self.log_train(train_stats); break
 
                 if self.args.CyCADA:
                     if self.info["sampleitr"] % self.opt.display_freq == 0:   # display images on visdom and save images to a HTML file
@@ -697,7 +712,8 @@ class Trainer:
             self.data_transform["general"] = transforms.Compose([
                 # AddGaussianNoise(std=0.04, p=0.75), 
                 # RandomHorizontalVerticalFlip(p=0.5),
-                RandomVerticalFlip(p=0.5), RandomHorizontalFlip(p=0.5),
+                RandomVerticalFlip(p=0.5, allsame=args.supmode=="weaksup"),
+                RandomHorizontalFlip(p=0.5, allsame=args.supmode=="weaksup"),
                 RandomRotationTransform(angles=[90, 180, 270], p=0.75),
             ])
         else: 
@@ -825,8 +841,8 @@ class Trainer:
         # load checkpoint
         checkpoint = torch.load(path)
         self.model.load_state_dict(checkpoint['model'])
-        self.optimizer.load_state_dict(checkpoint['optimizer'])
-        self.scheduler.load_state_dict(checkpoint['scheduler'])
+        # self.optimizer.load_state_dict(checkpoint['optimizer'])
+        # self.scheduler.load_state_dict(checkpoint['scheduler'])
         self.info["epoch"] = checkpoint['epoch']
         self.info["iter"] = checkpoint['iter']
 

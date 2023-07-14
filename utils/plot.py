@@ -131,7 +131,7 @@ import matplotlib
 matplotlib.use('Agg')
 from scipy.stats import gaussian_kde
 
-def scatter_plot3(predicted, ground_truth):
+def scatter_plot3(predicted, ground_truth, log_scale=True):
     # Create a scatterplot of the predicted and ground truth values
 
     x = np.array(predicted)
@@ -159,8 +159,9 @@ def scatter_plot3(predicted, ground_truth):
     # plt.show()
 
     # Set both axes to a log scale
-    ax.set_xscale('log')
-    ax.set_yscale('log')
+    if log_scale:
+        ax.set_xscale('log')
+        ax.set_yscale('log')
 
     # Add axis labels and a title
     plt.xlabel('Predicted Values')

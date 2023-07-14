@@ -81,7 +81,10 @@ class Population_Dataset_target(Dataset):
             # read the census file
             self.coarse_census = pd.read_csv(self.file_paths["coarse"]["census"])
             # self.coarse_census = pd.read_csv(self.coarse_census_file)
-            max_pix = 2e6
+            # max_pix = 2e6
+            max_pix = 1.25e6
+            # max_pix = 1e16
+            # max_pix = 1e16
             print("Kicking out ", (self.coarse_census["count"]>=max_pix).sum(), "samples with more than ", int(max_pix), " pixels")
             self.coarse_census = self.coarse_census[self.coarse_census["count"]<max_pix].reset_index(drop=True)
 
@@ -93,6 +96,8 @@ class Population_Dataset_target(Dataset):
             # get the shape of the coarse regions
             with rasterio.open(self.coarse_boundary_file, "r") as src:
                 self.cr_regions = src.read(1)
+                self.cr_shape = src.shape
+
 
         elif self.mode=="test":
             # testdata specific preparation
@@ -210,13 +215,16 @@ class Population_Dataset_target(Dataset):
         census_sample = self.coarse_census.loc[index]
         
         # get the coordinates of the patch
-        xmin, xmax, ymin, ymax = tuple(map(int, census_sample["bbox"].strip('()').split(',')))
+        # xmin, xmax, ymin, ymax = tuple(map(int, census_sample["bbox"].strip('()').split(',')))
+        xmin, xmax, ymin, ymax = tuple(map(int, census_sample["bbox"].strip('()').strip('[]').split(',')))
 
         # get the season for the S2 data
         season = random.choice(['spring', 'autumn', 'winter', 'summer']) if self.fourseasons else "spring"
 
         # get the data
-        indata, auxdata = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0)
+        # indata, auxdata = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0)
+        ad_over = 32
+        indata, auxdata, w = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0, admin_overlap=ad_over)
 
         if "S2" in indata:
             if np.any(np.isnan(indata["S2"])): 
@@ -227,7 +235,9 @@ class Population_Dataset_target(Dataset):
                 indata["S1"] = self.interpolate_nan(indata["S1"]) 
 
         # get admin_mask
-        admin_mask = torch.from_numpy(self.cr_regions[xmin:xmax, ymin:ymax]==census_sample["idx"])
+        admin_mask = torch.from_numpy(self.cr_regions[w[0][0]:w[0][1], w[1][0]:w[1][1]])
+        # admin_mask = torch.from_numpy(self.cr_regions[xmin:xmax, ymin:ymax]==census_sample["idx"])
+        # admin_mask = torch.from_numpy(self.cr_regions[w[0][0]:w[0][1], w[1][0]:w[1][1]]==census_sample["idx"])
 
         # To Torch
         indata = {key:torch.from_numpy(np.asarray(val, dtype=np.float32)).type(torch.FloatTensor) for key,val in indata.items()}
@@ -268,7 +278,7 @@ class Population_Dataset_target(Dataset):
         x,y,season = self.patch_indices[index]
 
         # get the data
-        indata, mask = self.generate_raw_data(x,y,season.item())
+        indata, mask, window = self.generate_raw_data(x,y,season.item())
 
         if "S2" in indata:
             if np.any(np.isnan(indata["S2"])): 
@@ -341,7 +351,7 @@ class Population_Dataset_target(Dataset):
         return input_array
 
 
-    def generate_raw_data(self,x,y, season, patchsize=None, overlap=None):
+    def generate_raw_data(self, x, y, season, patchsize=None, overlap=None, admin_overlap=0):
         """
         Generate the data for the patch
         Input:
@@ -358,9 +368,23 @@ class Population_Dataset_target(Dataset):
         patchsize_y = self.patchsize if patchsize is None else patchsize[1]
         overlap = self.overlap if overlap is None else overlap
 
+        # get the window of the patch for administative region case
+        if admin_overlap>0:
+            new_x = max(x-admin_overlap,0)
+            new_y = max(y-admin_overlap,0)
+            x_stop = min(x+patchsize_x+admin_overlap, self.cr_shape[0])
+            y_stop = min(y+patchsize_y+admin_overlap, self.cr_shape[1])
+            window = ((new_x,x_stop),(new_y,y_stop))
+
+        else:
+            window = ((x,x+patchsize_x),(y,y+patchsize_y))
+
+
         indata = {}
         mask = np.zeros((patchsize_x, patchsize_y), dtype=bool)
         mask[overlap:patchsize_x-overlap, overlap:patchsize_y-overlap] = True
+
+        # for debugging
         fake = False
 
         # get the input data
@@ -371,15 +395,13 @@ class Population_Dataset_target(Dataset):
                     indata["S2"] = np.random.randint(0, 10000, size=(4,patchsize_x,patchsize_y))
                 else:
                     with rasterio.open(S2_file, "r") as src:
-                        # indata["S2"] = src.read((4,3,2,8), window=((x,x+patchsize_x),(y,y+patchsize_y))) 
-                        indata["S2"] = src.read((3,2,1,4), window=((x,x+patchsize_x),(y,y+patchsize_y))).astype(np.float32) 
+                        indata["S2"] = src.read((3,2,1,4), window=window).astype(np.float32) 
             else:
                 if fake:
                     indata["S2"] = np.random.randint(0, 10000, size=(3,patchsize_x,patchsize_y))
                 else:
                     with rasterio.open(S2_file, "r") as src:
-                        # indata["S2"] = src.read((4,3,2), window=((x,x+patchsize_x),(y,y+patchsize_y)))
-                        indata["S2"] = src.read((3,2,1), window=((x,x+patchsize_x),(y,y+patchsize_y))).astype(np.float32) 
+                        indata["S2"] = src.read((3,2,1), window=window).astype(np.float32) 
             # mask = mask & (indata["S2"].sum(axis=0) != 0)
         if self.S1:
             S1_file = self.S1_file[season]
@@ -387,20 +409,20 @@ class Population_Dataset_target(Dataset):
                 indata["S1"] = np.random.randint(0, 10000, size=(2,patchsize_x,patchsize_y))
             else:
                 with rasterio.open(S1_file, "r") as src:
-                    indata["S1"] = src.read((1,2), window=((x,x+patchsize_x),(y,y+patchsize_y))).astype(np.float32) 
+                    indata["S1"] = src.read((1,2), window=window).astype(np.float32) 
             # mask = mask & (indata["S1"].sum(axis=0) != 0)
         if self.VIIRS:
             if fake:
                 indata["VIIRS"] = np.random.randint(0, 10000, size=(1,patchsize_x,patchsize_y))
             else:
                 with rasterio.open(self.VIIRS_file, "r") as src:
-                    indata["VIIRS"] = src.read(1, window=((x,x+patchsize_x),(y,y+patchsize_y))).astype(np.float32) 
+                    indata["VIIRS"] = src.read(1, window=window).astype(np.float32) 
             # mask = mask & (indata["VIIRS"].sum(axis=0) != 0)
 
         # # load administrative mask
         # admin_mask = self.cr_regions[x:x+patchsize_x, y:y+patchsize_y]==idx
 
-        return indata, mask
+        return indata, mask, window
 
     def convert_popmap_to_census(self, pred, gpu_mode=False, level="fine"):
         """
@@ -449,6 +471,21 @@ class Population_Dataset_target(Dataset):
                 # xmin, xmax, ymin, ymax = tuple(map(int, tuple(map(int, bbox.strip('()').strip('[]').split(','))).split(',')))
                 census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].sum()
         
+        # produce density map
+        # densities = torch.zeros_like(pred)
+        # pred_densities_census = census_pred.cpu() / census["count"]
+        # for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
+        #     xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
+        #     densities[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = pred_densities_census[i]
+
+        # # produce density map for the ground truth
+        # densities_gt = torch.zeros_like(pred)
+        # gt_densities_census = torch.tensor(census["POP20"]) / census["count"]
+        # for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
+        #     xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
+        #     densities_gt[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = gt_densities_census[i]
+
+
         del boundary, pred
         torch.cuda.empty_cache()
 
@@ -529,8 +566,14 @@ class Population_Dataset_target(Dataset):
 
         # save the predictions
         output_file = os.path.join(output_folder, self.region + f"_predictions{tag}.tif")
-        with rasterio.open(output_file, "w", CHECK_DISK_FREE_SPACE="NO", **self._meta) as dest:
-            dest.write(preds,1)
+
+        try:
+            with rasterio.open(output_file, "w", CHECK_DISK_FREE_SPACE="NO", **self._meta) as dest:
+                dest.write(preds,1)
+        except:
+            print("Error saving predictions to file, continuing...")
+            pass
+
 
 
 # collate function for the dataloader
@@ -544,23 +587,29 @@ def Population_Dataset_collate_fn(batch):
         :return: the batch of data with same shapes
     """
     # Find the maximum dimensions for each item in the batch
-    max_x = max([item['input'].shape[1] for item in batch])
-    max_y = max([item['input'].shape[2] for item in batch])
+    max_x = max([item['S1'].shape[1] for item in batch])
+    max_y = max([item['S1'].shape[2] for item in batch])
 
     # Create empty tensors with the maximum dimensions
-    input_batch = torch.zeros(len(batch), batch[0]['input'].shape[0], max_x, max_y)
+    input_batch_S1 = torch.zeros(len(batch), batch[0]['S1'].shape[0], max_x, max_y)
+    input_batch_S2 = torch.zeros(len(batch), batch[0]['S2'].shape[0], max_x, max_y)
     admin_mask_batch = torch.zeros(len(batch), max_x, max_y)
     y_batch = torch.zeros(len(batch))
 
     # Fill the tensors with the data from the batch
     for i, item in enumerate(batch):
-        x_size, y_size = item['input'].shape[1], item['input'].shape[2]
-        input_batch[i, :, :x_size, :y_size] = item['input']
+        # x_size, y_size = item['input'].shape[1], item['input'].shape[2]
+        # input_batch[i, :, :x_size, :y_size] = item['input']
+        x_size, y_size = item['S1'].shape[1], item['S1'].shape[2]
+        input_batch_S1[i, :, :x_size, :y_size] = item['S1']
+        input_batch_S2[i, :, :x_size, :y_size] = item['S2']
+
         admin_mask_batch[i, :x_size, :y_size] = item['admin_mask']
         y_batch[i] = item['y']
 
     return {
-        'input': input_batch,
+        'S1': input_batch_S1,
+        'S2': input_batch_S2,
         'admin_mask': admin_mask_batch,
         'y': y_batch,
         'img_coords': [item['img_coords'] for item in batch],

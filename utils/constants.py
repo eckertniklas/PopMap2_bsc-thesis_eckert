@@ -25,8 +25,6 @@ if os.name == "nt":  # locally
 current_dir_paths = ["/scratch/metzgern/HAC/data",
     "/cluster/scratch/metzgern/HAC/data/",
     "/cluster/work/igp_psr/metzgern/HAC/data",
-
-    # "/cluster/scratch/metzgern"
 ]
 # --info=progress2 --info=name0 --ignore-existing
 
@@ -49,9 +47,18 @@ all_patches_mixed_train_part2 = os.path.join(all_patches_mixed_part2, 'train')  
 all_patches_mixed_test_part2 = os.path.join(all_patches_mixed_part2, 'test')   # path to test folder
 
 # Sat2Pop data folder
-pop_map_root = os.path.join(current_dir_path, os.path.join("PopMapData", "processed"))
+large_file_paths = ["/scratch/metzgern/HAC/data",
+                    "/scratch2/metzgern/HAC/data",
+                    "/cluster/work/igp_psr/metzgern/HAC/data"]
+for name in large_file_paths:
+    if os.path.isdir(name):
+        large_file_path = name
+if large_file_path is None:
+    raise Exception("No data folder found")
+
+pop_map_root = os.path.join(large_file_path, os.path.join("PopMapData", "processed"))
 pop_map_root_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.join("PopMapData", "processed"))
-pop_map_covariates = os.path.join(current_dir_path, os.path.join("PopMapData", os.path.join("merged", "EE")))
+pop_map_covariates = os.path.join(large_file_path, os.path.join("PopMapData", os.path.join("merged", "EE")))
 pop_map_covariates_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.join("PopMapData", os.path.join("merged", "EE")))
 
 # Definitions of where to find the census data and the boundaries of the target areas

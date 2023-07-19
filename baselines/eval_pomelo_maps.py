@@ -66,7 +66,7 @@ def evaluate_meta_maps(map_path, template_path):
     parent_dir = "/".join(map_path.split("/")[:-1])
 
     # high_resolution map 
-    hr_map_path = map_path.replace(".tif", "_hr.tif")
+    hr_map_path = map_path.replace(".tiff", "_hr.tiff")
 
     # load map
     with rasterio.open(map_path) as src:
@@ -118,10 +118,7 @@ if __name__=="__main__":
     """
     Evaluates the Worldpop-maps on the test set of Rwanda
     """
-    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020.tif"
-    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_UNadj.tif"
-    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_constrained.tif"
-    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_UNadj_constrained.tif"
+    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/POMELOv1Maps/rwa_predicted_target_img_adjusted.tiff"
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa/S2Aautumn/rwa_S2Aautumn.tif"
 
     evaluate_meta_maps(map_path, template_path)

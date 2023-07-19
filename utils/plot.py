@@ -153,7 +153,8 @@ def scatter_plot3(predicted, ground_truth, log_scale=True):
     ax.scatter(x, y, c=z, s=12)
 
     # Set the x and y limits to match the ground truth min and max
-    min_value, max_value = np.min(0.5), np.max(ground_truth)
+    if log_scale:
+        min_value, max_value = np.max([0.5,np.min(ground_truth)]), np.max(ground_truth)
     ax.set_xlim(min_value, max_value)
     ax.set_ylim(min_value, max_value)
     # plt.show()

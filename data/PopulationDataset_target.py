@@ -90,7 +90,8 @@ class Population_Dataset_target(Dataset):
 
             # redefine indexing
             if max_samples is not None:
-                self.coarse_census = self.coarse_census.sample(frac=1, random_state=1610)[:max_samples].reset_index(drop=True)
+                # self.coarse_census = self.coarse_census.sample(frac=1, random_state=1610)[:max_samples].reset_index(drop=True)
+                self.coarse_census = self.coarse_census.sample(frac=1, random_state=1610)[-max_samples:].reset_index(drop=True)
             print("Using", len(self.coarse_census), "samples for weakly supervised training")
 
             # get the shape of the coarse regions
@@ -452,14 +453,18 @@ class Population_Dataset_target(Dataset):
             # pred = pred.to(torch.float32).cuda()
             pred = pred.cuda()
             boundary = boundary.cuda()
-            census_pred = torch.zeros(len(census), dtype=torch.float32).cuda()
+            # census_pred = torch.zeros(len(census), dtype=torch.float32).cuda()
+            census_pred = -torch.ones(census["idx"].max()+1, dtype=torch.float32).cuda()
 
             # iterate over census regions and get totals
             # for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"])), total=len(census)):
             for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
             # for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"]))):
+                # if cidx == 391:
+                    # print("here")
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
-                census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
+                census_pred[cidx] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
+                # census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
 
         else:
             pred = pred.to(torch.float32)
@@ -469,8 +474,13 @@ class Population_Dataset_target(Dataset):
             for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
                 # xmin, xmax, ymin, ymax = tuple(map(int, tuple(map(int, bbox.strip('()').strip('[]').split(','))).split(',')))
-                census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].sum()
+                census_pred[cidx] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].sum()
+                # census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].sum()
         
+        valid_census = census_pred>-1
+        census_pred = census_pred[valid_census]
+        # census = census[valid_census]
+
         # produce density map
         # densities = torch.zeros_like(pred)
         # pred_densities_census = census_pred.cpu() / census["count"]

@@ -62,8 +62,12 @@ class BoostUNet(nn.Module):
 
                                   
     def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True):
-
-        # data = inputs["input"]
+        """
+        Forward pass of the model
+        Assumptions:
+            - inputs["input"] is the input image (Concatenation of Sentinel-1 and/or Sentinel-2)
+            - inputs["input"].shape = [batch_size, input_channels, height, width]
+        """
 
         # Add padding
         data, (px1,px2,py1,py2) = self.add_padding(inputs["input"], padding)

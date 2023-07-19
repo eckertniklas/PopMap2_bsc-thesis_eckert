@@ -134,10 +134,9 @@ class JacobsUNet(nn.Module):
             - inputs["input"] is the input image (Concatenation of Sentinel-1 and/or Sentinel-2)
             - inputs["input"].shape = [batch_size, input_channels, height, width]
         """
-        data = inputs["input"]
 
         # Add padding
-        data, (px1,px2,py1,py2) = self.add_padding(data, padding)
+        data, (px1,px2,py1,py2) = self.add_padding(inputs["input"], padding)
 
         # Forward the main model
         features, decoder_features = self.unetmodel(data, return_features=return_features)

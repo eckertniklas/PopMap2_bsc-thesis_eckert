@@ -23,7 +23,9 @@ if os.name == "nt":  # locally
 
 # current_dir_path = "/scratch2/metzgern/HAC/code/So2SatPOP/data"
 current_dir_paths = ["/scratch/metzgern/HAC/data",
+    "/cluster/scratch/metzgern/HAC/data/",
     "/cluster/work/igp_psr/metzgern/HAC/data",
+
     # "/cluster/scratch/metzgern"
 ]
 # --info=progress2 --info=name0 --ignore-existing

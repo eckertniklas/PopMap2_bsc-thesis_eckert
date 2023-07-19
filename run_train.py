@@ -152,7 +152,8 @@ class Trainer:
         if args.optimizer == "Adam":
             self.optimizer = optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
         elif args.optimizer == "SGD":
-            self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weightdecay)
+            self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
+            # self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weightdecay)
 
         if args.stochasticWA:
             self.optimizer = SWA(self.optimizer, swa_start=2, swa_freq=1, swa_lr=0.05)
@@ -170,7 +171,6 @@ class Trainer:
         # in case of checkpoint resume
         if args.resume is not None:
             self.resume(path=args.resume)
-
 
     def train(self):
         """
@@ -268,6 +268,16 @@ class Trainer:
                     
                     # Detach tensors
                     loss_dict_weak = detach_tensors_in_dict(loss_dict_weak)
+                    
+                    if self.boosted:
+                        boosted_loss = [el.replace("gaussian", "l1") if el in ["gaussian_nll", "log_gaussian_nll", "gaussian_aug_loss", "log_gaussian_aug_loss"] else el for el in args.loss]
+                        boosted_loss = [el.replace("laplace", "l1") if el in ["laplacian_nll", "log_laplacian_nll", "laplace_aug_loss", "log_laplace_aug_loss"] else el for el in boosted_loss]
+                        loss_weak_raw, loss_weak_dict_raw = get_loss(
+                            output_weak["intermediate"], sample_weak, loss=boosted_loss, lam=args.lam, merge_aug=args.merge_aug, tag="train_weak_intermediate")
+                        
+                        loss_weak_dict_raw = detach_tensors_in_dict(loss_weak_dict_raw)
+                        loss_dict_weak = {**loss_dict_weak, **loss_weak_dict_raw}
+                        loss_weak += loss_weak_raw
 
                     # update loss
                     optim_loss += loss_weak * self.args.lam_weak #* self.info["beta"]
@@ -686,7 +696,7 @@ class Trainer:
                         self.target_test_stats = {**self.target_test_stats,
                                                   **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos_{}_{}".format(testdataloader.dataset.region, level))}
     
-                    scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
+                    scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist(), log_scale=True)
                     if scatterplot is not None:
                         self.target_test_stats["Scatter/Scatter_{}_{}".format(testdataloader.dataset.region, level)] = wandb.Image(scatterplot)
                         # scatterplot.save("last_scatter.png")
@@ -716,17 +726,26 @@ class Trainer:
                 RandomHorizontalFlip(p=0.5, allsame=args.supmode=="weaksup"),
                 RandomRotationTransform(angles=[90, 180, 270], p=0.75),
             ])
+            S2augs = [  RandomBrightness(p=0.9, beta_limit=(0.666, 1.5)),
+                    RandomGamma(p=0.9, gamma_limit=(0.6666, 1.5)),
+                    # HazeAdditionModule(p=0.5, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3))
+            ]
+            if args.eu2rwa:
+                S2augs.append(Eu2Rwa(p=1.0))
+
+
         else: 
             self.data_transform["general"] = transforms.Compose([
                 # AddGaussianNoise(std=0.1, p=0.9),
             ])
+            S2augs = [  ]
         # ])
-        S2augs = [  RandomBrightness(p=0.9, beta_limit=(0.666, 1.5)),
-                    RandomGamma(p=0.9, gamma_limit=(0.6666, 1.5)),
-                    # HazeAdditionModule(p=0.5, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3))
-        ]
-        if args.eu2rwa:
-            S2augs.append(Eu2Rwa(p=1.0))
+        # S2augs = [  RandomBrightness(p=0.9, beta_limit=(0.666, 1.5)),
+        #             RandomGamma(p=0.9, gamma_limit=(0.6666, 1.5)),
+        #             # HazeAdditionModule(p=0.5, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3))
+        # ]
+        # if args.eu2rwa:
+        #     S2augs.append(Eu2Rwa(p=1.0))
         self.data_transform["S2"] = OwnCompose(S2augs)
 
         self.data_transform["S1"] = transforms.Compose([
@@ -797,7 +816,8 @@ class Trainer:
         # add weakly supervised samples of the target domain to the trainind_dataset
         if args.supmode=="weaksup":
             # create the weakly supervised dataset stack them into a single dataset and dataloader
-            weak_batchsize = 2 if args.weak_merge_aug else 1
+            weak_batchsize = args.weak_batch_size
+            # weak_batchsize = args.weak_batch_size if args.weak_merge_aug else 1
             weak_datasets = []
             for reg in args.target_regions:
                 weak_datasets.append( Population_Dataset_target(reg, mode="weaksup", patchsize=None, overlap=None, max_samples=args.max_weak_samples,

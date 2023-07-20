@@ -386,6 +386,56 @@ def export_S1_tile(season, dates, filename, roi, folder, scale=10, crs='EPSG:432
     start(task)
     return None
 
+# def export_gbuildings(collection_name, confidence_min, bbox, description, folder, scale=10):
+def export_gbuildings(roi, filename, folder, confidence_min=0.65, scale=10, crs='EPSG:4326'):
+    """
+    Function to export a filtered Google Earth Engine collection to Google Drive.
+
+    Args:
+    - collection_name (str): name of the GEE collection to filter and export.
+    - confidence_min (float): minimum confidence to filter by.
+    - roi (list): bounding box to filter by, in the format [minLon, minLat, maxLon, maxLat].
+    - filename (str): description for the exported data.
+    - folder (str): name of the folder in Google Drive to export the data to.
+    - scale (int): resolution of the export in meters (default is 30).
+    - crs (str): coordinate reference system of the exported data (default is 'EPSG:4326').
+
+    Returns:
+    - None.
+    """
+
+    # Define the bounding box as an ee.Geometry.Rectangle
+    # roi = ee.Geometry.Rectangle(bbox)
+
+    # Load the building footprint dataset
+    t = ee.FeatureCollection('GOOGLE/Research/open-buildings/v3/polygons')
+
+    # Apply the confidence filters and clip to the bounding box
+    # t_filtered = t.filter(ee.Filter.gte('confidence', confidence_min)).filterBounds(roi)
+    t_filtered = t.filterBounds(roi)
+
+    # Define the export parameters
+    export_params = {
+        'collection': t_filtered,
+        'description': filename,
+        'folder': folder,
+        # 'fileFormat': 'TFRecord',
+        # 'scale': scale,
+        # 'region': roi,
+        # 'crs': crs,
+    }
+
+    # Export the data to Google Drive
+    task = ee.batch.Export.table.toDrive(**export_params)
+
+    # Start the task
+    start(task)
+
+    # Print a link to the export data for convenience
+    # print(f"https://drive.google.com/drive/folders/{task.config['folderId']}")
+
+
+
 
 def download(minx, miny, maxx, maxy, name):
 
@@ -396,13 +446,14 @@ def download(minx, miny, maxx, maxy, name):
     # find the EPSG code for the local projection
     # exportarea3035 = exportarea.transform('EPSG:3035')
 
-    S1 = True
+    S1 = False
     # S2 = True
     S2 = False
     # S2A = True
     S2A = False
-    VIIRS = True
+    # VIIRS = True
     VIIRS = False
+    GoogleBuildings = True
 
     if S1:
         ########################### Processing Sentinel 1 #############################################
@@ -449,6 +500,15 @@ def download(minx, miny, maxx, maxy, name):
                         maxPixels=80000000000,
                     )
         task.start()
+
+
+    if GoogleBuildings:
+        ########################### Processing Google Buildings #############################################
+        
+        # Google Buildings
+        export_gbuildings(exportarea, "Gbuildings_" + name, folder=name, confidence_min=0.65, )
+
+
 
     return None
 

@@ -158,7 +158,7 @@
                 "30.96165440152508",
                 "-2.7948970488002317",
                 "RWA_test",
-                "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/GEEraster/RWA",
+                // "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/GEEraster/RWA",
             ]
         },{
             "name": "02_preprocess_rwa_shapefile.py",
@@ -246,6 +246,42 @@
                 "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/pricp2",
                 "/scratch2/metzgern/HAC/data/PopMapData/processed/EE/pricp2",
                 "100",
+            ]
+        },
+        {
+            "name": "06_rasterize_gbuildings.py, RWA",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/06_rasterize_gbuildings.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--csv_path", "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/rwa/Gbuildings_rwa.csv",
+                "--template_path", "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa/S2Awinter/rwa_S2Awinter.tif",
+                "--output_folder", "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/rwa/",
+            ]
+        },
+        {
+            "name": "06_rasterize_gbuildings.py, RWAtest",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/06_rasterize_gbuildings.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--csv_path", "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/rwa/Gbuildings_RWA_test.csv",
+                "--template_path", "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa/S2Awinter/rwa_S2Awinter.tif",
+                "--output_folder", "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/rwa/",
+            ]
+        },
+        {
+            "name": "06_rasterize_gbuildings.py, PRI",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/06_rasterize_gbuildings.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--csv_path", "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/pricp2/Gbuildings_pricp2.csv",
+                "--template_path", "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/pricp2/S2Awinter/pricp2_S2Awinter.tif",
+                "--output_folder", "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/pricp2/",
             ]
         },
         {
@@ -592,16 +628,18 @@
                 "16",
                 "-lr", 
                 "1e-4", 
-                // "--model", "BoostUNet",  
-                "--model", "JacobsUNet",  
+                "--model", "BoostUNet",  
+                // "--model", "JacobsUNet",  
                 "-l",
                 "log_l1_loss", 
+                // "L1reg", 
                 // "l1_loss", 
                 "--merge_aug", "2",
                 "-la",
-                "0.01",
-                "-dw","1",
-                "-dw2","1",
+                "1.0",
+                // "0.01",
+                "-dw","2",
+                "-dw2","2",
                 "-S2",
                 "-S1",
                 // "-NIR",
@@ -622,18 +660,19 @@
                 // "-adv", 
                 // "-ladv", "0.001",
                 "--seed", "1612",
-                "-gc", "0.001",
+                "-gc", "0.01",
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1110_933/last_model.pth",
                 "--supmode", "weaksup",
                 "--lam_weak", "100",
                 // "--supmode", "unsup",
                 // "--no_opt"
-                // "--nomain",
+                "--nomain",
                 "--weak_merge_aug",
                 // "--max_weak_samples", "8",
                 "--val_every_n_epochs", "1",
                 // "--val_every_n_epochs", "100",
-                "--weak_batch_size", "2"
+                "--weak_batch_size", "2",
+                "--occupancymodel"
                 // "--optimizer", "SGD",
                 // "--weightdecay", "0.000001",
                 // "--eu2rwa" 

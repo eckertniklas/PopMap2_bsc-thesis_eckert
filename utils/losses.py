@@ -53,6 +53,12 @@ def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
         "mCorrelation": torch.corrcoef(torch.stack([y_pred, y_gt]))[0,1] if len(y_pred)>1 else torch.tensor(0.0),
     }
 
+    if "admin_mask" in gt.keys():
+        popdict["L1reg"] = (output["popdensemap"] * (gt["admin_mask"]==gt["census_idx"].view(-1,1,1))).abs().mean()
+    else:
+        # popdict["L1reg"] = torch.abs(output["popdensemap"]).mean()
+        popdict["L1reg"] = output["popdensemap"].abs().mean()
+
     if "popvar" in output.keys():
         varpopdict = {
             "gaussian_nll": gaussian_nll(y_pred, y_gt, var),

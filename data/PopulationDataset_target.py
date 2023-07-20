@@ -15,7 +15,7 @@ import random
 
 from typing import Dict, Tuple
 
-from utils.constants import pop_map_root_large, pop_map_root, pop_map_covariates, pop_map_covariates_large, config_path 
+from utils.constants import pop_map_root_large, pop_map_root, pop_map_covariates, pop_map_covariates_large, config_path, pop_gbuildings_path
 from utils.constants import datalocations
 from utils.plot import plot_2dmatrix
 
@@ -136,6 +136,11 @@ class Population_Dataset_target(Dataset):
         self.inv_season_dict = {v: k for k, v in self.season_dict.items()}
         self.VIIRS_file = os.path.join(covar_root,  os.path.join("viirs", region +"_viirs.tif"))
 
+        # load the google buildings
+        self.gbuildings_segmentation_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_segmentation.tif")
+        self.gbuildings_counts_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_counts.tif")
+        self.gbuildings = True
+
         # normalize the dataset (do not use, this does not make sense for variable regions sizes like here)
         self.y_stats = load_json(os.path.join(config_path, 'dataset_stats', 'label_stats.json'))
         self.y_stats['max'] = float(self.y_stats['max'])
@@ -237,30 +242,10 @@ class Population_Dataset_target(Dataset):
 
         # get admin_mask
         admin_mask = torch.from_numpy(self.cr_regions[w[0][0]:w[0][1], w[1][0]:w[1][1]])
-        # admin_mask = torch.from_numpy(self.cr_regions[xmin:xmax, ymin:ymax]==census_sample["idx"])
-        # admin_mask = torch.from_numpy(self.cr_regions[w[0][0]:w[0][1], w[1][0]:w[1][1]]==census_sample["idx"])
 
         # To Torch
         indata = {key:torch.from_numpy(np.asarray(val, dtype=np.float32)).type(torch.FloatTensor) for key,val in indata.items()}
 
-        # Modality wise transformations
-        # if self.transform:
-        #     if "S2" in self.transform and "S2" in indata:
-        #         indata["S2"] = self.transform["S2"](indata["S2"])
-        #     if "S1" in self.transform and "S1" in indata:
-        #         indata["S1"] = self.transform["S1"](indata["S1"])
-
-        # Normalization
-        # indata = self.normalize_indata(indata)
-
-        # merge inputs
-        # X = torch.concatenate([indata[key] for key in ["S2", "S1", "VIIRS"] if key in indata], dim=0)
-
-        # General transformations
-        # if self.transform:
-        #     if "general" in self.transform:
-        #         X, admin_mask = self.transform["general"]((X, admin_mask.unsqueeze(0)))
-        #         admin_mask = admin_mask.squeeze(0)
 
         # return dictionary
         return {
@@ -298,28 +283,6 @@ class Population_Dataset_target(Dataset):
         xmax = x+self.patchsize-self.overlap
         ymin = y+self.overlap
         ymax = y+self.patchsize-self.overlap
-
-        # transform the input data with augmentations
-        # if self.transform:
-        #     if "S2" in self.transform and "S2" in indata:
-        #         indata["S2"] = self.transform["S2"](indata["S2"])
-        #     if "S1" in self.transform and "S1" in indata:
-        #         indata["S1"] = self.transform["S1"](indata["S1"])
-
-        # Normalization
-        # indata = self.normalize_indata(indata)
-
-        # merge inputs
-        # X = torch.concatenate([indata[key] for key in ["S2", "S1", "VIIRS"] if key in indata], dim=0)
-
-        # if torch.any(torch.isnan(X)):
-        #     raise Exception("Nan in X")
-
-        # # General transformations
-        # if self.transform:
-        #     if "general" in self.transform:
-        #         X, mask = self.transform["general"]((X, mask.unsqueeze(0)))
-        #         admin_mask = admin_mask.squeeze(0)
 
         # return dictionary
         return {
@@ -417,8 +380,19 @@ class Population_Dataset_target(Dataset):
                 indata["VIIRS"] = np.random.randint(0, 10000, size=(1,patchsize_x,patchsize_y))
             else:
                 with rasterio.open(self.VIIRS_file, "r") as src:
-                    indata["VIIRS"] = src.read(1, window=window).astype(np.float32) 
-            # mask = mask & (indata["VIIRS"].sum(axis=0) != 0)
+                    indata["VIIRS"] = src.read(1, window=window).astype(np.float32)  
+
+        
+        if self.gbuildings:
+            if fake:
+                indata["building_segmentation"] = np.random.randint(0, 1, size=(1,patchsize_x,patchsize_y))
+                indata["building_counts"] = np.random.randint(0, 2, size=(1,patchsize_x,patchsize_y))
+            else:
+                with rasterio.open(self.gbuildings_segmentation_file, "r") as src:
+                    indata["building_segmentation"] = src.read(1, window=window).astype(np.float32)
+                with rasterio.open(self.gbuildings_counts_file, "r") as src:
+                    indata["building_counts"] = src.read(1, window=window).astype(np.float32) 
+
 
         # # load administrative mask
         # admin_mask = self.cr_regions[x:x+patchsize_x, y:y+patchsize_y]==idx
@@ -603,6 +577,13 @@ def Population_Dataset_collate_fn(batch):
     # Create empty tensors with the maximum dimensions
     input_batch_S1 = torch.zeros(len(batch), batch[0]['S1'].shape[0], max_x, max_y)
     input_batch_S2 = torch.zeros(len(batch), batch[0]['S2'].shape[0], max_x, max_y)
+
+    building_dict = {
+        "building_segmentation": torch.zeros(len(batch), 1, max_x, max_y),
+        "building_counts": torch.zeros(len(batch), 1, max_x, max_y)
+    }
+    use_building_segmentation = False
+
     admin_mask_batch = torch.zeros(len(batch), max_x, max_y)
     y_batch = torch.zeros(len(batch))
 
@@ -617,7 +598,12 @@ def Population_Dataset_collate_fn(batch):
         admin_mask_batch[i, :x_size, :y_size] = item['admin_mask']
         y_batch[i] = item['y']
 
-    return {
+        if "building_counts" in item:
+            building_dict["building_segmentation"][i, 0, :x_size, :y_size] = item['building_segmentation']
+            building_dict["building_counts"][i, 0, :x_size, :y_size] = item['building_counts']
+            use_building_segmentation = True
+
+    out_dict = {
         'S1': input_batch_S1,
         'S2': input_batch_S2,
         'admin_mask': admin_mask_batch,
@@ -628,6 +614,10 @@ def Population_Dataset_collate_fn(batch):
         'source': torch.tensor([item['source'] for item in batch], dtype=torch.bool),
         'census_idx': torch.cat([item['census_idx'] for item in batch]),
     }
+    if use_building_segmentation:
+        out_dict = {**out_dict, **building_dict}
+
+    return out_dict
 
 
 if __name__=="__main__":

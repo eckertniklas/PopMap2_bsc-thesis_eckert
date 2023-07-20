@@ -137,18 +137,18 @@ class BoostUNet(nn.Module):
     
         # Population map and total count
         popdensemap = nn.functional.relu(out[:,0])
+        popvarmap = nn.functional.softplus(out[:,1])
+
         if self.occupancymodel:
-            # popdensemap = nn.functional.relu(out[:,0])
-            popdensemap = popdensemap * popdensemap_raw_valid
-        # else:
-            # popdensemap = nn.functional.relu(out[:,0])
+            if "building_counts" in inputs.keys():
+                popdensemap = popdensemap * inputs["building_counts"].squeeze(1)
+                popvarmap = popvarmap * inputs["building_counts"].squeeze(1)
 
         if "admin_mask" in inputs.keys():
             popcount = (popdensemap * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
         else:
             popcount = popdensemap.sum((1,2))
 
-        popvarmap = nn.functional.softplus(out[:,1])
         if "admin_mask" in inputs.keys():
             popvar = (popvarmap * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
         else:

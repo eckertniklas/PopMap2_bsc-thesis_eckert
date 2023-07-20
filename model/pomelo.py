@@ -22,7 +22,8 @@ class JacobsUNet(nn.Module):
         - UNet with a regression head
 
     '''
-    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1", head="v1", down=5):
+    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1", head="v1", down=5,
+                occupancymodel=False):
         super(JacobsUNet, self).__init__()
         """
         Args:
@@ -35,6 +36,7 @@ class JacobsUNet(nn.Module):
         """
 
         self.down = down
+        self.occupancymodel = occupancymodel
         
         # Padding Params
         self.p = 14
@@ -144,7 +146,6 @@ class JacobsUNet(nn.Module):
         # revert padding
         features = self.revert_padding(features, (px1,px2,py1,py2))
 
-
         # Forward the head
         out = self.head(features)
 
@@ -157,13 +158,19 @@ class JacobsUNet(nn.Module):
         
         # Population map and total count
         popdensemap = nn.functional.relu(out[:,0])
+        popvarmap = nn.functional.softplus(out[:,1])
+
+        if self.occupancymodel:
+            if "building_counts" in inputs.keys():
+                popdensemap = popdensemap * inputs["building_counts"].squeeze(1)
+                popvarmap = popvarmap * inputs["building_counts"].squeeze(1)
+        
         if "admin_mask" in inputs.keys():
             # make the following line work for both 2D and 3D
             popcount = (popdensemap * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
         else:
             popcount = popdensemap.sum((1,2))
 
-        popvarmap = nn.functional.softplus(out[:,1])
         if "admin_mask" in inputs.keys():
             # make the following line work for both 2D and 3D
             popvar = (popvarmap * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))

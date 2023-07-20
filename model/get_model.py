@@ -36,6 +36,7 @@ def get_model_kwargs(args, model_name):
         kwargs['classifier'] = args.classifier if args.adversarial else None
         kwargs['head'] = args.head
         kwargs['down'] = args.down
+        kwargs['occupancymodel'] = args.occupancymodel
     if model_name == 'BoostUNet':
         assert args.Sentinel1
         assert args.Sentinel2

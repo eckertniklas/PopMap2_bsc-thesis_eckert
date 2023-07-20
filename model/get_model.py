@@ -26,7 +26,7 @@ def get_model_kwargs(args, model_name):
 
     # kwargs for the model
     kwargs = {
-        'input_channels': args.Sentinel1 * 2 + args.NIR * 1 + args.Sentinel2 * 3 + args.VIIRS * 1,
+        'input_channels': args.Sentinel1 * 2 + args.NIR * 1 + args.Sentinel2 * 3 + args.VIIRS * 1 + args.buildinginput * 2,
         'feature_dim': args.feature_dim,
         'feature_extractor': args.feature_extractor
     }

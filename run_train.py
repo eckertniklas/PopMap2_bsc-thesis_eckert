@@ -247,7 +247,7 @@ class Trainer:
 
                     # forward pass and loss computation 
                     sample_weak = to_cuda_inplace(sample_weak) 
-                    sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats)
+                    sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput)
                     # print(sample_weak["input"].shape[2:])
                     output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False)
 
@@ -289,7 +289,7 @@ class Trainer:
 
                 if self.args.CyCADA:
                     # CyCADA forward pass and loss computation
-                    sample = apply_transformations_and_normalize(sample, self.data_transform, self.dataset_stats)
+                    sample = apply_transformations_and_normalize(sample, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput)
                     data = {"A": sample["input"][sample["source"]], "B": sample["input"][~sample["source"]], "A_paths": "", "B_paths": ""}
                     self.CyCADAmodel.set_input(data)         # unpack data from dataset and apply preprocessing
                     self.CyCADAmodel.optimize_parameters(gt=sample["y"][sample["source"]])
@@ -298,7 +298,8 @@ class Trainer:
                     sample["input"] = torch.cat([self.CyCADAmodel.fake_B_prep.detach(), self.CyCADAmodel.real_B_prep.detach()], dim=0)
 
                 else:
-                    sample = apply_transformations_and_normalize(sample, self.data_transform, self.dataset_stats)
+                    if not self.args.GANonly and not self.args.nomain: 
+                        sample = apply_transformations_and_normalize(sample, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput)
                 
 
                 if not self.args.GANonly and not self.args.nomain:
@@ -462,7 +463,7 @@ class Trainer:
 
                 # forward pass
                 sample = to_cuda_inplace(sample)
-                sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats) 
+                sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput)
 
                 output = self.model(sample)
                 
@@ -530,7 +531,7 @@ class Trainer:
 
                 # forward pass
                 sample = to_cuda_inplace(sample)
-                sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats)
+                sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput)
                 # sample = apply_normalize(sample, self.dataset_stats)
 
                 output = self.model(sample)
@@ -642,7 +643,7 @@ class Trainer:
                 for sample in tqdm(testdataloader, leave=False):
                     sample = to_cuda_inplace(sample)
                     # sample = apply_normalize(sample, self.dataset_stats)
-                    sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats)
+                    sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput)
 
                     # get the valid coordinates
                     # xmin, xmax, ymin, ymax = [val.item() for val in sample["valid_coords"]]
@@ -661,13 +662,16 @@ class Trainer:
                     # output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
 
                 # average over the number of times each pixel was visited
-                # output_map[output_map_count>0] = output_map[output_map_count>0] / output_map_count[output_map_count>0]
-                # if self.args.probabilistic:
-                #     output_map_var[output_map_count>0] = output_map_var[output_map_count>0] / output_map_count[output_map_count>0]
-                # if self.boosted:
-                #     output_map_raw[output_map_count>0] = output_map_raw[output_map_count>0] / output_map_count[output_map_count>0]
-                #     if self.args.probabilistic: 
-                #         output_map_var_raw[output_map_count>0] = output_map_var_raw[output_map_count>0] / output_map_count[output_map_count>0]
+
+                # mask out values that are not visited of visited exactly once
+                div_mask = output_map_count > 1
+                output_map[div_mask] = output_map[div_mask] / output_map_count[div_mask]
+                if self.args.probabilistic:
+                    output_map_var[div_mask] = output_map_var[div_mask] / output_map_count[div_mask]
+                if self.boosted:
+                    output_map_raw[div_mask] = output_map_raw[div_mask] / output_map_count[div_mask]
+                    if self.args.probabilistic: 
+                        output_map_var_raw[div_mask] = output_map_var_raw[div_mask] / output_map_count[div_mask]
 
                 if save:
                     # save the output map

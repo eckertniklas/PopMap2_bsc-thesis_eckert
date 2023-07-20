@@ -275,7 +275,7 @@ def apply_normalize(indata, dataset_stats):
     return indata
 
 
-def apply_transformations_and_normalize(sample, transform, dataset_stats):
+def apply_transformations_and_normalize(sample, transform, dataset_stats, buildinginput=False):
     """
     :param sample: image to be transformed
     :param transform: transform to be applied to the image
@@ -284,7 +284,6 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats):
     :param sample["admin_mask"]: mask corresponding to the image (not mandatory)
     :return: transformed image and mask
     """
-    # transforms
 
     # Modality-wise transformations
     if transform is not None:
@@ -300,7 +299,17 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats):
     # sample = normalize_indata(sample, normalization)
     
     # merge inputs
-    sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS"] if key in sample], dim=1)
+    if buildinginput:
+        # sample['building_counts'] = sample['building_counts'].unsqueeze(1)
+        sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS", "building_segmentation", "building_counts"] if key in sample], dim=1)
+        
+        if "building_segmentation" not in sample.keys():
+            # sample['building_segmentation'] = sample['building_segmentation'].unsqueeze(1)
+            # fake some more input for the validationset without building footprints
+            sample["input"] = torch.concatenate([sample["input"], torch.zeros_like(sample["input"][:,:2,:,:])], dim=1)
+
+    else:
+        sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS"] if key in sample], dim=1)
 
     # General transformations
     if transform is not None:

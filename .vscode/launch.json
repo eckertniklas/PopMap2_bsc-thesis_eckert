@@ -672,7 +672,8 @@
                 "--val_every_n_epochs", "1",
                 // "--val_every_n_epochs", "100",
                 "--weak_batch_size", "2",
-                "--occupancymodel"
+                "--occupancymodel",
+                "--buildinginput",
                 // "--optimizer", "SGD",
                 // "--weightdecay", "0.000001",
                 // "--eu2rwa" 

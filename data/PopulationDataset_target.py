@@ -246,7 +246,6 @@ class Population_Dataset_target(Dataset):
         # To Torch
         indata = {key:torch.from_numpy(np.asarray(val, dtype=np.float32)).type(torch.FloatTensor) for key,val in indata.items()}
 
-
         # return dictionary
         return {
                 # 'input': X,
@@ -260,6 +259,15 @@ class Population_Dataset_target(Dataset):
 
 
     def __gettestitem__(self, index: int) -> Dict[str, torch.FloatTensor]:
+        """
+        Description:
+            Get the item at the given index, the item is a patch
+        Input:
+            index: index of the item
+        Output:
+            item: dictionary containing the input, the mask, the coordinates of the patch, the season and the season string
+        """
+
         # get the indices of the patch
         x,y,season = self.patch_indices[index]
 
@@ -389,9 +397,9 @@ class Population_Dataset_target(Dataset):
                 indata["building_counts"] = np.random.randint(0, 2, size=(1,patchsize_x,patchsize_y))
             else:
                 with rasterio.open(self.gbuildings_segmentation_file, "r") as src:
-                    indata["building_segmentation"] = src.read(1, window=window).astype(np.float32)
+                    indata["building_segmentation"] = src.read(1, window=window)[np.newaxis].astype(np.float32)
                 with rasterio.open(self.gbuildings_counts_file, "r") as src:
-                    indata["building_counts"] = src.read(1, window=window).astype(np.float32) 
+                    indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32) 
 
 
         # # load administrative mask
@@ -412,8 +420,6 @@ class Population_Dataset_target(Dataset):
         boundary_file = self.file_paths[level]["boundary"]
         census_file = self.file_paths[level]["census"]
 
-        # boundary_file = self.boundary_file
-        # census_file = self.census_file
 
         # raise NotImplementedError
         with rasterio.open(boundary_file, "r") as src:
@@ -434,11 +440,8 @@ class Population_Dataset_target(Dataset):
             # for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"])), total=len(census)):
             for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
             # for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"]))):
-                # if cidx == 391:
-                    # print("here")
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
                 census_pred[cidx] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
-                # census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
 
         else:
             pred = pred.to(torch.float32)
@@ -599,8 +602,8 @@ def Population_Dataset_collate_fn(batch):
         y_batch[i] = item['y']
 
         if "building_counts" in item:
-            building_dict["building_segmentation"][i, 0, :x_size, :y_size] = item['building_segmentation']
-            building_dict["building_counts"][i, 0, :x_size, :y_size] = item['building_counts']
+            building_dict["building_segmentation"][i, :, :x_size, :y_size] = item['building_segmentation']
+            building_dict["building_counts"][i, :, :x_size, :y_size] = item['building_counts']
             use_building_segmentation = True
 
     out_dict = {

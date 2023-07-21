@@ -37,13 +37,18 @@ def get_model_kwargs(args, model_name):
         kwargs['head'] = args.head
         kwargs['down'] = args.down
         kwargs['occupancymodel'] = args.occupancymodel
+        kwargs['pretrained'] = args.pretrained
+        kwargs['dilation'] = args.dilation
+        kwargs['replace7x7'] = args.replace7x7
     if model_name == 'BoostUNet':
         assert args.Sentinel1
         assert args.Sentinel2
         kwargs['classifier'] = args.classifier if args.adversarial else None
-        # kwargs['head'] = args.head
         kwargs['down'] = args.down
         kwargs['down2'] = args.down2
         kwargs['occupancymodel'] = args.occupancymodel 
         kwargs['useallfeatures'] = args.useallfeatures
+        kwargs['pretrained'] = args.pretrained
+        kwargs['dilation'] = args.dilation
+        kwargs['replace7x7'] = args.replace7x7
     return kwargs

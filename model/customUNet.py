@@ -10,17 +10,22 @@ import segmentation_models_pytorch as smp
 
 from utils.plot import plot_2dmatrix
 
+
+import torch.nn as nn
+
+
+
 class CustomUNet(smp.Unet):
-    def __init__(self, encoder_name, in_channels, classes, down=3, fsub=16):
+    def __init__(self, encoder_name, in_channels, classes, down=3, fsub=16, dilation=1, replace7x7=True):
+
         # instanciate the base model
         # super().__init__(encoder_name, encoder_weights="imagenet",
-        super().__init__(encoder_name, encoder_weights=None,
         # super().__init__(encoder_name, encoder_weights="swsl",
+        super().__init__(encoder_name, encoder_weights=None,
                         in_channels=in_channels, classes=classes, decoder_channels=(64,32,16), 
                         decoder_use_batchnorm=False, encoder_depth=3, activation=nn.ReLU)
-        # self.decoder_channels = (256,256,128,128,64)[-down:]
-        self.decoder_channels = (256,128,64,32,16)[-down:]
-        # self.decoder_channels = (81,54,36,24,16)[-down:]
+        
+        self.decoder_channels = (256,128,64,32,16)[-down:] 
         self.latent_dim = sum(self.decoder_channels)
         self.fsub = fsub
 
@@ -41,7 +46,7 @@ class CustomUNet(smp.Unet):
         )
 
         # replace first layer with 3x3 conv instead of 7x7 (better suitable for remote sensing datasets)
-        if encoder_name.startswith("resnet"):
+        if encoder_name.startswith("resnet") and replace7x7:
             conv1w = self.encoder.conv1.weight # old kernel
             self.encoder.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, stride=2, padding=1, bias=False)
             self.encoder.conv1.weight = nn.Parameter(conv1w[:,:,2:-2,2:-2])
@@ -56,6 +61,9 @@ class CustomUNet(smp.Unet):
             self.decoder.center = nn.Identity()
  
         self.remove_batchnorm(self)
+
+        if dilation > 1:
+            self.modify_dilation(dilation=dilation)
 
         # initialize
         print("self.encoder.out_channels", self.encoder.out_channels)
@@ -74,6 +82,17 @@ class CustomUNet(smp.Unet):
                 setattr(model, name, nn.Identity())
             else:
                 self.remove_batchnorm(module)
+
+    def modify_dilation(self, dilation=2):
+        for name, module in self.named_modules():
+            if isinstance(module, nn.Conv2d):
+                module.dilation = (dilation, dilation)
+                # if you want to reinitialize the weights as well
+                # nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='relu')
+                kernel_size = module.kernel_size[0] if isinstance(module.kernel_size, tuple) else module.kernel_size
+                padding_needed = (kernel_size - 1)
+                module.padding = (padding_needed, padding_needed)
+        pass
 
     def num_effective_params(self, down=5, verbose=False):
         """

@@ -23,7 +23,7 @@ class JacobsUNet(nn.Module):
 
     '''
     def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1", head="v1", down=5,
-                occupancymodel=False):
+                occupancymodel=False, pretrained=False, dilation=1, replace7x7=True):
         super(JacobsUNet, self).__init__()
         """
         Args:
@@ -43,7 +43,7 @@ class JacobsUNet(nn.Module):
         self.p2d = (self.p, self.p, self.p, self.p)
 
         # Build the main model
-        self.unetmodel = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=self.down)
+        self.unetmodel = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=self.down, dilation=dilation, replace7x7=replace7x7)
 
         # Define batchnorm layer for the feature extractor
         # self.bn = nn.BatchNorm2d(input_channels)

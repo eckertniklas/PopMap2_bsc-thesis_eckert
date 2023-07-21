@@ -65,8 +65,8 @@ pop_map_covariates_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.j
 
 # Sat2Pop data folder
 data_paths_aux = [
-        "/scratch2/metzgern/HAC/data",
         "/scratch/metzgern/HAC/data",
+        "/scratch2/metzgern/HAC/data",
         "/cluster/work/igp_psr/metzgern/HAC/data",
         # /cluster/work/igp_psr/metzgern/HAC/data/PopMapData/raw/GoogleBuildings
 ]

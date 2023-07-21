@@ -25,7 +25,7 @@ class BoostUNet(nn.Module):
     PomeloUNet
     '''
     def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v8", down=2, down2=4,
-                 useallfeatures=False, occupancymodel=False):
+                 useallfeatures=False, occupancymodel=False, pretrained=False, dilation=1, replace7x7=True):
         super(BoostUNet, self).__init__()
         
         # Padding Params
@@ -35,13 +35,9 @@ class BoostUNet(nn.Module):
         self.occupancymodel = occupancymodel
 
         # Build the main model
-        self.unetmodel1 = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=down) # Sentinel1
-        # self.unetmodel1 = CustomUNet(feature_extractor, in_channels=2, classes=feature_dim, down=down) # Sentinel1
-        # self.unetmodel2 = CustomUNet("vgg16", in_channels=input_channels+1, classes=feature_dim, down=down2) # Sentinel2
-        self.unetmodel2 = CustomUNet(feature_extractor, in_channels=input_channels+1, classes=feature_dim, down=down2) # Sentinel2
-        # self.unetmodel2 = CustomUNet(feature_extractor, in_channels=input_channels-2+1, classes=feature_dim, down=down2) # Sentinel2
-        # self.unetmodel2 = CustomUNet(feature_extractor, in_channels=input_channels-2+1+feature_dim, classes=feature_dim, down=down2) # Sentinel2
-
+        self.unetmodel1 = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=down, dilation=dilation, replace7x7=replace7x7) 
+        self.unetmodel2 = CustomUNet(feature_extractor, in_channels=input_channels+1, classes=feature_dim, down=down2, dilation=dilation,  replace7x7=replace7x7)
+        
         # Define batchnorm layer for the feature extractor
         # self.bn = nn.BatchNorm2d(input_channels)
         # self.maxi = torch.tensor([0,0,0,0,0,0], dtype=torch.float32)

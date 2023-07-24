@@ -89,6 +89,22 @@
             ] 
         },
         {
+            "name": "01_download_gee_country.py, CDI test",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/01_download_gee_country.py",
+            "console": "integratedTerminal",
+            "args": [
+                "-4.154804475140917",
+                "5.508116339858936",
+                "-4.13165330346314",
+                "5.4849177326351475",
+                "dcitest",
+                // "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/GEEraster/RWA",
+                // "P_2020"
+            ] 
+        },
+        {
             "name": "01_download_gee_country.py, RWA2022",
             "type": "python",
             "request": "launch",
@@ -144,6 +160,34 @@
                 "126.958",
                 "20.593",
                 "phi", 
+            ]
+        }, 
+        {
+            "name": "01_download_gee_country.py, AFG",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/01_download_gee_country.py",
+            "console": "integratedTerminal",
+            "args": [ 
+                "60.007324",
+                "29.209713",
+                "75.124512",
+                "38.685510",
+                "afg", 
+            ]
+        }, 
+        {
+            "name": "01_download_gee_country.py, UGA",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/01_download_gee_country.py",
+            "console": "integratedTerminal",
+            "args": [ 
+                "29.492798",
+                "-1.554375",
+                "35.095825",
+                "4.291636",
+                "uga", 
             ]
         }, 
         {
@@ -282,6 +326,16 @@
                 "--csv_path", "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/pricp2/Gbuildings_pricp2.csv",
                 "--template_path", "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/pricp2/S2Awinter/pricp2_S2Awinter.tif",
                 "--output_folder", "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/pricp2/",
+            ]
+        },
+        {
+            "name": "07_create_buildings.py, PRI",
+            "type": "python",
+            "request": "launch",
+            "module": "utils.07_create_buildings",
+            "console": "integratedTerminal",
+            "args": [
+                "--region", "rwa"
             ]
         },
         {
@@ -638,14 +692,14 @@
                 "-la",
                 "1.0",
                 // "0.01",
-                "-dw","2",
-                "-dw2","2",
+                "-dw","3",
+                "-dw2","3",
                 "-S2",
                 "-S1",
                 // "-NIR",
                 "-f",
                 "16",
-                "--dilation", "2",
+                // "--dilation", "2",
                 "-r77",
                 "-rse",
                 "-treg",
@@ -676,6 +730,7 @@
                 "--weak_batch_size", "2",
                 "--occupancymodel",
                 "--buildinginput",
+                "--sentinelbuildings"
                 // "--optimizer", "SGD",
                 // "--weightdecay", "0.000001",
                 // "--eu2rwa" 

@@ -32,7 +32,7 @@ class Population_Dataset_target(Dataset):
     Use this dataset to evaluate the model on the target domain and compare it the census data
     """
     def __init__(self, region, S1=False, S2=True, VIIRS=True, NIR=False, patchsize=1024, overlap=32, fourseasons=False, mode="test",
-                 max_samples=None, transform=None) -> None:
+                 max_samples=None, transform=None, sentinelbuildings=True) -> None:
         """
         Input:
             region: the region identifier (e.g. "pri" for puerto rico)
@@ -58,6 +58,7 @@ class Population_Dataset_target(Dataset):
         self.mode = mode
         self.transform = transform
         self.use2A = True
+        self.sentinelbuildings = sentinelbuildings
 
         # get the path to the data
         # region_root = os.path.join(pop_map_root_large, region)
@@ -140,6 +141,10 @@ class Population_Dataset_target(Dataset):
         self.gbuildings_segmentation_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_segmentation.tif")
         self.gbuildings_counts_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_counts.tif")
         self.gbuildings = True
+
+        # load sentinel buildings
+        self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA128_4096_nodisc.tif")
+        self.sbuildings = True
 
         # normalize the dataset (do not use, this does not make sense for variable regions sizes like here)
         self.y_stats = load_json(os.path.join(config_path, 'dataset_stats', 'label_stats.json'))
@@ -396,10 +401,16 @@ class Population_Dataset_target(Dataset):
                 indata["building_segmentation"] = np.random.randint(0, 1, size=(1,patchsize_x,patchsize_y))
                 indata["building_counts"] = np.random.randint(0, 2, size=(1,patchsize_x,patchsize_y))
             else:
-                with rasterio.open(self.gbuildings_segmentation_file, "r") as src:
-                    indata["building_segmentation"] = src.read(1, window=window)[np.newaxis].astype(np.float32)
-                with rasterio.open(self.gbuildings_counts_file, "r") as src:
-                    indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32) 
+                if self.sentinelbuildings:
+                    with rasterio.open(self.sbuildings_segmentation_file, "r") as src:
+                        indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32) 
+                    indata["building_segmentation"] = indata["building_counts"]>0.5
+
+                else: 
+                    with rasterio.open(self.gbuildings_segmentation_file, "r") as src:
+                        indata["building_segmentation"] = src.read(1, window=window)[np.newaxis].astype(np.float32)
+                    with rasterio.open(self.gbuildings_counts_file, "r") as src:
+                        indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32) 
 
 
         # # load administrative mask

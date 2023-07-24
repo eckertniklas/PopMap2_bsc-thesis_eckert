@@ -322,6 +322,7 @@ def export_cloud_free_sen2(season, dates, roi_id, roi, debug=0, S2type="S2"):
     # filename = f"{roi_id}_{season}"
     filename = f"{season}_{roi_id}"
 
+    
     # Export the image to Google Drive.
     task = ee.batch.Export.image.toDrive(
         image=cloud_free.select(bands),
@@ -337,6 +338,7 @@ def export_cloud_free_sen2(season, dates, roi_id, roi, debug=0, S2type="S2"):
 
 def export_S1_tile(season, dates, filename, roi, folder, scale=10, crs='EPSG:4326', url_mode=True):
     """
+    Export Sentinel-1 data for a given season and region of interest
     """
     start_date = ee.Date(dates[0])
     end_date = ee.Date(dates[1])
@@ -387,7 +389,7 @@ def export_S1_tile(season, dates, filename, roi, folder, scale=10, crs='EPSG:432
     return None
 
 # def export_gbuildings(collection_name, confidence_min, bbox, description, folder, scale=10):
-def export_gbuildings(roi, filename, folder, confidence_min=0.65, scale=10, crs='EPSG:4326'):
+def export_gbuildings(roi, filename, folder, confidence_min=0.0, scale=10, crs='EPSG:4326', btype="v3"):
     """
     Function to export a filtered Google Earth Engine collection to Google Drive.
 
@@ -404,11 +406,8 @@ def export_gbuildings(roi, filename, folder, confidence_min=0.65, scale=10, crs=
     - None.
     """
 
-    # Define the bounding box as an ee.Geometry.Rectangle
-    # roi = ee.Geometry.Rectangle(bbox)
-
     # Load the building footprint dataset
-    t = ee.FeatureCollection('GOOGLE/Research/open-buildings/v3/polygons')
+    t = ee.FeatureCollection('GOOGLE/Research/open-buildings/{type}/polygons'.format(type=btype))
 
     # Apply the confidence filters and clip to the bounding box
     # t_filtered = t.filter(ee.Filter.gte('confidence', confidence_min)).filterBounds(roi)
@@ -419,10 +418,6 @@ def export_gbuildings(roi, filename, folder, confidence_min=0.65, scale=10, crs=
         'collection': t_filtered,
         'description': filename,
         'folder': folder,
-        # 'fileFormat': 'TFRecord',
-        # 'scale': scale,
-        # 'region': roi,
-        # 'crs': crs,
     }
 
     # Export the data to Google Drive
@@ -431,13 +426,18 @@ def export_gbuildings(roi, filename, folder, confidence_min=0.65, scale=10, crs=
     # Start the task
     start(task)
 
-    # Print a link to the export data for convenience
-    # print(f"https://drive.google.com/drive/folders/{task.config['folderId']}")
-
 
 
 
 def download(minx, miny, maxx, maxy, name):
+    """
+    Function to download the data from Google Earth Engine to Drive.
+    Inputs:
+    - minx, miny, maxx, maxy (float): coordinates of the bounding box.
+    - name (str): name of the file to download.
+    Returns:
+    - None. (the files are downloaded to Drive instead)
+    """
 
     exportarea = { "type": "Polygon",  "coordinates": [[[maxx, miny], [maxx, maxy], [minx, maxy], [minx, miny], [maxx, miny]]]  }
     exportarea = ee.Geometry.Polygon(exportarea["coordinates"]) 
@@ -446,14 +446,20 @@ def download(minx, miny, maxx, maxy, name):
     # find the EPSG code for the local projection
     # exportarea3035 = exportarea.transform('EPSG:3035')
 
-    S1 = False
+    S1 = True
+    # S1 = False
+
     # S2 = True
     S2 = False
-    # S2A = True
-    S2A = False
+
+    S2A = True
+    # S2A = False
+
     # VIIRS = True
     VIIRS = False
+
     GoogleBuildings = True
+    # GoogleBuildings = False
 
     if S1:
         ########################### Processing Sentinel 1 #############################################
@@ -506,7 +512,8 @@ def download(minx, miny, maxx, maxy, name):
         ########################### Processing Google Buildings #############################################
         
         # Google Buildings
-        export_gbuildings(exportarea, "Gbuildings_" + name, folder=name, confidence_min=0.65, )
+        export_gbuildings(exportarea, "Gbuildings_" + name, folder=name, confidence_min=0.0, btype="v3") 
+        export_gbuildings(exportarea, "Gbuildings_v1_" + name, folder=name, confidence_min=0.0, btype="v1")
 
 
 

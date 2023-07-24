@@ -300,11 +300,14 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
     
     # merge inputs
     if buildinginput:
-        # sample['building_counts'] = sample['building_counts'].unsqueeze(1)
+        
+        if "building_counts" in sample.keys() and "building_segmentation" not in sample.keys():
+            # fake some more input for the validationset without building footprints
+            sample["building_segmentation"] = sample["building_counts"]>0.5
+
         sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS", "building_segmentation", "building_counts"] if key in sample], dim=1)
         
-        if "building_segmentation" not in sample.keys():
-            # sample['building_segmentation'] = sample['building_segmentation'].unsqueeze(1)
+        if "building_segmentation" not in sample.keys(): 
             # fake some more input for the validationset without building footprints
             sample["input"] = torch.concatenate([sample["input"], torch.zeros_like(sample["input"][:,:2,:,:])], dim=1)
 

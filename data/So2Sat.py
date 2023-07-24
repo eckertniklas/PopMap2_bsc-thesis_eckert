@@ -75,16 +75,6 @@ class PopulationDataset_Reg(Dataset):
         #     else:
         #         self.dataset_stats[mkey] = torch.tensor(val)
 
-        # Memory Mode
-        # self.all_samples = {}
-        # if in_memory:
-        #     print("Loading to memory for Dataset: ", mode)
-        #     self.move_to_memory = True              
-        #     for idx in tqdm(range(len(self.all_ids))):
-        #         # self.all_samples[self.list_IDs[idx]] = self[idx]
-        #         self.all_samples[self.all_ids[idx]] = self[idx]
-        #     self.move_to_memory = False 
-        #     print("Done Loading to memory for Dataset: ", mode)
 
     def __getitem__(self, idx):
         # if self.in_memory and not self.move_to_memory:

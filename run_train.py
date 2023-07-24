@@ -799,7 +799,7 @@ class Trainer:
             "train": train_dataset,
             "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", transform=None, **params),
             "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", transform=None, **params),
-            "test_target": [ Population_Dataset_target(reg, patchsize=ips, overlap=overlap, **input_defs) for reg in args.target_regions ]
+            "test_target": [ Population_Dataset_target(reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, **input_defs) for reg in args.target_regions ]
         }
         
         # create the datasampler for the source/target domain mixup
@@ -825,7 +825,7 @@ class Trainer:
             weak_datasets = []
             for reg in args.target_regions:
                 weak_datasets.append( Population_Dataset_target(reg, mode="weaksup", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
-                                                                fourseasons=args.random_season, transform=None, **input_defs)  )
+                                                                fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, **input_defs)  )
             dataloaders["weak_target_dataset"] = ConcatDataset(weak_datasets)
             
             # create own simulation of a dataloader for the weakdataset

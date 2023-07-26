@@ -15,9 +15,10 @@ import random
 
 from typing import Dict, Tuple
 
-from utils.constants import pop_map_root_large, pop_map_root, pop_map_covariates, pop_map_covariates_large, config_path, pop_gbuildings_path
+from utils.constants import pop_map_root_large, pop_map_root, pop_map_covariates, pop_map_covariates_large, config_path, pop_gbuildings_path, rawEE_map_root
 from utils.constants import datalocations
 from utils.plot import plot_2dmatrix
+from osgeo import gdal
 
 
 def load_json(file):
@@ -32,7 +33,7 @@ class Population_Dataset_target(Dataset):
     Use this dataset to evaluate the model on the target domain and compare it the census data
     """
     def __init__(self, region, S1=False, S2=True, VIIRS=True, NIR=False, patchsize=1024, overlap=32, fourseasons=False, mode="test",
-                 max_samples=None, transform=None, sentinelbuildings=True) -> None:
+                 max_samples=None, transform=None, sentinelbuildings=True, ascfill=False) -> None:
         """
         Input:
             region: the region identifier (e.g. "pri" for puerto rico)
@@ -59,6 +60,7 @@ class Population_Dataset_target(Dataset):
         self.transform = transform
         self.use2A = True
         self.sentinelbuildings = sentinelbuildings
+        self.ascfill = ascfill
 
         # get the path to the data
         # region_root = os.path.join(pop_map_root_large, region)
@@ -72,10 +74,10 @@ class Population_Dataset_target(Dataset):
             for data_type in ["boundary", "census"]:
                 self.file_paths[level][data_type] = os.path.join(region_root, datalocations[region][level][data_type])
 
-            self.boundary_file = os.path.join(region_root, datalocations[region]["fine"]["boundary"])
-            self.census_file = os.path.join(region_root, datalocations[region]["fine"]["census"])
-            self.coarse_boundary_file = os.path.join(region_root, datalocations[region]["coarse"]["boundary"])
-            self.coarse_census_file = os.path.join(region_root, datalocations[region]["coarse"]["census"])
+            # self.boundary_file = os.path.join(region_root, datalocations[region]["fine"]["boundary"])
+            # self.census_file = os.path.join(region_root, datalocations[region]["fine"]["census"])
+            # self.coarse_boundary_file = os.path.join(region_root, datalocations[region]["coarse"]["boundary"])
+            # self.coarse_census_file = os.path.join(region_root, datalocations[region]["coarse"]["census"])
             
         # weaksup data specific preparation
         if self.mode == "weaksup":
@@ -117,39 +119,121 @@ class Population_Dataset_target(Dataset):
         # get the path to the data files
         covar_root = os.path.join(pop_map_covariates, region)
         # self.S1_file = os.path.join(covar_root,  os.path.join("S1", region +"_S1.tif"))
-        self.S1spring_file = os.path.join(covar_root,  os.path.join("S1spring", region +"_S1spring.tif"))
-        self.S1summer_file = os.path.join(covar_root,  os.path.join("S1summer", region +"_S1summer.tif"))
-        self.S1autumn_file = os.path.join(covar_root,  os.path.join("S1autumn", region +"_S1autumn.tif"))
-        self.S1winter_file = os.path.join(covar_root,  os.path.join("S1winter", region +"_S1winter.tif"))
-        self.S1_file = {0: self.S1spring_file, 1: self.S1summer_file, 2: self.S1autumn_file, 3: self.S1winter_file}
+        S1spring_file = os.path.join(covar_root,  os.path.join("S1spring", region +"_S1spring.tif"))
+        S1summer_file = os.path.join(covar_root,  os.path.join("S1summer", region +"_S1summer.tif"))
+        S1autumn_file = os.path.join(covar_root,  os.path.join("S1autumn", region +"_S1autumn.tif"))
+        S1winter_file = os.path.join(covar_root,  os.path.join("S1winter", region +"_S1winter.tif"))
+
+        if ascfill:
+            S1springAsc_file = os.path.join(covar_root,  os.path.join("S1springAsc", region +"_S1springAsc.tif"))
+            S1summerAsc_file = os.path.join(covar_root,  os.path.join("S1summerAsc", region +"_S1summerAsc.tif"))
+            S1autumnAsc_file = os.path.join(covar_root,  os.path.join("S1autumnAsc", region +"_S1autumnAsc.tif"))
+            S1winterAsc_file = os.path.join(covar_root,  os.path.join("S1winterAsc", region +"_S1winterAsc.tif"))
+
+            self.S1Asc_file = {0: S1springAsc_file, 1: S1summerAsc_file, 2: S1autumnAsc_file, 3: S1winterAsc_file}
+
+
+        if not os.path.exists(S1spring_file):
+            print("S1 file does not exist")
+        
+            spring_dir = os.path.join(rawEE_map_root, region, "S1spring")
+            S1spring_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1spring_out.vrt"), [ os.path.join(spring_dir, f) for f in os.listdir(spring_dir) if f.endswith(".tif")])
+
+            summer_dir = os.path.join(rawEE_map_root, region, "S1summer")
+            S1summer_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1summer_out.vrt"), [ os.path.join(summer_dir, f) for f in os.listdir(summer_dir) if f.endswith(".tif")])
+
+            autumn_dir = os.path.join(rawEE_map_root, region, "S1autumn")
+            S1autumn_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1autumn_out.vrt"), [ os.path.join(autumn_dir, f) for f in os.listdir(autumn_dir) if f.endswith(".tif")])
+
+            winter_dir = os.path.join(rawEE_map_root, region, "S1winter")
+            S1winter_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1winter_out.vrt"), [ os.path.join(winter_dir, f) for f in os.listdir(winter_dir) if f.endswith(".tif")])
+
+
+            if ascfill:
+                spring_dir = os.path.join(rawEE_map_root, region, "S1springAsc")
+                S1springAsc_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1springAsc_out.vrt"), [ os.path.join(spring_dir, f) for f in os.listdir(spring_dir) if f.endswith(".tif")])
+
+                summer_dir = os.path.join(rawEE_map_root, region, "S1summerAsc")
+                S1summerAsc_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1summerAsc_out.vrt"), [ os.path.join(summer_dir, f) for f in os.listdir(summer_dir) if f.endswith(".tif")])
+
+                autumn_dir = os.path.join(rawEE_map_root, region, "S1autumnAsc")
+                S1autumnAsc_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1autumnAsc_out.vrt"), [ os.path.join(autumn_dir, f) for f in os.listdir(autumn_dir) if f.endswith(".tif")])
+
+                winter_dir = os.path.join(rawEE_map_root, region, "S1winterAsc")
+                S1winterAsc_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1winterAsc_out.vrt"), [ os.path.join(winter_dir, f) for f in os.listdir(winter_dir) if f.endswith(".tif")])
+
+                self.S1Asc_file = {0: S1springAsc_file, 1: S1summerAsc_file, 2: S1autumnAsc_file, 3: S1winterAsc_file}
+
+
+        self.S1_file = {0: S1spring_file, 1: S1summer_file, 2: S1autumn_file, 3: S1winter_file}
+        
         if self.use2A:
-            self.S2spring_file = os.path.join(covar_root,  os.path.join("S2Aspring", region +"_S2Aspring.tif"))
-            self.S2summer_file = os.path.join(covar_root,  os.path.join("S2Asummer", region +"_S2Asummer.tif"))
-            self.S2autumn_file = os.path.join(covar_root,  os.path.join("S2Aautumn", region +"_S2Aautumn.tif"))
-            self.S2winter_file = os.path.join(covar_root,  os.path.join("S2Awinter", region +"_S2Awinter.tif"))
+            S2spring_file = os.path.join(covar_root,  os.path.join("S2Aspring", region +"_S2Aspring.tif"))
+            S2summer_file = os.path.join(covar_root,  os.path.join("S2Asummer", region +"_S2Asummer.tif"))
+            S2autumn_file = os.path.join(covar_root,  os.path.join("S2Aautumn", region +"_S2Aautumn.tif"))
+            S2winter_file = os.path.join(covar_root,  os.path.join("S2Awinter", region +"_S2Awinter.tif"))
+            
+            # TODO: check if file exists
+            # if not exists, we use the virtual rasters of the raw files
+            # if exists, we use the preprocessed files
+
+            if not os.path.exists(S2spring_file):
+                print("Using virtual rasters for S2")
+                
+                spring_dir = os.path.join(rawEE_map_root, region, "S2Aspring")
+                S2spring_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Aspring_out.vrt"), [ os.path.join(spring_dir, f) for f in os.listdir(spring_dir) if f.endswith(".tif")])
+
+                summer_dir = os.path.join(rawEE_map_root, region, "S2Asummer")
+                S2summer_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Asummer_out.vrt"), [ os.path.join(summer_dir, f) for f in os.listdir(summer_dir) if f.endswith(".tif")])
+
+                autumn_dir = os.path.join(rawEE_map_root, region, "S2Aautumn")
+                S2autumn_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Aautumn_out.vrt"), [ os.path.join(autumn_dir, f) for f in os.listdir(autumn_dir) if f.endswith(".tif")])
+
+                winter_dir = os.path.join(rawEE_map_root, region, "S2Awinter")
+                S2winter_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Awinter_out.vrt"), [ os.path.join(winter_dir, f) for f in os.listdir(winter_dir) if f.endswith(".tif")])
+
+
+
         else:
-            self.S2spring_file = os.path.join(covar_root,  os.path.join("S21Cspring", region +"_S21Cspring.tif"))
-            self.S2summer_file = os.path.join(covar_root,  os.path.join("S21Csummer", region +"_S21Csummer.tif"))
-            self.S2autumn_file = os.path.join(covar_root,  os.path.join("S21Cautumn", region +"_S21Cautumn.tif"))
-            self.S2winter_file = os.path.join(covar_root,  os.path.join("S21Cwinter", region +"_S21Cwinter.tif"))
-        self.S2_file = {0: self.S2spring_file, 1: self.S2summer_file, 2: self.S2autumn_file, 3: self.S2winter_file}
+            S2spring_file = os.path.join(covar_root,  os.path.join("S21Cspring", region +"_S21Cspring.tif"))
+            S2summer_file = os.path.join(covar_root,  os.path.join("S21Csummer", region +"_S21Csummer.tif"))
+            S2autumn_file = os.path.join(covar_root,  os.path.join("S21Cautumn", region +"_S21Cautumn.tif"))
+            S2winter_file = os.path.join(covar_root,  os.path.join("S21Cwinter", region +"_S21Cwinter.tif"))
+
+
+        self.S2_file = {0: S2spring_file, 1: S2summer_file, 2: S2autumn_file, 3: S2winter_file}
         self.season_dict = {0: "spring", 1: "summer", 2: "autumn", 3: "winter"}
         self.inv_season_dict = {v: k for k, v in self.season_dict.items()}
         self.VIIRS_file = os.path.join(covar_root,  os.path.join("viirs", region +"_viirs.tif"))
 
         # load the google buildings
-        self.gbuildings_segmentation_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_segmentation.tif")
-        self.gbuildings_counts_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_counts.tif")
-        self.gbuildings = True
+        if self.sentinelbuildings:
+            # load sentinel buildings
+            self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA.tif")
+            self.gbuildings_segmentation_file = ''
+            # self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA128_4096_nodisc.tif")
+            self.sbuildings = True
+            self.gbuildings = False
+        else:
+            self.sbuildings_segmentation_file = ''
+            self.gbuildings_segmentation_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_segmentation.tif")
+            self.gbuildings_counts_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_counts.tif")
+            self.gbuildings = True
 
-        # load sentinel buildings
-        self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA128_4096_nodisc.tif")
-        self.sbuildings = True
 
         # normalize the dataset (do not use, this does not make sense for variable regions sizes like here)
         self.y_stats = load_json(os.path.join(config_path, 'dataset_stats', 'label_stats.json'))
         self.y_stats['max'] = float(self.y_stats['max'])
         self.y_stats['min'] = float(self.y_stats['min'])
+
+    # delete the dataset
+    def __del__(self):
+        for file in self.S1_file.values():
+            if isinstance(file, gdal.Dataset):
+                file = None
+        for file in self.S2_file.values():
+            if isinstance(file, gdal.Dataset):
+                file = None
 
     def get_patch_indices(self, patchsize, overlap):
         """
@@ -231,9 +315,9 @@ class Population_Dataset_target(Dataset):
 
         # get the season for the S2 data
         season = random.choice(['spring', 'autumn', 'winter', 'summer']) if self.fourseasons else "spring"
+        # season = random.choice(['spring', 'autumn', 'winter', 'summer']) if self.fourseasons else "autumn"
 
         # get the data
-        # indata, auxdata = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0)
         ad_over = 32
         indata, auxdata, w = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0, admin_overlap=ad_over)
 
@@ -243,8 +327,18 @@ class Population_Dataset_target(Dataset):
             
         if "S1" in indata:
             if np.any(np.isnan(indata["S1"])):
-                indata["S1"] = self.interpolate_nan(indata["S1"]) 
-
+                if torch.isnan(torch.tensor(indata["S1"])).sum() / torch.numel(torch.tensor(indata["S1"])) < 0.05 and not self.ascfill:
+                    indata["S1"] = self.interpolate_nan(indata["S1"])
+                else:
+                    # generate another datapatch, but with the ascending orbit
+                    indataAsc, _, _ = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0, admin_overlap=ad_over, descending=False)
+                    indata["S1"] = indataAsc["S1"]
+                    if torch.isnan(torch.tensor(indata["S1"])).sum() / torch.numel(torch.tensor(indata["S1"])) < 0.05:
+                        indata["S1"] = self.interpolate_nan(indata["S1"])
+                    else:
+                        print("S1 contains too many NaNs, skipping")
+                        raise Exception("No data here!")
+                    
         # get admin_mask
         admin_mask = torch.from_numpy(self.cr_regions[w[0][0]:w[0][1], w[1][0]:w[1][1]])
 
@@ -284,9 +378,23 @@ class Population_Dataset_target(Dataset):
                 indata["S2"] = self.interpolate_nan(indata["S2"]) 
             
         if "S1" in indata:
+            # if np.any(np.isnan(indata["S1"])):
+            #     indata["S1"] = self.interpolate_nan(indata["S1"]) 
             if np.any(np.isnan(indata["S1"])):
-                indata["S1"] = self.interpolate_nan(indata["S1"]) 
-
+                if torch.isnan(torch.tensor(indata["S1"])).sum() / torch.numel(torch.tensor(indata["S1"])) < 0.05 and not self.ascfill:
+                    indata["S1"] = self.interpolate_nan(indata["S1"])
+                else:
+                    # generate another datapatch, but with the ascending orbit
+                    indataAsc, mask, window = self.generate_raw_data(x,y,season.item(), descending=False)
+                    # indataAsc, mask, window = self.generate_raw_data(x,y, season=2, descending=False)
+                    # indataAsc, _, _ = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0, admin_overlap=ad_over, descending=False)
+                    indata["S1"] = indataAsc["S1"]
+                    if np.any(np.isnan(indata["S1"])):
+                        if torch.isnan(torch.tensor(indata["S1"])).sum() / torch.numel(torch.tensor(indata["S1"])) < 0.05:
+                            indata["S1"] = self.interpolate_nan(indata["S1"])
+                        else:
+                            print("S1 contains too many NaNs, skipping")
+                            raise Exception("No data here!")
         # To Torch
         indata = {key:torch.from_numpy(np.asarray(val, dtype=np.float32)).type(torch.FloatTensor) for key,val in indata.items()} 
         mask = torch.from_numpy(mask).type(torch.FloatTensor)
@@ -299,7 +407,6 @@ class Population_Dataset_target(Dataset):
 
         # return dictionary
         return {
-                # 'input': X,
                 'img_coords': (x,y), 'valid_coords':  (xmin, xmax, ymin, ymax),
                 **indata,
                 'season': season.item(), 'mask': mask, 'season_str': self.season_dict[season.item()]}
@@ -319,7 +426,12 @@ class Population_Dataset_target(Dataset):
         known_points = np.where(~nan_mask)
         values = input_array[known_points]
         missing_points = np.where(nan_mask)
-        # interpolated_values = griddata(known_points[::-1].T, values, missing_points[::-1].T, method='cubic')
+
+        if (~nan_mask).sum()< 4:
+            print("all nan detected")
+            return np.zeros_like(input_array)
+        
+        # interpolate the missing values
         interpolated_values = griddata(np.vstack(known_points).T, values, np.vstack(missing_points).T, method='nearest')
 
         # fillin the missing ones
@@ -328,7 +440,7 @@ class Population_Dataset_target(Dataset):
         return input_array
 
 
-    def generate_raw_data(self, x, y, season, patchsize=None, overlap=None, admin_overlap=0):
+    def generate_raw_data(self, x, y, season, patchsize=None, overlap=None, admin_overlap=0, descending=True):
         """
         Generate the data for the patch
         Input:
@@ -356,7 +468,6 @@ class Population_Dataset_target(Dataset):
         else:
             window = ((x,x+patchsize_x),(y,y+patchsize_y))
 
-
         indata = {}
         mask = np.zeros((patchsize_x, patchsize_y), dtype=bool)
         mask[overlap:patchsize_x-overlap, overlap:patchsize_y-overlap] = True
@@ -370,6 +481,9 @@ class Population_Dataset_target(Dataset):
             if self.NIR:
                 if fake:
                     indata["S2"] = np.random.randint(0, 10000, size=(4,patchsize_x,patchsize_y))
+
+                elif isinstance(S2_file, gdal.Dataset):
+                    indata["S2"] = self.read_gdal_file(S2_file, (3,2,1,4), window=window)
                 else:
                     with rasterio.open(S2_file, "r") as src:
                         indata["S2"] = src.read((3,2,1,4), window=window).astype(np.float32) 
@@ -381,9 +495,11 @@ class Population_Dataset_target(Dataset):
                         indata["S2"] = src.read((3,2,1), window=window).astype(np.float32) 
             # mask = mask & (indata["S2"].sum(axis=0) != 0)
         if self.S1:
-            S1_file = self.S1_file[season]
+            S1_file = self.S1_file[season] if descending else self.S1Asc_file[season]
             if fake:
                 indata["S1"] = np.random.randint(0, 10000, size=(2,patchsize_x,patchsize_y))
+            elif isinstance(S1_file, gdal.Dataset):
+                indata["S1"] = self.read_gdal_file(S1_file, (1,2), window=window)
             else:
                 with rasterio.open(S1_file, "r") as src:
                     indata["S1"] = src.read((1,2), window=window).astype(np.float32) 
@@ -391,22 +507,24 @@ class Population_Dataset_target(Dataset):
         if self.VIIRS:
             if fake:
                 indata["VIIRS"] = np.random.randint(0, 10000, size=(1,patchsize_x,patchsize_y))
+            elif isinstance(self.VIIRS_file, gdal.Dataset):
+                indata["VIIRS"] = self.read_gdal_file(self.VIIRS_file, (1,), window=window)
             else:
                 with rasterio.open(self.VIIRS_file, "r") as src:
                     indata["VIIRS"] = src.read(1, window=window).astype(np.float32)  
 
         
-        if self.gbuildings:
+        if self.gbuildings or self.sentinelbuildings:
             if fake:
                 indata["building_segmentation"] = np.random.randint(0, 1, size=(1,patchsize_x,patchsize_y))
                 indata["building_counts"] = np.random.randint(0, 2, size=(1,patchsize_x,patchsize_y))
             else:
-                if self.sentinelbuildings:
+                if self.sentinelbuildings and os.path.exists(self.sbuildings_segmentation_file):
                     with rasterio.open(self.sbuildings_segmentation_file, "r") as src:
                         indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32) 
                     indata["building_segmentation"] = indata["building_counts"]>0.5
 
-                else: 
+                elif os.path.exists(self.gbuildings_segmentation_file): 
                     with rasterio.open(self.gbuildings_segmentation_file, "r") as src:
                         indata["building_segmentation"] = src.read(1, window=window)[np.newaxis].astype(np.float32)
                     with rasterio.open(self.gbuildings_counts_file, "r") as src:
@@ -417,6 +535,27 @@ class Population_Dataset_target(Dataset):
         # admin_mask = self.cr_regions[x:x+patchsize_x, y:y+patchsize_y]==idx
 
         return indata, mask, window
+    
+    def read_gdal_file(self, file, bands, window=None):
+        """
+        Reads a gdal file and returns the data
+        inputs:
+            :param file: the gdal file
+            :param bands: the bands to read, 1-based indexing like in gdal (e.g. (3,2,1) for RGB)
+            :param window: the window to read
+        outputs:
+            :return: the data
+        """
+        # Read band data into preallocated array
+        # bands_out = np.zeros((len(bands), window[0][1]-window[0][0], window[1][1]-window[1][0]), dtype=np.float32)
+        bands_out = np.zeros((len(bands), window[1][1]-window[1][0], window[0][1]-window[0][0]), dtype=np.float32)
+        for b in bands:
+            band = file.GetRasterBand(b)
+            # bands_out[b-1] = band.ReadAsArray(xoff=window[0][0], yoff=window[1][0], xsize=window[0][1]-window[0][0], ysize=window[1][1]-window[1][0])
+            # bands_out[b-1] = band.ReadAsArray(window[0][0].item(), window[1][0].item(), (window[0][1]-window[0][0]).item(), (window[1][1]-window[1][0]).item())
+            bands_out[b-1] = band.ReadAsArray(window[1][0].item(), window[0][0].item(), (window[1][1]-window[1][0]).item(), (window[0][1]-window[0][0]).item())
+
+        return bands_out
 
     def convert_popmap_to_census(self, pred, gpu_mode=False, level="fine"):
         """

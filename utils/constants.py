@@ -22,7 +22,8 @@ if os.name == "nt":  # locally
     current_dir_path = dirname(dirname((os.getcwd())))
 
 # current_dir_path = "/scratch2/metzgern/HAC/code/So2SatPOP/data"
-current_dir_paths = ["/scratch/metzgern/HAC/data",
+current_dir_paths = [
+    "/scratch/metzgern/HAC/data",
     "/cluster/work/igp_psr/metzgern/HAC/data",
     "/cluster/scratch/metzgern/HAC/data/",
 ]
@@ -64,6 +65,22 @@ pop_map_covariates_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.j
 
 
 # Sat2Pop data folder
+raw_file_paths = [
+        "/scratch/metzgern/HAC/data",
+        "/scratch2/metzgern/HAC/data",
+        "/cluster/work/igp_psr/metzgern/HAC/data"
+]
+for name in raw_file_paths:
+    if os.path.isdir(name):
+        raw_file_path = name
+if raw_file_path is None:
+    raise Exception("No data folder found")
+raw_map_root = os.path.join(raw_file_path, os.path.join("PopMapData", "raw"))
+rawEE_map_root = os.path.join(raw_map_root, "EE")
+
+
+
+# Sat2Pop data folder
 data_paths_aux = [
         "/scratch/metzgern/HAC/data",
         "/scratch2/metzgern/HAC/data",
@@ -76,7 +93,6 @@ for name in data_paths_aux:
 if large_file_path is None:
     raise Exception("No data folder found")
 pop_gbuildings_path = os.path.join(data_path_aux, os.path.join("PopMapData", os.path.join("raw", "GoogleBuildings")))
-
 
 
 
@@ -133,13 +149,20 @@ datalocations = {
             'boundary': "boundaries_coarse.tif",
             'census': "census_coarse.csv",
         } 
+    },
+    "uga": {
+        'coarse': {
+            'boundary': "boundaries.tif",
+            'census': "census.csv",
+        },
     }
 }
 
 testlevels = {
     'pricp2': ["fine", "fineTRACTCE"],
     # 'rwa': ["coarse"]
-    'rwa': ["fine100", "fine200", "fine400", "fine1000", "coarse"]
+    'rwa': ["fine100", "fine200", "fine400", "fine1000", "coarse"],
+    'uga': ["coarse"]
 }
 
     

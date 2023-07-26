@@ -187,7 +187,21 @@
                 "-1.554375",
                 "35.095825",
                 "4.291636",
-                "uga", 
+                "ugaAsc", 
+            ]
+        },
+        {
+            "name": "01_download_gee_country.py, UGAtest",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/01_download_gee_country.py",
+            "console": "integratedTerminal",
+            "args": [ 
+                "29.492798",
+                "4.281636",
+                "35.095825",
+                "4.291636",
+                "ugatest2blending3", 
             ]
         }, 
         {
@@ -241,6 +255,17 @@
             "args": [
                 "/scratch2/metzgern/HAC/data/PopMapData/raw/EE/rwa",
                 "/scratch/metzgern/HAC/data/PopMapData/merged/EE/rwa"
+            ]
+        },
+        {
+            "name": "03_merge_tiffs.py, uga",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/03_merge_tiffs.py",
+            "console": "integratedTerminal",
+            "args": [
+                "/scratch2/metzgern/HAC/data/PopMapData/raw/EE/uga",
+                "/scratch/metzgern/HAC/data/PopMapData/merged/EE/uga"
             ]
         },
         {
@@ -329,7 +354,7 @@
             ]
         },
         {
-            "name": "07_create_buildings.py, PRI",
+            "name": "07_create_buildings.py, RWA",
             "type": "python",
             "request": "launch",
             "module": "utils.07_create_buildings",
@@ -337,6 +362,33 @@
             "args": [
                 "--region", "rwa"
             ]
+        },
+        {
+            "name": "07_create_buildings.py, PRI",
+            "type": "python",
+            "request": "launch",
+            "module": "utils.07_create_buildings",
+            "console": "integratedTerminal",
+            "args": [
+                "--region", "pricp2"
+            ]
+        },
+        {
+            "name": "07_create_buildings.py, UGA",
+            "type": "python",
+            "request": "launch",
+            "module": "utils.07_create_buildings",
+            "console": "integratedTerminal",
+            "args": [
+                "--region", "uga"
+            ]
+        },
+        {
+            "name": "08_preprocess_ugp_shapefile.py, UGA",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/08_preprocess_uga_shapefile.py",
+            "console": "integratedTerminal"
         },
         {
             "name": "eval_meta_maps.py",
@@ -686,12 +738,12 @@
                 // "--model", "JacobsUNet",  
                 "-l",
                 "log_l1_loss", 
-                // "L1reg", 
+                "L1reg", 
                 // "l1_loss", 
                 "--merge_aug", "2",
                 "-la",
                 "1.0",
-                // "0.01",
+                "0.01",
                 "-dw","3",
                 "-dw2","3",
                 "-S2",
@@ -731,6 +783,7 @@
                 "--occupancymodel",
                 "--buildinginput",
                 "--sentinelbuildings"
+
                 // "--optimizer", "SGD",
                 // "--weightdecay", "0.000001",
                 // "--eu2rwa" 

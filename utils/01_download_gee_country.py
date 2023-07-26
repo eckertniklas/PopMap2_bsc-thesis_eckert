@@ -348,18 +348,61 @@ def export_S1_tile(season, dates, filename, roi, folder, scale=10, crs='EPSG:432
     collectionS1 = collectionS1.filter(ee.Filter.eq('instrumentMode', 'IW'))
     collectionS1 = collectionS1.filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
     collectionS1 = collectionS1.filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))
-    collectionS1 = collectionS1.filter(ee.Filter.eq('orbitProperties_pass', orbit))
+    collectionS1 = collectionS1.filter(ee.Filter.eq('orbitProperties_pass', 'DESCENDING'))
     collectionS1 = collectionS1.filterBounds(roi)
     # collectionS1 = collectionS1.filter(ee.Filter.contains('.geo', roi))
     collectionS1 = collectionS1.filterDate(start_date, end_date)
     collectionS1 = collectionS1.select(['VV', 'VH'])
-    
-    collectionS1_first = collectionS1.median() 
+    collectionS1_first_desc = collectionS1.median() 
+
+
+    # also for acending orbit
+    collectionS1 = ee.ImageCollection('COPERNICUS/S1_GRD')
+    collectionS1 = collectionS1.filter(ee.Filter.eq('instrumentMode', 'IW'))
+    collectionS1 = collectionS1.filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+    collectionS1 = collectionS1.filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))
+    collectionS1 = collectionS1.filter(ee.Filter.eq('orbitProperties_pass', 'ASCENDING'))
+    collectionS1 = collectionS1.filterBounds(roi)
+    # collectionS1 = collectionS1.filter(ee.Filter.contains('.geo', roi))
+    collectionS1 = collectionS1.filterDate(start_date, end_date)
+    collectionS1 = collectionS1.select(['VV', 'VH'])
+    collectionS1_first_asc = collectionS1.median() 
+
+    # fill up the missing data of the descending orbit with the ascending orbit data
+
+    # reference
+    # composite_filled = collectionS1_first_desc.unmask(collectionS1_first_asc)
+
+
+
+    # non_null_mask = collectionS1_first_desc.mask()
+
+    # # Convert the mask to a feature collection
+    # non_null_features = non_null_mask.reduceToVectors(**{
+    #     'scale': scale,  # Adjust the scale as necessary
+    #     'geometryType': 'polygon',
+    #     'geometry': roi,
+    #     'eightConnected': False,
+    #     'maxPixels': 1e9
+    # })
+
+    # # Compute a 1km buffer around the non-null areas
+    # buffer_features = non_null_features.map(lambda feature: feature.buffer(1000))
+
+    # # Convert the buffer back to an image
+    # buffer_mask = ee.Image().paint(buffer_features, 1).unmask(0)
+
+    # # Update the mask of the descending image
+    # desc_with_buffer = collectionS1_first_desc.updateMask(buffer_mask)
+
+    # # Use the unmask function on the descending composite, passing the ascending composite as the argument
+    # filled_composite = desc_with_buffer.unmask(collectionS1_first_asc) 
+
 
 
     if url_mode:
         try:
-            url = collectionS1_first.getDownloadUrl({
+            url = collectionS1_first_desc.getDownloadUrl({
                 'scale': scale,
                 'format': "GEOTIFF", 
                 'region': roi,
@@ -376,7 +419,7 @@ def export_S1_tile(season, dates, filename, roi, folder, scale=10, crs='EPSG:432
 
     # Export the image, specifying scale and region.
     task = ee.batch.Export.image.toDrive(
-        image = collectionS1_first,
+        image = collectionS1_first_desc,
         scale = scale,  
         description = filename, 
         fileFormat="GEOTIFF",  
@@ -385,7 +428,25 @@ def export_S1_tile(season, dates, filename, roi, folder, scale=10, crs='EPSG:432
         crs=crs, 
         maxPixels=80000000000,
     )
+    # start(task)
+
+
+    filenameacs = filename.split('_')[0] + "Asc_" + filename.split('_')[1]
+
+    # Export the image, specifying scale and region.
+    task = ee.batch.Export.image.toDrive(
+        image = collectionS1_first_asc,
+        scale = scale,  
+        description = filenameacs,
+        fileFormat="GEOTIFF",  
+        folder=folder, 
+        region = roi, 
+        crs=crs, 
+        maxPixels=80000000000,
+    )
     start(task)
+
+
     return None
 
 # def export_gbuildings(collection_name, confidence_min, bbox, description, folder, scale=10):
@@ -427,8 +488,6 @@ def export_gbuildings(roi, filename, folder, confidence_min=0.0, scale=10, crs='
     start(task)
 
 
-
-
 def download(minx, miny, maxx, maxy, name):
     """
     Function to download the data from Google Earth Engine to Drive.
@@ -452,14 +511,14 @@ def download(minx, miny, maxx, maxy, name):
     # S2 = True
     S2 = False
 
-    S2A = True
-    # S2A = False
+    # S2A = True
+    S2A = False
 
     # VIIRS = True
     VIIRS = False
 
-    GoogleBuildings = True
-    # GoogleBuildings = False
+    # GoogleBuildings = True
+    GoogleBuildings = False
 
     if S1:
         ########################### Processing Sentinel 1 #############################################
@@ -484,8 +543,7 @@ def download(minx, miny, maxx, maxy, name):
         export_cloud_free_sen2("S2Asummer", (Sen2summer_start_date, Sen2summer_finish_date), name, exportarea, S2type="S2_SR_HARMONIZED")
         export_cloud_free_sen2("S2Aautumn", (Sen2autumn_start_date, Sen2autumn_finish_date), name, exportarea, S2type="S2_SR_HARMONIZED")
         export_cloud_free_sen2("S2Awinter", (Sen2winter_start_date, Sen2winter_finish_date), name, exportarea, S2type="S2_SR_HARMONIZED")
-
-            
+     
     if VIIRS:
         ########################### Processing Sentinel 2 #############################################
 

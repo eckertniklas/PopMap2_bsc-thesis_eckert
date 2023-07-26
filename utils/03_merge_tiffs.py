@@ -6,6 +6,16 @@ from os.path import isfile
 from osgeo import gdal
 from tqdm import tqdm
 
+from plot import plot_2dmatrix
+
+from tqdm import tqdm
+
+import rasterio
+from rasterio import windows
+from rasterio.vrt import WarpedVRT
+
+import numpy as np
+
 def process(parent_dir, output_dir):
     # os.makedirs(parent_dir.replace("raw", "merged"), exist_ok=True)
     name = parent_dir.split("/")[-1]
@@ -27,21 +37,35 @@ def process(parent_dir, output_dir):
         files_to_mosaic = [ os.path.join(subdir,file) for file in os.listdir(subdir)]
         
         # Create output name
-        # ty = subdir.split("/")[-1]
         output_file = os.path.join(os.path.join(output_dir, ty), name + "_" + ty + ".tif" )
-
-
 
         # Skip if file already exists
         if isfile(output_file) or ty in ["S2spring", "S2summer", "S2autumn", "S2winter"]:
             print("File already exists, skipping") 
         elif ty in ["S1spring", "S1summer", "S1autumn", "S1winter"]:
+        # elif ty in ["S1spring", "S1summer", "S1autumn", "S1winter"]:
             print("Merging files to", output_file)
             # Merge files
-            g = gdal.Warp(output_file, files_to_mosaic, format="GTiff", options=["COMPRESS=LZW"])
-            g = None
+            if len(files_to_mosaic) < 7:
+                g = gdal.Warp(output_file, files_to_mosaic, format="GTiff", options=["COMPRESS=LZW"])
+                
+            else:
+                compression = True
+                if compression:
+                    # compress it  Open the GeoTIFF file in read mode 
+                    for filename in tqdm(files_to_mosaic):
+                        with rasterio.open(filename, "r") as src:
+                            profile = src.profile.copy()
+                            profile["compress"] = "lzw"
+                            profile["dtype"] = "float32"
+                            # with rasterio.open(filename, "w", **profile) as dst:
+                            #     dst.write(src.read())
 
+                        with rasterio.open(filename, "r") as src:
+                            a = src.read()
 
+                        with rasterio.open(filename, "w", **profile) as dst:
+                            dst.write(a)
 
         if ty in ["S2spring", "S2summer", "S2autumn", "S2winter"]:
             continue
@@ -71,8 +95,27 @@ def process(parent_dir, output_dir):
                 continue
             print("Merging files to", output_file)
             # Merge files
-            g = gdal.Warp(output_file, files_to_mosaic, format="GTiff", outputType=gdal.GDT_UInt16, options=["COMPRESS=LZW,bandList=[2,3,4,8]"]) 
-            g = None
+            if len(files_to_mosaic) < 7:
+                g = gdal.Warp(output_file, files_to_mosaic, format="GTiff", outputType=gdal.GDT_UInt16, options=["COMPRESS=LZW,bandList=[2,3,4,8]"]) 
+            else:
+                #TODO: compress the raw files first
+                compression = True
+                if compression:
+                    # compress it  Open the GeoTIFF file in read mode 
+                    for filename in tqdm(files_to_mosaic):
+                        with rasterio.open(filename, "r") as src:
+                            profile = src.profile.copy()
+                            profile["compress"] = "lzw"
+                            profile["dtype"] = "uint16"
+                            # with rasterio.open(filename, "w", **profile) as dst:
+                            #     dst.write(src.read().astype(np.uint16))
+        
+
+                        with rasterio.open(filename, "r") as src:
+                            a = src.read().astype(np.uint16)
+
+                        with rasterio.open(filename, "w", **profile) as dst:
+                            dst.write(a)
 
 
 

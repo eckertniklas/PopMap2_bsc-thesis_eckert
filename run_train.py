@@ -186,6 +186,11 @@ class Trainer:
                 if (self.info["epoch"] + 1) % self.args.val_every_n_epochs == 0:
                     self.validate()
                     torch.cuda.empty_cache()
+
+                    # TODO weak validation
+                    # if self.args.supmode=="weaksup":
+                    #     self.validate_weak()
+                    #     torch.cuda.empty_cache()
                 
                 # target domain testing
                 if (self.info["epoch"] + 1) % (1*self.args.val_every_n_epochs) == 0:

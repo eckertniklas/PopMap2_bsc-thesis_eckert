@@ -26,12 +26,14 @@ def main(args):
 
     # get dataset
     overlap = 128
+    ips = 512
     # ips = 1024
     # ips = 4096
-    ips = 2048
+    # ips = 2048
     
     input_defs = {'S1': True, 'S2': True, 'VIIRS': False, 'NIR': True}
-    dataset = Population_Dataset_target(args.region, patchsize=ips, overlap=overlap, **input_defs)
+    dataset = Population_Dataset_target(args.region, patchsize=ips, overlap=overlap, fourseasons=True,
+                                        sentinelbuildings=True, ascfill=True, **input_defs)
     dataloader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=False, drop_last=False)
 
     # get model
@@ -44,7 +46,7 @@ def main(args):
                     DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_new")
 
     ## load weights from checkpoint
-    net, optimizer, step = load_checkpoint(epoch=15, cfg=cfg, device="cuda")
+    net, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda")
 
     # get dataset stats
     dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
@@ -55,13 +57,14 @@ def main(args):
         else:
             dataset_stats[mkey] = torch.tensor(val)
 
+    # set to model to eval mode
     net.eval()
 
 
     # get predictions
     with torch.no_grad(): 
         h, w = dataloader.dataset.shape()
-        output_map_count = torch.zeros((h, w), dtype=torch.int16)
+        output_map_count = torch.zeros((h, w), dtype=torch.int8)
         output_map = torch.zeros((h, w), dtype=torch.float16) 
             
         for sample in tqdm(dataloader, leave=True):
@@ -79,36 +82,44 @@ def main(args):
 
             x_fusion = torch.cat([S1, S2_RGB, S2_NIR], dim=1)
 
-            # x_fusion = torch.cat([S1, S2], dim=1)
-            # x_fusion = sample["input"]
-
-
             xl,yl = [val.item() for val in sample["img_coords"]]
             mask = sample["mask"][0].bool()
 
             # forward pass
-            sar_logits, optical_logits, fusion_logits, disc_logits_sar, disc_logits_optical = net(x_fusion, alpha=0)
+            # sar_logits, optical_logits, fusion_logits, disc_logits_sar, disc_logits_optical = net(x_fusion, alpha=0)
+            if xl<3000:
+                continue
+            _, _, fusion_logits, _, _ = net(x_fusion, alpha=0)
 
             fusion_logits = fusion_logits.squeeze(0).squeeze(0)
 
             # save predictions to output map 
-            output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += fusion_logits[mask].cpu().to(torch.float16) 
+            output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += torch.sigmoid(fusion_logits[mask].cpu()).to(torch.float16) 
+            # output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += fusion_logits[mask].cpu().to(torch.float16) 
             output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
     
+
+    # plot_2dmatrix(torch.sigmoid(output_map.to(torch.float32)))
+    # plot_2dmatrix(output_map)
+    # plot_2dmatrix(output_map_count)
+
     # average predictions
     div_mask = output_map_count > 1
     output_map[div_mask] = output_map[div_mask] / output_map_count[div_mask]
 
+    del output_map_count
+
     # convert to pseudo_probabilities
-    output_map_prob = torch.sigmoid(output_map.to(torch.float32))
+    # output_map_prob = torch.sigmoid(output_map.to(torch.float32))
+    # output_map_prob = output_map_prob.to(torch.float16)
 
     # output_map_prob[output_map_count==0] = 0
     
     # set the overlap to zero
-    output_map_prob[:overlap, :] = 0
-    output_map_prob[-overlap:, :] = 0
-    output_map_prob[:, :overlap] = 0
-    output_map_prob[:, -overlap:] = 0
+    output_map[:overlap, :] = 0
+    output_map[-overlap:, :] = 0
+    output_map[:, :overlap] = 0
+    output_map[:, -overlap:] = 0
 
     # save predictions to file
     region_root = os.path.join(pop_map_root, args.region)
@@ -117,9 +128,12 @@ def main(args):
                      "dtype": "float32",
                      "compress": "lzw"
                      })
-    with rasterio.open(os.path.join(region_root, "buildingsDDA128_4096_nodisc.tif"), 'w', **metadata) as dst:
-        dst.write(output_map_prob, 1)
+    
+    with rasterio.open(os.path.join(region_root, "buildingsDDA2_4.tif"), 'w', **metadata) as dst:
+        dst.write(output_map, 1)
         
+    # with rasterio.open(os.path.join(region_root, "buildingsDDA128_4096_nodisc_new_prob_merge.tif"), 'w', **metadata) as dst:
+    #     dst.write(output_map_prob, 1)
 
     return None
 
@@ -130,13 +144,9 @@ if __name__=="__main__":
 
     # intialize the parser
     parser = argparse.ArgumentParser()
-
-    # add arguments
     parser.add_argument('-reg', '--region', type=str, help='')
-
-
-    # parse the arguments
     args = parser.parse_args()
 
-    #
+    # run main
     main(args)
+    print("Done!")

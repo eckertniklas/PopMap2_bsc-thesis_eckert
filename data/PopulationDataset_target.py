@@ -151,11 +151,11 @@ class Population_Dataset_target(Dataset):
                 _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1summer_out.vrt"), [ os.path.join(summer_dir, f) for f in os.listdir(summer_dir) if f.endswith(".tif")])
                 _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1autumn_out.vrt"), [ os.path.join(autumn_dir, f) for f in os.listdir(autumn_dir) if f.endswith(".tif")])
                 _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1winter_out.vrt"), [ os.path.join(winter_dir, f) for f in os.listdir(winter_dir) if f.endswith(".tif")])
-                S1spring_file = os.path.join(rawEE_map_root, region, "S1spring_out.vrt")
-                S1summer_file = os.path.join(rawEE_map_root, region, "S1summer_out.vrt")
-                S1autumn_file = os.path.join(rawEE_map_root, region, "S1autumn_out.vrt")
-                S1winter_file = os.path.join(rawEE_map_root, region, "S1winter_out.vrt")
-                
+            S1spring_file = os.path.join(rawEE_map_root, region, "S1spring_out.vrt")
+            S1summer_file = os.path.join(rawEE_map_root, region, "S1summer_out.vrt")
+            S1autumn_file = os.path.join(rawEE_map_root, region, "S1autumn_out.vrt")
+            S1winter_file = os.path.join(rawEE_map_root, region, "S1winter_out.vrt")
+            
             if ascfill:
                 spring_dir = os.path.join(rawEE_map_root, region, "S1springAsc")
                 summer_dir = os.path.join(rawEE_map_root, region, "S1summerAsc")
@@ -168,10 +168,10 @@ class Population_Dataset_target(Dataset):
                     _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1summerAsc_out.vrt"), [ os.path.join(summer_dir, f) for f in os.listdir(summer_dir) if f.endswith(".tif")])
                     _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1autumnAsc_out.vrt"), [ os.path.join(autumn_dir, f) for f in os.listdir(autumn_dir) if f.endswith(".tif")])
                     _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1winterAsc_out.vrt"), [ os.path.join(winter_dir, f) for f in os.listdir(winter_dir) if f.endswith(".tif")])
-                    S1springAsc_file = os.path.join(rawEE_map_root, region, "S1springAsc_out.vrt")
-                    S1summerAsc_file = os.path.join(rawEE_map_root, region, "S1summerAsc_out.vrt")
-                    S1autumnAsc_file = os.path.join(rawEE_map_root, region, "S1autumnAsc_out.vrt")
-                    S1winterAsc_file = os.path.join(rawEE_map_root, region, "S1winterAsc_out.vrt")
+                S1springAsc_file = os.path.join(rawEE_map_root, region, "S1springAsc_out.vrt")
+                S1summerAsc_file = os.path.join(rawEE_map_root, region, "S1summerAsc_out.vrt")
+                S1autumnAsc_file = os.path.join(rawEE_map_root, region, "S1autumnAsc_out.vrt")
+                S1winterAsc_file = os.path.join(rawEE_map_root, region, "S1winterAsc_out.vrt")
 
                 self.S1Asc_file = {0: S1springAsc_file, 1: S1summerAsc_file, 2: S1autumnAsc_file, 3: S1winterAsc_file}
 
@@ -202,10 +202,10 @@ class Population_Dataset_target(Dataset):
                     _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Asummer_out.vrt"), [ os.path.join(summer_dir, f) for f in os.listdir(summer_dir) if f.endswith(".tif")])
                     _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Aautumn_out.vrt"), [ os.path.join(autumn_dir, f) for f in os.listdir(autumn_dir) if f.endswith(".tif")])
                     _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Awinter_out.vrt"), [ os.path.join(winter_dir, f) for f in os.listdir(winter_dir) if f.endswith(".tif")])
-                    S2spring_file = os.path.join(rawEE_map_root, region, "S2Aspring_out.vrt")
-                    S2summer_file = os.path.join(rawEE_map_root, region, "S2Asummer_out.vrt")
-                    S2autumn_file = os.path.join(rawEE_map_root, region, "S2Aautumn_out.vrt")
-                    S2winter_file = os.path.join(rawEE_map_root, region, "S2Awinter_out.vrt")
+                S2spring_file = os.path.join(rawEE_map_root, region, "S2Aspring_out.vrt")
+                S2summer_file = os.path.join(rawEE_map_root, region, "S2Asummer_out.vrt")
+                S2autumn_file = os.path.join(rawEE_map_root, region, "S2Aautumn_out.vrt")
+                S2winter_file = os.path.join(rawEE_map_root, region, "S2Awinter_out.vrt")
 
         else:
             S2spring_file = os.path.join(covar_root,  os.path.join("S21Cspring", region +"_S21Cspring.tif"))

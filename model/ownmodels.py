@@ -88,6 +88,13 @@ class BoostUNet(nn.Module):
         popdensemap_raw = nn.functional.relu(out[:,0])
         popdensemap_raw_valid = self.revert_padding(popdensemap_raw, (px1,px2,py1,py2))
 
+        # POMELO occupancy model
+        if self.occupancymodel:
+            if "building_counts" in inputs.keys():
+                popdensemap_raw_valid = popdensemap_raw_valid * inputs["building_counts"].squeeze(1)
+                # popvarmap = popvarmap * inputs["building_counts"].squeeze(1)
+
+
         if "admin_mask" in inputs.keys():
             popcount_raw = (popdensemap_raw_valid * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
         else:

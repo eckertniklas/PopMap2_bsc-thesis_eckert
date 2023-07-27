@@ -24,7 +24,7 @@ def save_checkpoint(network, optimizer, epoch: int, step: int, cfg: experiment_m
     torch.save(checkpoint, save_file)
 
 
-def load_checkpoint(epoch: int, cfg: experiment_manager.CfgNode, device):
+def load_checkpoint(epoch: int, cfg: experiment_manager.CfgNode, device, no_disc):
     net = create_network(cfg)
     net.to(device)
 
@@ -33,8 +33,15 @@ def load_checkpoint(epoch: int, cfg: experiment_manager.CfgNode, device):
 
     optimizer = torch.optim.AdamW(net.parameters(), lr=cfg.TRAINER.LR, weight_decay=0.01)
 
-    net.load_state_dict(checkpoint['network'])
-    optimizer.load_state_dict(checkpoint['optimizer'])
+    checkpoint['network']
+
+    if no_disc:
+        net.load_state_dict(checkpoint['network'], strict=False)
+    else:
+        net.load_state_dict(checkpoint['network'])
+
+    # net.load_state_dict(checkpoint['network'])
+    # optimizer.load_state_dict(checkpoint['optimizer'])
 
     return net, optimizer, checkpoint['step']
 

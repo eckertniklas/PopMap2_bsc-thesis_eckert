@@ -15,7 +15,7 @@ import random
 
 from typing import Dict, Tuple
 
-from utils.constants import pop_map_root_large, pop_map_root, pop_map_covariates, pop_map_covariates_large, config_path, pop_gbuildings_path, rawEE_map_root
+from utils.constants import pop_map_root_large, pop_map_root, pop_map_covariates, pop_map_covariates_large, config_path, pop_gbuildings_path, rawEE_map_root, skip_indices
 from utils.constants import datalocations
 from utils.plot import plot_2dmatrix
 from osgeo import gdal
@@ -85,11 +85,15 @@ class Population_Dataset_target(Dataset):
             self.coarse_census = pd.read_csv(self.file_paths["coarse"]["census"])
             # self.coarse_census = pd.read_csv(self.coarse_census_file)
             # max_pix = 2e6
-            max_pix = 1.25e6
+            max_pix = 5e6
+            # max_pix = 1.25e6
             # max_pix = 1e16
             # max_pix = 1e16
             print("Kicking out ", (self.coarse_census["count"]>=max_pix).sum(), "samples with more than ", int(max_pix), " pixels")
             self.coarse_census = self.coarse_census[self.coarse_census["count"]<max_pix].reset_index(drop=True)
+
+            # kicking out samples that are ugly shaped and difficualt to handle using the skip_indices
+            self.coarse_census = self.coarse_census[~self.coarse_census["idx"].isin(skip_indices[region])].reset_index(drop=True)
 
             # redefine indexing
             if max_samples is not None:
@@ -98,7 +102,7 @@ class Population_Dataset_target(Dataset):
             print("Using", len(self.coarse_census), "samples for weakly supervised training")
 
             # get the shape of the coarse regions
-            with rasterio.open(self.coarse_boundary_file, "r") as src:
+            with rasterio.open(self.file_paths["coarse"]["boundary"], "r") as src:
                 self.cr_regions = src.read(1)
                 self.cr_shape = src.shape
 
@@ -192,14 +196,11 @@ class Population_Dataset_target(Dataset):
                 winter_dir = os.path.join(rawEE_map_root, region, "S2Awinter")
                 S2winter_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Awinter_out.vrt"), [ os.path.join(winter_dir, f) for f in os.listdir(winter_dir) if f.endswith(".tif")])
 
-
-
         else:
             S2spring_file = os.path.join(covar_root,  os.path.join("S21Cspring", region +"_S21Cspring.tif"))
             S2summer_file = os.path.join(covar_root,  os.path.join("S21Csummer", region +"_S21Csummer.tif"))
             S2autumn_file = os.path.join(covar_root,  os.path.join("S21Cautumn", region +"_S21Cautumn.tif"))
             S2winter_file = os.path.join(covar_root,  os.path.join("S21Cwinter", region +"_S21Cwinter.tif"))
-
 
         self.S2_file = {0: S2spring_file, 1: S2summer_file, 2: S2autumn_file, 3: S2winter_file}
         self.season_dict = {0: "spring", 1: "summer", 2: "autumn", 3: "winter"}
@@ -209,7 +210,7 @@ class Population_Dataset_target(Dataset):
         # load the google buildings
         if self.sentinelbuildings:
             # load sentinel buildings
-            self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA.tif")
+            self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA2_44C.tif")
             self.gbuildings_segmentation_file = ''
             # self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA128_4096_nodisc.tif")
             self.sbuildings = True
@@ -219,7 +220,7 @@ class Population_Dataset_target(Dataset):
             self.gbuildings_segmentation_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_segmentation.tif")
             self.gbuildings_counts_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_counts.tif")
             self.gbuildings = True
-
+        self.gbuildings = False
 
         # normalize the dataset (do not use, this does not make sense for variable regions sizes like here)
         self.y_stats = load_json(os.path.join(config_path, 'dataset_stats', 'label_stats.json'))
@@ -490,6 +491,8 @@ class Population_Dataset_target(Dataset):
             else:
                 if fake:
                     indata["S2"] = np.random.randint(0, 10000, size=(3,patchsize_x,patchsize_y))
+                elif isinstance(S2_file, gdal.Dataset):
+                    indata["S2"] = self.read_gdal_file(S2_file, (3,2,1), window=window)
                 else:
                     with rasterio.open(S2_file, "r") as src:
                         indata["S2"] = src.read((3,2,1), window=window).astype(np.float32) 
@@ -513,7 +516,6 @@ class Population_Dataset_target(Dataset):
                 with rasterio.open(self.VIIRS_file, "r") as src:
                     indata["VIIRS"] = src.read(1, window=window).astype(np.float32)  
 
-        
         if self.gbuildings or self.sentinelbuildings:
             if fake:
                 indata["building_segmentation"] = np.random.randint(0, 1, size=(1,patchsize_x,patchsize_y))
@@ -522,7 +524,9 @@ class Population_Dataset_target(Dataset):
                 if self.sentinelbuildings and os.path.exists(self.sbuildings_segmentation_file):
                     with rasterio.open(self.sbuildings_segmentation_file, "r") as src:
                         indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32) 
-                    indata["building_segmentation"] = indata["building_counts"]>0.5
+                    # indata["building_segmentation"] = indata["building_counts"]
+                    # indata["building_segmentation"] = indata["building_counts"]>0.5
+
 
                 elif os.path.exists(self.gbuildings_segmentation_file): 
                     with rasterio.open(self.gbuildings_segmentation_file, "r") as src:
@@ -548,13 +552,15 @@ class Population_Dataset_target(Dataset):
         """
         # Read band data into preallocated array
         # bands_out = np.zeros((len(bands), window[0][1]-window[0][0], window[1][1]-window[1][0]), dtype=np.float32)
-        bands_out = np.zeros((len(bands), window[1][1]-window[1][0], window[0][1]-window[0][0]), dtype=np.float32)
-        for b in bands:
-            band = file.GetRasterBand(b)
-            # bands_out[b-1] = band.ReadAsArray(xoff=window[0][0], yoff=window[1][0], xsize=window[0][1]-window[0][0], ysize=window[1][1]-window[1][0])
-            # bands_out[b-1] = band.ReadAsArray(window[0][0].item(), window[1][0].item(), (window[0][1]-window[0][0]).item(), (window[1][1]-window[1][0]).item())
-            bands_out[b-1] = band.ReadAsArray(window[1][0].item(), window[0][0].item(), (window[1][1]-window[1][0]).item(), (window[0][1]-window[0][0]).item())
+        # bands_out = np.zeros((len(bands), window[1][1]-window[1][0], window[0][1]-window[0][0]), dtype=np.float32)
+        # for i, b in enumerate(bands):
+        #     band = file.GetRasterBand(b)
+        #     # bands_out[i] = band.ReadAsArray(xoff=window[0][0], yoff=window[1][0], xsize=window[0][1]-window[0][0], ysize=window[1][1]-window[1][0])
+        #     # bands_out[i] = band.ReadAsArray(window[0][0].item(), window[1][0].item(), (window[0][1]-window[0][0]).item(), (window[1][1]-window[1][0]).item())
+        #     bands_out[i] = band.ReadAsArray(window[1][0].item(), window[0][0].item(), (window[1][1]-window[1][0]).item(), (window[0][1]-window[0][0]).item())
 
+        with rasterio.open(file.GetDescription(), 'r') as raster_vrt:
+            bands_out = raster_vrt.read(bands, window=window).astype(np.float32) 
         return bands_out
 
     def convert_popmap_to_census(self, pred, gpu_mode=False, level="fine"):
@@ -592,6 +598,7 @@ class Population_Dataset_target(Dataset):
             # for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"]))):
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
                 census_pred[cidx] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
+                # census["count"] = (boundary[xmin:xmax, ymin:ymax]==cidx).to(torch.float32).sum()
 
         else:
             pred = pred.to(torch.float32)
@@ -731,10 +738,9 @@ def Population_Dataset_collate_fn(batch):
     input_batch_S1 = torch.zeros(len(batch), batch[0]['S1'].shape[0], max_x, max_y)
     input_batch_S2 = torch.zeros(len(batch), batch[0]['S2'].shape[0], max_x, max_y)
 
-    building_dict = {
-        "building_segmentation": torch.zeros(len(batch), 1, max_x, max_y),
-        "building_counts": torch.zeros(len(batch), 1, max_x, max_y)
-    }
+    building_segmentation = torch.zeros(len(batch), 1, max_x, max_y),
+    building_counts = torch.zeros(len(batch), 1, max_x, max_y)
+    
     use_building_segmentation = False
 
     admin_mask_batch = torch.zeros(len(batch), max_x, max_y)
@@ -751,10 +757,12 @@ def Population_Dataset_collate_fn(batch):
         admin_mask_batch[i, :x_size, :y_size] = item['admin_mask']
         y_batch[i] = item['y']
 
-        if "building_counts" in item:
-            building_dict["building_segmentation"][i, :, :x_size, :y_size] = item['building_segmentation']
-            building_dict["building_counts"][i, :, :x_size, :y_size] = item['building_counts']
+        if "building_segmentation" in item:
+            building_segmentation[i, :, :x_size, :y_size] = item['building_segmentation']
             use_building_segmentation = True
+        if "building_counts" in item:
+            building_counts[i, :, :x_size, :y_size] = item['building_counts']
+            use_building_counts = True
 
     out_dict = {
         'S1': input_batch_S1,
@@ -768,7 +776,9 @@ def Population_Dataset_collate_fn(batch):
         'census_idx': torch.cat([item['census_idx'] for item in batch]),
     }
     if use_building_segmentation:
-        out_dict = {**out_dict, **building_dict}
+        out_dict["building_segmentation"] = building_segmentation
+    if use_building_counts:
+        out_dict["building_counts"] = building_counts
 
     return out_dict
 

@@ -155,6 +155,10 @@ datalocations = {
             'boundary': "boundaries.tif",
             'census': "census.csv",
         },
+        'fine': {
+            'boundary': "boundaries.tif",
+            'census': "census.csv",
+        },
     }
 }
 
@@ -164,6 +168,14 @@ testlevels = {
     'rwa': ["fine100", "fine200", "fine400", "fine1000", "coarse"],
     'uga': ["coarse"]
 }
+
+# inicies to skip while training
+skip_indices = {
+    "pricp2": [],
+    "rwa": [],
+    "uga": [1323]
+}
+
 
     
 src_path = os.path.dirname(os.path.dirname(__file__))

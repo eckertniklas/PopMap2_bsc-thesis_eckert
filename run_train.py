@@ -179,6 +179,7 @@ class Trainer:
         with tqdm(range(self.info["epoch"], self.args.num_epochs), leave=True) as tnr:
             tnr.set_postfix(training_loss=np.nan, validation_loss=np.nan, best_validation_loss=np.nan)
             for _ in tnr:
+                
                 self.train_epoch(tnr)
                 torch.cuda.empty_cache()
 
@@ -250,11 +251,23 @@ class Trainer:
                         self.dataloaders["weak_target_iter"] = iter(self.dataloaders["weak_target"])
                         sample_weak = next(self.dataloaders["weak_target_iter"])
 
+
                     # forward pass and loss computation 
                     sample_weak = to_cuda_inplace(sample_weak) 
                     sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput)
                     # print(sample_weak["input"].shape[2:])
-                    output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False)
+                    # check if the input is to large
+                    if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 1400000:
+                        encoder_no_grad, unet_no_grad = True, False
+                        if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 6000000:
+                            encoder_no_grad, unet_no_grad = True, True 
+                            if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 12000000:
+                                print("Input to large for encoder and unet")
+                                continue 
+                    else:
+                        encoder_no_grad, unet_no_grad = False, False 
+
+                    output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
 
                     # merge augmented samples
                     if self.args.weak_merge_aug:
@@ -636,8 +649,10 @@ class Trainer:
 
                 # inputialize the output map
                 h, w = testdataloader.dataset.shape()
-                output_map_count = torch.zeros((h, w), dtype=torch.int16)
                 output_map = torch.zeros((h, w), dtype=torch.float16)
+                # census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True, level=level)
+                output_map_count = torch.zeros((h, w), dtype=torch.int8)
+
                 if self.args.probabilistic:
                     output_map_var = torch.zeros((h, w), dtype=torch.float16)
                 if self.boosted and full:
@@ -828,9 +843,10 @@ class Trainer:
             weak_batchsize = args.weak_batch_size
             # weak_batchsize = args.weak_batch_size if args.weak_merge_aug else 1
             weak_datasets = []
-            for reg in args.target_regions:
+            for reg in args.target_regions_train:
                 weak_datasets.append( Population_Dataset_target(reg, mode="weaksup", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
-                                                                fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, **input_defs)  )
+                                                                fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
+                                                                ascfill=True, **input_defs)  )
             dataloaders["weak_target_dataset"] = ConcatDataset(weak_datasets)
             
             # create own simulation of a dataloader for the weakdataset

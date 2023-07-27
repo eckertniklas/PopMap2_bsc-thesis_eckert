@@ -39,8 +39,7 @@ class BoostUNet(nn.Module):
         self.unetmodel2 = CustomUNet(feature_extractor, in_channels=input_channels+1, classes=feature_dim, down=down2, dilation=dilation,  replace7x7=replace7x7)
         
         # Define batchnorm layer for the feature extractor
-        # self.bn = nn.BatchNorm2d(input_channels)
-        # self.maxi = torch.tensor([0,0,0,0,0,0], dtype=torch.float32)
+        # self.bn = nn.BatchNorm2d(input_channels) 
 
         # Build the regression head
         self.head1 = nn.Conv2d(feature_dim, 5, kernel_size=1, padding=0)
@@ -57,7 +56,7 @@ class BoostUNet(nn.Module):
         self.params_sum = sum(p.numel() for p in self.unetmodel2.parameters() if p.requires_grad)
 
                                   
-    def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True):
+    def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True, encoder_no_grad=False, unet_no_grad=False):
         """
         Forward pass of the model
         Assumptions:
@@ -67,11 +66,18 @@ class BoostUNet(nn.Module):
 
         # Add padding
         data, (px1,px2,py1,py2) = self.add_padding(inputs["input"], padding)
-        # data, (px1,px2,py1,py2) = self.add_padding(inputs["S1"], padding)
 
         #### STAGE 1 ####
         # Forward the main model1
-        features, decoder_features_raw = self.unetmodel1(data, return_features=return_features)
+        if  unet_no_grad:
+            with torch.no_grad():
+                self.unetmodel1.eval()
+                features, decoder_features_raw = self.unetmodel1(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
+                features.detach()
+                # features.cpu()
+                self.unetmodel1.train()
+        else:
+            features, decoder_features_raw = self.unetmodel1(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
 
         # Forward the head1
         out = self.head1(features)
@@ -79,11 +85,9 @@ class BoostUNet(nn.Module):
         # Population map and total count, raw
         popdensemap_raw = nn.functional.relu(out[:,0])
         popdensemap_raw_valid = self.revert_padding(popdensemap_raw, (px1,px2,py1,py2))
-        # features_valid = self.revert_padding(features, (px1,px2,py1,py2))
 
         if "admin_mask" in inputs.keys():
             popcount_raw = (popdensemap_raw_valid * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
-            # popcount_raw = popdensemap_raw_valid * (inputs["admin_mask"]).sum((1,2))
         else:
             popcount_raw = popdensemap_raw_valid.sum((1,2))
 
@@ -91,7 +95,6 @@ class BoostUNet(nn.Module):
         popvarmap_raw_valid = self.revert_padding(popvarmap_raw, (px1,px2,py1,py2))
         if "admin_mask" in inputs.keys():
             popvar_raw = (popvarmap_raw_valid * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
-            # popvar_raw = popvarmap_raw_valid * inputs["admin_mask"].sum((1,2))
         else:
             popvar_raw = popvarmap_raw.sum((1,2))
 
@@ -104,14 +107,20 @@ class BoostUNet(nn.Module):
         #### STAGE 2 #### 
         # Add padding
         data, (px1,px2,py1,py2) = self.add_padding(inputs["input"], padding)
-        # data, (px1,px2,py1,py2) = self.add_padding(inputs["S2"], padding)
 
         # Concatenate the output of the main model with the input of the second model
         newinput = torch.cat([data, popdensemap_raw.unsqueeze(1)], dim=1)
-        # newinput = torch.cat([data, popdensemap_raw.unsqueeze(1), features], dim=1)
 
         # Forward the main model2
-        features, decoder_features = self.unetmodel2(newinput, return_features=return_features)
+        if  unet_no_grad:
+            with torch.no_grad():
+                self.unetmodel2.eval()
+                features, decoder_features = self.unetmodel2(newinput, return_features=return_features, encoder_no_grad=encoder_no_grad)
+                features.detach()
+                # features.cpu()
+                self.unetmodel2.train()
+        else:
+            features, decoder_features = self.unetmodel2(newinput, return_features=return_features, encoder_no_grad=encoder_no_grad)
 
         # revert padding
         features = self.revert_padding(features, (px1,px2,py1,py2))
@@ -134,7 +143,8 @@ class BoostUNet(nn.Module):
         # Population map and total count
         popdensemap = nn.functional.relu(out[:,0])
         popvarmap = nn.functional.softplus(out[:,1])
-
+        
+        # POMELO occupancy model
         if self.occupancymodel:
             if "building_counts" in inputs.keys():
                 popdensemap = popdensemap * inputs["building_counts"].squeeze(1)

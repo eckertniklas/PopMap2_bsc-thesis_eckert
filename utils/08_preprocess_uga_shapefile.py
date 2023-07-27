@@ -87,21 +87,23 @@ def process(sh_path, census_path, output_tif_file, output_census_file, template_
     for rowi, row in enumerate(tqdm(wp_joined2.itertuples(), total=len(wp_joined2))): 
         i = row.idx
         mask = burned==i
-        count = 1
+        # count = 1
         # count = mask.sum().cpu().item()
         # count = mask.cpu().sum().item()
-        if count==0:
-            xmin, ymax, ymin, ymax = 0, 0, 0, 0
-        else:
-            vertical_indices = torch.where(torch.any(mask, dim=1))[0]
-            horizontal_indices = torch.where(torch.any(mask, dim=0))[0]
-            xmin, xmax = vertical_indices[[0,-1]].cpu()
-            ymin, ymax = horizontal_indices[[0,-1]].cpu()
-            xmax, ymax = xmax+1, ymax+1
-            xmin, xmax, ymin, ymax = xmin.item(), xmax.item(), ymin.item(), ymax.item()
+        vertical_indices = torch.where(torch.any(mask, dim=1))[0]
+        horizontal_indices = torch.where(torch.any(mask, dim=0))[0]
+        xmin, xmax = vertical_indices[[0,-1]].cpu()
+        ymin, ymax = horizontal_indices[[0,-1]].cpu()
+        xmax, ymax = xmax+1, ymax+1
+        xmin, xmax, ymin, ymax = xmin.item(), xmax.item(), ymin.item(), ymax.item()
 
         # check
         # plot_2dmatrix(burned[xmin:xmax, ymin:ymax].cpu().numpy(), vmin=-1)
+
+        count = mask[xmin:xmax, ymin:ymax].sum().item()
+
+        if count==0:
+            xmin, ymax, ymin, ymax = 0, 0, 0, 0
 
         wp_joined2.at[rowi, "bbox"] = [xmin, xmax, ymin, ymax]
         wp_joined2.loc[rowi, "count"] = count

@@ -18,7 +18,7 @@ from typing import Dict, Tuple
 from utils.constants import pop_map_root_large, pop_map_root, pop_map_covariates, pop_map_covariates_large, config_path, pop_gbuildings_path, rawEE_map_root, skip_indices
 from utils.constants import datalocations
 from utils.plot import plot_2dmatrix
-from osgeo import gdal
+# from osgeo import gdal
 
 
 def load_json(file):
@@ -141,30 +141,37 @@ class Population_Dataset_target(Dataset):
             print("S1 file does not exist")
         
             spring_dir = os.path.join(rawEE_map_root, region, "S1spring")
-            S1spring_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1spring_out.vrt"), [ os.path.join(spring_dir, f) for f in os.listdir(spring_dir) if f.endswith(".tif")])
-
             summer_dir = os.path.join(rawEE_map_root, region, "S1summer")
-            S1summer_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1summer_out.vrt"), [ os.path.join(summer_dir, f) for f in os.listdir(summer_dir) if f.endswith(".tif")])
-
             autumn_dir = os.path.join(rawEE_map_root, region, "S1autumn")
-            S1autumn_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1autumn_out.vrt"), [ os.path.join(autumn_dir, f) for f in os.listdir(autumn_dir) if f.endswith(".tif")])
-
             winter_dir = os.path.join(rawEE_map_root, region, "S1winter")
-            S1winter_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1winter_out.vrt"), [ os.path.join(winter_dir, f) for f in os.listdir(winter_dir) if f.endswith(".tif")])
 
-
+            if not os.path.exists(os.path.join(rawEE_map_root, region, "S1winter_out.vrt")):
+                from osgeo import gdal
+                _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1spring_out.vrt"), [ os.path.join(spring_dir, f) for f in os.listdir(spring_dir) if f.endswith(".tif")])
+                _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1summer_out.vrt"), [ os.path.join(summer_dir, f) for f in os.listdir(summer_dir) if f.endswith(".tif")])
+                _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1autumn_out.vrt"), [ os.path.join(autumn_dir, f) for f in os.listdir(autumn_dir) if f.endswith(".tif")])
+                _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1winter_out.vrt"), [ os.path.join(winter_dir, f) for f in os.listdir(winter_dir) if f.endswith(".tif")])
+                S1spring_file = os.path.join(rawEE_map_root, region, "S1spring_out.vrt")
+                S1summer_file = os.path.join(rawEE_map_root, region, "S1summer_out.vrt")
+                S1autumn_file = os.path.join(rawEE_map_root, region, "S1autumn_out.vrt")
+                S1winter_file = os.path.join(rawEE_map_root, region, "S1winter_out.vrt")
+                
             if ascfill:
                 spring_dir = os.path.join(rawEE_map_root, region, "S1springAsc")
-                S1springAsc_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1springAsc_out.vrt"), [ os.path.join(spring_dir, f) for f in os.listdir(spring_dir) if f.endswith(".tif")])
-
                 summer_dir = os.path.join(rawEE_map_root, region, "S1summerAsc")
-                S1summerAsc_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1summerAsc_out.vrt"), [ os.path.join(summer_dir, f) for f in os.listdir(summer_dir) if f.endswith(".tif")])
-
                 autumn_dir = os.path.join(rawEE_map_root, region, "S1autumnAsc")
-                S1autumnAsc_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1autumnAsc_out.vrt"), [ os.path.join(autumn_dir, f) for f in os.listdir(autumn_dir) if f.endswith(".tif")])
-
                 winter_dir = os.path.join(rawEE_map_root, region, "S1winterAsc")
-                S1winterAsc_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1winterAsc_out.vrt"), [ os.path.join(winter_dir, f) for f in os.listdir(winter_dir) if f.endswith(".tif")])
+
+                if not os.path.exists(os.path.join(rawEE_map_root, region, "S1winterAsc_out.vrt")):
+                    from osgeo import gdal
+                    _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1springAsc_out.vrt"), [ os.path.join(spring_dir, f) for f in os.listdir(spring_dir) if f.endswith(".tif")])
+                    _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1summerAsc_out.vrt"), [ os.path.join(summer_dir, f) for f in os.listdir(summer_dir) if f.endswith(".tif")])
+                    _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1autumnAsc_out.vrt"), [ os.path.join(autumn_dir, f) for f in os.listdir(autumn_dir) if f.endswith(".tif")])
+                    _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1winterAsc_out.vrt"), [ os.path.join(winter_dir, f) for f in os.listdir(winter_dir) if f.endswith(".tif")])
+                    S1springAsc_file = os.path.join(rawEE_map_root, region, "S1springAsc_out.vrt")
+                    S1summerAsc_file = os.path.join(rawEE_map_root, region, "S1summerAsc_out.vrt")
+                    S1autumnAsc_file = os.path.join(rawEE_map_root, region, "S1autumnAsc_out.vrt")
+                    S1winterAsc_file = os.path.join(rawEE_map_root, region, "S1winterAsc_out.vrt")
 
                 self.S1Asc_file = {0: S1springAsc_file, 1: S1summerAsc_file, 2: S1autumnAsc_file, 3: S1winterAsc_file}
 
@@ -185,16 +192,20 @@ class Population_Dataset_target(Dataset):
                 print("Using virtual rasters for S2")
                 
                 spring_dir = os.path.join(rawEE_map_root, region, "S2Aspring")
-                S2spring_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Aspring_out.vrt"), [ os.path.join(spring_dir, f) for f in os.listdir(spring_dir) if f.endswith(".tif")])
-
                 summer_dir = os.path.join(rawEE_map_root, region, "S2Asummer")
-                S2summer_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Asummer_out.vrt"), [ os.path.join(summer_dir, f) for f in os.listdir(summer_dir) if f.endswith(".tif")])
-
                 autumn_dir = os.path.join(rawEE_map_root, region, "S2Aautumn")
-                S2autumn_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Aautumn_out.vrt"), [ os.path.join(autumn_dir, f) for f in os.listdir(autumn_dir) if f.endswith(".tif")])
-
                 winter_dir = os.path.join(rawEE_map_root, region, "S2Awinter")
-                S2winter_file = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Awinter_out.vrt"), [ os.path.join(winter_dir, f) for f in os.listdir(winter_dir) if f.endswith(".tif")])
+
+                if not os.path.exists(os.path.join(rawEE_map_root, region, "S2Awinter_out.vrt")):
+                    from osgeo import gdal
+                    _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Aspring_out.vrt"), [ os.path.join(spring_dir, f) for f in os.listdir(spring_dir) if f.endswith(".tif")])
+                    _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Asummer_out.vrt"), [ os.path.join(summer_dir, f) for f in os.listdir(summer_dir) if f.endswith(".tif")])
+                    _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Aautumn_out.vrt"), [ os.path.join(autumn_dir, f) for f in os.listdir(autumn_dir) if f.endswith(".tif")])
+                    _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S2Awinter_out.vrt"), [ os.path.join(winter_dir, f) for f in os.listdir(winter_dir) if f.endswith(".tif")])
+                    S2spring_file = os.path.join(rawEE_map_root, region, "S2Aspring_out.vrt")
+                    S2summer_file = os.path.join(rawEE_map_root, region, "S2Asummer_out.vrt")
+                    S2autumn_file = os.path.join(rawEE_map_root, region, "S2Aautumn_out.vrt")
+                    S2winter_file = os.path.join(rawEE_map_root, region, "S2Awinter_out.vrt")
 
         else:
             S2spring_file = os.path.join(covar_root,  os.path.join("S21Cspring", region +"_S21Cspring.tif"))
@@ -229,6 +240,7 @@ class Population_Dataset_target(Dataset):
 
     # delete the dataset
     def __del__(self):
+        pass
         for file in self.S1_file.values():
             if isinstance(file, gdal.Dataset):
                 file = None
@@ -483,16 +495,16 @@ class Population_Dataset_target(Dataset):
                 if fake:
                     indata["S2"] = np.random.randint(0, 10000, size=(4,patchsize_x,patchsize_y))
 
-                elif isinstance(S2_file, gdal.Dataset):
-                    indata["S2"] = self.read_gdal_file(S2_file, (3,2,1,4), window=window)
+                # elif isinstance(S2_file, gdal.Dataset):
+                #     indata["S2"] = self.read_gdal_file(S2_file, (3,2,1,4), window=window)
                 else:
                     with rasterio.open(S2_file, "r") as src:
                         indata["S2"] = src.read((3,2,1,4), window=window).astype(np.float32) 
             else:
                 if fake:
                     indata["S2"] = np.random.randint(0, 10000, size=(3,patchsize_x,patchsize_y))
-                elif isinstance(S2_file, gdal.Dataset):
-                    indata["S2"] = self.read_gdal_file(S2_file, (3,2,1), window=window)
+                # elif isinstance(S2_file, gdal.Dataset):
+                #     indata["S2"] = self.read_gdal_file(S2_file, (3,2,1), window=window)
                 else:
                     with rasterio.open(S2_file, "r") as src:
                         indata["S2"] = src.read((3,2,1), window=window).astype(np.float32) 
@@ -501,8 +513,8 @@ class Population_Dataset_target(Dataset):
             S1_file = self.S1_file[season] if descending else self.S1Asc_file[season]
             if fake:
                 indata["S1"] = np.random.randint(0, 10000, size=(2,patchsize_x,patchsize_y))
-            elif isinstance(S1_file, gdal.Dataset):
-                indata["S1"] = self.read_gdal_file(S1_file, (1,2), window=window)
+            # elif isinstance(S1_file, gdal.Dataset):
+            #     indata["S1"] = self.read_gdal_file(S1_file, (1,2), window=window)
             else:
                 with rasterio.open(S1_file, "r") as src:
                     indata["S1"] = src.read((1,2), window=window).astype(np.float32) 
@@ -510,8 +522,8 @@ class Population_Dataset_target(Dataset):
         if self.VIIRS:
             if fake:
                 indata["VIIRS"] = np.random.randint(0, 10000, size=(1,patchsize_x,patchsize_y))
-            elif isinstance(self.VIIRS_file, gdal.Dataset):
-                indata["VIIRS"] = self.read_gdal_file(self.VIIRS_file, (1,), window=window)
+            # elif isinstance(self.VIIRS_file, gdal.Dataset):
+            #     indata["VIIRS"] = self.read_gdal_file(self.VIIRS_file, (1,), window=window)
             else:
                 with rasterio.open(self.VIIRS_file, "r") as src:
                     indata["VIIRS"] = src.read(1, window=window).astype(np.float32)  

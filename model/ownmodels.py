@@ -35,8 +35,10 @@ class BoostUNet(nn.Module):
         self.occupancymodel = occupancymodel
 
         # Build the main model
-        self.unetmodel1 = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=down, dilation=dilation, replace7x7=replace7x7) 
-        self.unetmodel2 = CustomUNet(feature_extractor, in_channels=input_channels+1, classes=feature_dim, down=down2, dilation=dilation,  replace7x7=replace7x7)
+        self.unetmodel1 = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=down, pretrained=pretrained,
+                                     dilation=dilation, replace7x7=replace7x7) 
+        self.unetmodel2 = CustomUNet(feature_extractor, in_channels=input_channels+1, classes=feature_dim, down=down2, pretrained=pretrained,
+                                     dilation=dilation,  replace7x7=replace7x7)
         
         # Define batchnorm layer for the feature extractor
         # self.bn = nn.BatchNorm2d(input_channels) 
@@ -161,17 +163,18 @@ class BoostUNet(nn.Module):
             popvar = popvarmap.sum((1,2))
 
         # Building map
-        builtdensemap = nn.functional.softplus(out[:,2])
-        builtcount = builtdensemap.sum((1,2))
+        # builtdensemap = nn.functional.softplus(out[:,2])
+        # builtcount = builtdensemap.sum((1,2))
 
-        # Builtup mask
-        builtupmap = torch.sigmoid(out[:,3])
+        # # Builtup mask
+        # builtupmap = torch.sigmoid(out[:,3])
 
         return {"popcount": popcount, "popdensemap": popdensemap, "popvar": popvar ,"popvarmap": popvarmap, 
                 "intermediate": {"popcount": popcount_raw, "popdensemap": popdensemap_raw_valid, "popvar": popvar_raw ,"popvarmap": popvarmap_raw, "domain": None, "decoder_features": None}, 
                 "popvar": popvar ,"popvarmap": popvarmap, 
-                "builtdensemap": builtdensemap, "builtcount": builtcount,
-                "builtupmap": builtupmap, "domain": domain, "features": features,
+                # "builtdensemap": builtdensemap, "builtcount": builtcount,
+                # "builtupmap": builtupmap,
+                "domain": domain, "features": features,
                 "decoder_features": decoder_features}
 
 

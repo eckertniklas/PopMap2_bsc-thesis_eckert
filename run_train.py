@@ -106,10 +106,7 @@ class Trainer:
                             lambda_popB=args.lambda_popB, display_freq=400, save_latest_freq=2500, save_by_iter=False,
                             display_id=0, no_html=True, display_port=8097, update_html_freq=1000,
                             use_wandb=True, display_ncols=4,  wandb_project_name="CycleGAN-and-pix2pix", display_winsize=100, display_env="main", display_server="http://localhost",
-                            # model_suffix="_A",
                             checkpoints_dir= args.save_dir)
-                            # checkpoints_dir= os.path.join(args.save_dir, "checkpointsCyCADA/") )
-                            # checkpoints_dir="/scratch2/metzgern/HAC/code/CycleGANAugs/pytorch-CycleGAN-and-pix2pix/checkpoints/" )
             self.CyCADAmodel = create_model(self.opt)      # create a model given opt.model and other options
             self.CyCADAmodel.setup(self.opt)               # regular setup: load and print networks; create schedulers 
 
@@ -158,7 +155,6 @@ class Trainer:
         if args.stochasticWA:
             self.optimizer = SWA(self.optimizer, swa_start=2, swa_freq=1, swa_lr=0.05)
             self.optimizer.optimizer.defaults = None
-
 
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
         # self.scheduler = CustomLRScheduler(self.optimizer, drop_epochs=[3, 5, 10, 15, 20, 25, 30, 40, 50, 70, 90, 110, 150, ], gamma=0.75)
@@ -229,13 +225,14 @@ class Trainer:
         # check if we are in unsupervised or supervised mode and adjust dataloader accordingly
         dataloader = self.dataloaders['train']
         total = len(dataloader) if self.args.supmode=="unsup" else len(self.dataloaders["weak_target_dataset"])
+        self.optimizer.zero_grad()
 
         with tqdm(dataloader, leave=False, total=total) as inner_tnr:
             inner_tnr.set_postfix(training_loss=np.nan)
 
             # iterate over samples of one epoch
             for i, sample in enumerate(inner_tnr):
-                self.optimizer.zero_grad()
+                # self.optimizer.zero_grad()
                 optim_loss = 0.0
                 loss_dict_weak = {}
                 loss_dict_raw = {}
@@ -250,7 +247,6 @@ class Trainer:
                     except StopIteration:
                         self.dataloaders["weak_target_iter"] = iter(self.dataloaders["weak_target"])
                         sample_weak = next(self.dataloaders["weak_target_iter"])
-
 
                     # forward pass and loss computation 
                     sample_weak = to_cuda_inplace(sample_weak) 
@@ -387,8 +383,10 @@ class Trainer:
                         # gradient clipping
                         if self.args.gradient_clip > 0.:
                             clip_grad_norm_(self.model.parameters(), self.args.gradient_clip)
-
-                        self.optimizer.step()
+                        
+                        if (i + 1) % self.accumulation_steps == 0:
+                            self.optimizer.step()
+                            self.optimizer.zero_grad()
                         optim_loss = optim_loss.detach()
                         if output is not None:  
                             output = detach_tensors_in_dict(output)
@@ -840,8 +838,14 @@ class Trainer:
         # add weakly supervised samples of the target domain to the trainind_dataset
         if args.supmode=="weaksup":
             # create the weakly supervised dataset stack them into a single dataset and dataloader
-            weak_batchsize = args.weak_batch_size
-            # weak_batchsize = args.weak_batch_size if args.weak_merge_aug else 1
+
+            if args.gradientaccumulation:
+                weak_loader_batchsize = 1
+                self.accumulation_steps = args.weak_batch_size
+            else:
+                weak_loader_batchsize = args.weak_batch_size
+                self.accumulation_steps = 1
+                
             weak_datasets = []
             for reg in args.target_regions_train:
                 weak_datasets.append( Population_Dataset_target(reg, mode="weaksup", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
@@ -856,7 +860,7 @@ class Trainer:
             dataloaders["weak_iter"] = itertools.cycle(weak_indices)
 
             # create dataloader for the weakly supervised dataset
-            dataloaders["weak_target"] = DataLoader(dataloaders["weak_target_dataset"], batch_size=weak_batchsize, num_workers=1, shuffle=True, collate_fn=Population_Dataset_collate_fn, drop_last=True)
+            dataloaders["weak_target"] = DataLoader(dataloaders["weak_target_dataset"], batch_size=weak_loader_batchsize, num_workers=1, shuffle=True, collate_fn=Population_Dataset_collate_fn, drop_last=True)
             dataloaders["weak_target_iter"] = iter(dataloaders["weak_target"])
         
         return dataloaders

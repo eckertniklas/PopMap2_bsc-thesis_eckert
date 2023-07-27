@@ -10,7 +10,7 @@ import os
 from utils.metrics import get_test_metrics
 import torch
 from utils.plot import plot_2dmatrix, plot_and_save, scatter_plot3
-
+import math
 
 def reproject_maps(map_path, template_path, output_path):
 
@@ -37,7 +37,8 @@ def reproject_maps(map_path, template_path, output_path):
                 # 'transform': transform,
                 'transform': dst.transform,
                 'width': width,
-                'height': height
+                'height': height,
+                'compress': 'lzw'
             })
 
             # Write the reprojected raster to the new dataset
@@ -79,24 +80,33 @@ def evaluate_meta_maps(map_path, template_path):
     if not os.path.exists(hr_map_path) or force_recompute:
         x_stretch, y_stretch = reproject_maps(map_path, template_path, hr_map_path)
     else:
-        x_stretch = 9.276624194838645
-        y_stretch = 9.276624197895416
+        # x_stretch = 9.276624194838645
+        # y_stretch = 9.276624194838645
+        pass
+
+    #
+    x_stretch = 10/0.9276624194838645/0.6479
+    y_stretch = 10/0.9276624194838645/0.6479
+
+    x_stretch = 10/0.9276624194838645/0.6479*math.sqrt(0.4382897921990371)
+    y_stretch = 10/0.9276624194838645/0.6479*math.sqrt(0.4382897921990371)
 
     # Load the high resolution map
     with rasterio.open(hr_map_path) as src:
         hr_pop_map = torch.from_numpy(src.read(1))
         hr_pop_map = hr_pop_map/x_stretch/y_stretch
-        hr_pop_map = hr_pop_map.to(torch.float16)
+        # hr_pop_map = hr_pop_map.to(torch.float16)
+        hr_pop_map = hr_pop_map.to(torch.float32)
 
     # replace nan values with 0
     hr_pop_map[hr_pop_map != hr_pop_map] = 0
     hr_pop_map[hr_pop_map < 0] = 0
 
-    
     # define GT dataset
     dataset = Population_Dataset_target("rwa")
 
     levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
+    # levels = ["coarse"]
 
     for level in levels:
         print("Evaluating level: ", level)
@@ -109,18 +119,20 @@ def evaluate_meta_maps(map_path, template_path):
 
         print("---------------------------------")
 
+    print(census_pred.sum().item())
+    print(census_gt.sum().item())
+    print(census_pred.sum().item()/census_gt.sum().item())
     print("Done")
-
-    pass
 
 
 if __name__=="__main__":
     """
-    Evaluates the Worldpop-maps on the test set of Rwanda
+    Evaluates the GHS-maps on the test set of Rwanda
     """
-    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020.tif"
+    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/GHS_POP/GHS_POP_E2030_GLOBE_R2023A_54009_100_V1_0_R10_C22.tif"
+    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/GHS_POP/ghs_merged.tif"
     # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_UNadj.tif"
-    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_constrained.tif"
+    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_constrained.tif"
     # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_UNadj_constrained.tif"
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa/S2Aautumn/rwa_S2Aautumn.tif"
 

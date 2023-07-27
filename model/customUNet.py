@@ -16,12 +16,13 @@ import torch.nn as nn
 
 
 class CustomUNet(smp.Unet):
-    def __init__(self, encoder_name, in_channels, classes, down=3, fsub=16, dilation=1, replace7x7=True):
+    def __init__(self, encoder_name, in_channels, classes, down=3, fsub=16, pretrained=False,
+                 dilation=1, replace7x7=True):
 
         # instanciate the base model
         # super().__init__(encoder_name, encoder_weights="imagenet",
         # super().__init__(encoder_name, encoder_weights="swsl",
-        super().__init__(encoder_name, encoder_weights=None,
+        super().__init__(encoder_name, encoder_weights="imagenet" if pretrained else None,
                         in_channels=in_channels, classes=classes, decoder_channels=(64,32,16), 
                         decoder_use_batchnorm=False, encoder_depth=3, activation=nn.ReLU)
         
@@ -34,7 +35,7 @@ class CustomUNet(smp.Unet):
             encoder_name,
             in_channels=in_channels,
             depth=down,
-            weights="imagenet",
+            weights="imagenet" if pretrained else None,
         )
 
         self.decoder = smp.decoders.unet.model.UnetDecoder(

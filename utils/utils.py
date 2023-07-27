@@ -304,6 +304,7 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
         if "building_counts" in sample.keys() and "building_segmentation" not in sample.keys():
             # fake some more input for the validationset without building footprints
             sample["building_segmentation"] = sample["building_counts"]>0.5
+            # sample["building_segmentation"][sample["building_segmentation"] < 0.1] = 0.0
 
         sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS", "building_segmentation", "building_counts"] if key in sample], dim=1)
         

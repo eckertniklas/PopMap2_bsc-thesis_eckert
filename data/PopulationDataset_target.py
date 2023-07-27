@@ -74,10 +74,10 @@ class Population_Dataset_target(Dataset):
             for data_type in ["boundary", "census"]:
                 self.file_paths[level][data_type] = os.path.join(region_root, datalocations[region][level][data_type])
 
-            # self.boundary_file = os.path.join(region_root, datalocations[region]["fine"]["boundary"])
-            # self.census_file = os.path.join(region_root, datalocations[region]["fine"]["census"])
-            # self.coarse_boundary_file = os.path.join(region_root, datalocations[region]["coarse"]["boundary"])
-            # self.coarse_census_file = os.path.join(region_root, datalocations[region]["coarse"]["census"])
+            self.boundary_file = os.path.join(region_root, datalocations[region]["fine"]["boundary"])
+            self.census_file = os.path.join(region_root, datalocations[region]["fine"]["census"])
+            self.coarse_boundary_file = os.path.join(region_root, datalocations[region]["coarse"]["boundary"])
+            self.coarse_census_file = os.path.join(region_root, datalocations[region]["coarse"]["census"])
             
         # weaksup data specific preparation
         if self.mode == "weaksup":
@@ -85,8 +85,8 @@ class Population_Dataset_target(Dataset):
             self.coarse_census = pd.read_csv(self.file_paths["coarse"]["census"])
             # self.coarse_census = pd.read_csv(self.coarse_census_file)
             # max_pix = 2e6
-            max_pix = 5e6
-            # max_pix = 1.25e6
+            # max_pix = 5e6
+            max_pix = 1.25e6
             # max_pix = 1e16
             # max_pix = 1e16
             print("Kicking out ", (self.coarse_census["count"]>=max_pix).sum(), "samples with more than ", int(max_pix), " pixels")
@@ -113,7 +113,7 @@ class Population_Dataset_target(Dataset):
             with rasterio.open(self.file_paths[list(self.file_paths.keys())[0]]["boundary"], "r") as src:
                 self.img_shape = src.shape
                 self._meta = src.meta.copy()
-            self._meta.update(count=1, dtype='float32', nodata=None)
+            self._meta.update(count=1, dtype='float32', nodata=None, compress='lzw')
 
             # get a list of indices of the possible patches
             self.patch_indices = self.get_patch_indices(patchsize, overlap)
@@ -523,10 +523,7 @@ class Population_Dataset_target(Dataset):
             else:
                 if self.sentinelbuildings and os.path.exists(self.sbuildings_segmentation_file):
                     with rasterio.open(self.sbuildings_segmentation_file, "r") as src:
-                        indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32) 
-                    # indata["building_segmentation"] = indata["building_counts"]
-                    # indata["building_segmentation"] = indata["building_counts"]>0.5
-
+                        indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32)/255
 
                 elif os.path.exists(self.gbuildings_segmentation_file): 
                     with rasterio.open(self.gbuildings_segmentation_file, "r") as src:
@@ -534,12 +531,12 @@ class Population_Dataset_target(Dataset):
                     with rasterio.open(self.gbuildings_counts_file, "r") as src:
                         indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32) 
 
-
         # # load administrative mask
         # admin_mask = self.cr_regions[x:x+patchsize_x, y:y+patchsize_y]==idx
 
         return indata, mask, window
     
+
     def read_gdal_file(self, file, bands, window=None):
         """
         Reads a gdal file and returns the data
@@ -550,18 +547,10 @@ class Population_Dataset_target(Dataset):
         outputs:
             :return: the data
         """
-        # Read band data into preallocated array
-        # bands_out = np.zeros((len(bands), window[0][1]-window[0][0], window[1][1]-window[1][0]), dtype=np.float32)
-        # bands_out = np.zeros((len(bands), window[1][1]-window[1][0], window[0][1]-window[0][0]), dtype=np.float32)
-        # for i, b in enumerate(bands):
-        #     band = file.GetRasterBand(b)
-        #     # bands_out[i] = band.ReadAsArray(xoff=window[0][0], yoff=window[1][0], xsize=window[0][1]-window[0][0], ysize=window[1][1]-window[1][0])
-        #     # bands_out[i] = band.ReadAsArray(window[0][0].item(), window[1][0].item(), (window[0][1]-window[0][0]).item(), (window[1][1]-window[1][0]).item())
-        #     bands_out[i] = band.ReadAsArray(window[1][0].item(), window[0][0].item(), (window[1][1]-window[1][0]).item(), (window[0][1]-window[0][0]).item())
-
         with rasterio.open(file.GetDescription(), 'r') as raster_vrt:
             bands_out = raster_vrt.read(bands, window=window).astype(np.float32) 
         return bands_out
+    
 
     def convert_popmap_to_census(self, pred, gpu_mode=False, level="fine"):
         """
@@ -575,7 +564,6 @@ class Population_Dataset_target(Dataset):
 
         boundary_file = self.file_paths[level]["boundary"]
         census_file = self.file_paths[level]["census"]
-
 
         # raise NotImplementedError
         with rasterio.open(boundary_file, "r") as src:
@@ -615,12 +603,19 @@ class Population_Dataset_target(Dataset):
         census_pred = census_pred[valid_census]
         # census = census[valid_census]
 
-        # produce density map
+        # # produce density map
         # densities = torch.zeros_like(pred)
         # pred_densities_census = census_pred.cpu() / census["count"]
         # for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
         #     xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
         #     densities[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = pred_densities_census[i]
+
+        # # total map
+        # totals = torch.zeros_like(pred, dtype=torch.float32)
+        # totals_pred_census = census_pred.cpu().to(torch.float32)
+        # for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
+        #     xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
+        #     totals[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = totals_pred_census[i]
 
         # # produce density map for the ground truth
         # densities_gt = torch.zeros_like(pred)
@@ -629,12 +624,49 @@ class Population_Dataset_target(Dataset):
         #     xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
         #     densities_gt[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = gt_densities_census[i]
 
+        # # total map
+        # totals_gt = torch.zeros_like(pred, dtype=torch.float32)
+        # totals_gt_census = torch.tensor(census["POP20"]).to(torch.float32)
+        # for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
+        #     xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
+        #     totals_gt[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = totals_gt_census[i]
+
 
         del boundary, pred
         torch.cuda.empty_cache()
 
         return census_pred, torch.tensor(census["POP20"])
     
+    def adjust_map_to_census(self, pred, gpu_mode=True):
+        """
+        Adjust the predicted map to the census regions via dasymmetric mapping strategy
+        inputs:
+            :param pred: predicted map
+            :param census: census data
+        outputs:
+            :return: adjusted map
+        """
+        boundary_file = self.file_paths["coarse"]["boundary"]
+        census_file = self.file_paths["coarse"]["census"]
+
+        # raise NotImplementedError
+        with rasterio.open(boundary_file, "r") as src:
+            boundary = src.read(1)
+        boundary = torch.from_numpy(boundary)
+
+        # read the census file
+        census = pd.read_csv(census_file)
+
+        # iterate over census regions and adjust the totals
+        for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
+            xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
+            pred_census_count = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
+            adj_scale = census["POP20"][i] / pred_census_count
+            pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] *= adj_scale
+
+        return pred
+    
+
     def normalize_indata(self,indata):
         """
         Normalize the input data

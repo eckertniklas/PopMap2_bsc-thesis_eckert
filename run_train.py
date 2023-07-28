@@ -256,7 +256,7 @@ class Trainer:
                     if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 12000000:
                         encoder_no_grad, unet_no_grad = True, False
                         # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 6000000:
-                        if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 20000000:
+                        if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 14000000:
                             encoder_no_grad, unet_no_grad = True, True 
                             # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 12000000:
                             if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 24000000:

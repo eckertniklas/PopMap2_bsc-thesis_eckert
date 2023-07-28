@@ -276,7 +276,7 @@ class RandomGamma(torch.nn.Module):
             else:
                 # Apply gamma to each channel separately
                 for i in range(x.shape[0]):
-                    x[i] = TF.adjust_gamma(x[i], gamma)
+                    x[:,i] = TF.adjust_gamma(x[:,i], gamma)
             x = x * self.s2_max
         return x
 

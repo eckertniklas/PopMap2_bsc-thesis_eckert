@@ -251,13 +251,15 @@ class Trainer:
                     # forward pass and loss computation 
                     sample_weak = to_cuda_inplace(sample_weak) 
                     sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput)
-                    # print(sample_weak["input"].shape[2:])
                     # check if the input is to large
-                    if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 1400000:
+                    # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 1400000:
+                    if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 3000000:
                         encoder_no_grad, unet_no_grad = True, False
-                        if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 6000000:
+                        # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 6000000:
+                        if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 12000000:
                             encoder_no_grad, unet_no_grad = True, True 
-                            if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 12000000:
+                            # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 12000000:
+                            if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 24000000:
                                 print("Input to large for encoder and unet")
                                 continue 
                     else:
@@ -760,7 +762,7 @@ class Trainer:
             self.data_transform["general"] = transforms.Compose([
                 # AddGaussianNoise(std=0.1, p=0.9),
             ])
-            S2augs = [  ]
+            S2augs = []
         # ])
         # S2augs = [  RandomBrightness(p=0.9, beta_limit=(0.666, 1.5)),
         #             RandomGamma(p=0.9, gamma_limit=(0.6666, 1.5)),

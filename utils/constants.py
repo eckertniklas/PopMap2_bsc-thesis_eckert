@@ -68,7 +68,8 @@ pop_map_covariates_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.j
 raw_file_paths = [
         "/scratch/metzgern/HAC/data",
         "/scratch2/metzgern/HAC/data",
-        "/cluster/work/igp_psr/metzgern/HAC/data"
+        "/cluster/work/igp_psr/metzgern/HAC/data",
+        "/cluster/scratch/metzgern"
 ]
 for name in raw_file_paths:
     if os.path.isdir(name):
@@ -77,7 +78,6 @@ if raw_file_path is None:
     raise Exception("No data folder found")
 raw_map_root = os.path.join(raw_file_path, os.path.join("PopMapData", "raw"))
 rawEE_map_root = os.path.join(raw_map_root, "EE")
-
 
 
 # Sat2Pop data folder

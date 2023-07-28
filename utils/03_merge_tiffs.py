@@ -42,7 +42,8 @@ def process(parent_dir, output_dir):
         # Skip if file already exists
         if isfile(output_file) or ty in ["S2spring", "S2summer", "S2autumn", "S2winter"]:
             print("File already exists, skipping") 
-        elif ty in ["S1spring", "S1summer", "S1autumn", "S1winter","S1springAsc", "S1summerAsc", "S1autumnAsc", "S1winterAsc"]:
+        # elif ty in ["S1spring", "S1summer", "S1autumn", "S1winter","S1springAsc", "S1summerAsc", "S1autumnAsc", "S1winterAsc"]:
+        elif ty in ["S1springAsc", "S1summerAsc", "S1autumnAsc", "S1winterAsc"]:
             # elif ty in ["S1winterAsc"]:
             # elif ty in ["S1spring", "S1summer", "S1autumn", "S1winter"]:
             print("Merging files to", output_file)

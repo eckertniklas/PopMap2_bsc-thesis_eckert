@@ -91,7 +91,7 @@ class BoostUNet(nn.Module):
         # POMELO occupancy model
         if self.occupancymodel:
             if "building_counts" in inputs.keys():
-                popdensemap_raw_valid = popdensemap_raw_valid * inputs["building_counts"].squeeze(1)
+                popdensemap_raw_valid = popdensemap_raw_valid * inputs["input"][0,-1]
                 # popvarmap = popvarmap * inputs["building_counts"].squeeze(1)
 
 
@@ -156,8 +156,8 @@ class BoostUNet(nn.Module):
         # POMELO occupancy model
         if self.occupancymodel:
             if "building_counts" in inputs.keys():
-                popdensemap = popdensemap * inputs["building_counts"].squeeze(1)
-                popvarmap = popvarmap * inputs["building_counts"].squeeze(1)
+                popdensemap = popdensemap * inputs["input"][0,-1].squeeze(1)
+                popvarmap = popvarmap * inputs["input"][0,-1].squeeze(1)
 
         if "admin_mask" in inputs.keys():
             popcount = (popdensemap * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))

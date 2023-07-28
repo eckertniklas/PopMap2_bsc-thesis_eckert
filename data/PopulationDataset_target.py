@@ -241,12 +241,12 @@ class Population_Dataset_target(Dataset):
     # delete the dataset
     def __del__(self):
         pass
-        for file in self.S1_file.values():
-            if isinstance(file, gdal.Dataset):
-                file = None
-        for file in self.S2_file.values():
-            if isinstance(file, gdal.Dataset):
-                file = None
+        # for file in self.S1_file.values():
+        #     if isinstance(file, gdal.Dataset):
+        #         file = None
+        # for file in self.S2_file.values():
+        #     if isinstance(file, gdal.Dataset):
+        #         file = None
 
     def get_patch_indices(self, patchsize, overlap):
         """

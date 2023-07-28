@@ -253,13 +253,14 @@ class Trainer:
                     sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput)
                     # check if the input is to large
                     # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 1400000:
-                    if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 10000000:
+                    num_pix = sample_weak["input"].shape[0]*sample_weak["input"].shape[2]*sample_weak["input"].shape[3]
+                    if num_pix > 10000000:
                         encoder_no_grad, unet_no_grad = True, False
                         # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 6000000:
-                        if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 12500000:
+                        if num_pix > 12500000:
                             encoder_no_grad, unet_no_grad = True, True 
                             # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 12000000:
-                            if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 15000000:
+                            if num_pix > 15000000:
                                 print("Input to large for encoder and unet")
                                 continue 
                     else:

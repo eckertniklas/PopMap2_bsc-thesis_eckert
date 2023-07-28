@@ -73,11 +73,11 @@ class BoostUNet(nn.Module):
         # Forward the main model1
         if  unet_no_grad:
             with torch.no_grad():
-                self.unetmodel1.eval()
+                # self.unetmodel1.eval()
                 features, decoder_features_raw = self.unetmodel1(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
                 features.detach()
                 # features.cpu()
-                self.unetmodel1.train()
+                # self.unetmodel1.train()
         else:
             features, decoder_features_raw = self.unetmodel1(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
 
@@ -123,11 +123,11 @@ class BoostUNet(nn.Module):
         # Forward the main model2
         if  unet_no_grad:
             with torch.no_grad():
-                self.unetmodel2.eval()
+                # self.unetmodel2.eval()
                 features, decoder_features = self.unetmodel2(newinput, return_features=return_features, encoder_no_grad=encoder_no_grad)
                 features.detach()
                 # features.cpu()
-                self.unetmodel2.train()
+                # self.unetmodel2.train()
         else:
             features, decoder_features = self.unetmodel2(newinput, return_features=return_features, encoder_no_grad=encoder_no_grad)
 

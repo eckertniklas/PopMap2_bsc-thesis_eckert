@@ -129,7 +129,7 @@ class JacobsUNet(nn.Module):
         self.params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
 
                                   
-    def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True):
+    def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True, encoder_no_grad=False, unet_no_grad=False):
         """
         Forward pass of the model
         Assumptions:
@@ -141,7 +141,11 @@ class JacobsUNet(nn.Module):
         data, (px1,px2,py1,py2) = self.add_padding(inputs["input"], padding)
 
         # Forward the main model
-        features, decoder_features = self.unetmodel(data, return_features=return_features)
+        if  unet_no_grad:
+            with torch.no_grad():
+                features, decoder_features = self.unetmodel(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
+        else:
+            features, decoder_features = self.unetmodel(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
 
         # revert padding
         features = self.revert_padding(features, (px1,px2,py1,py2))
@@ -162,8 +166,10 @@ class JacobsUNet(nn.Module):
 
         if self.occupancymodel:
             if "building_counts" in inputs.keys():
-                popdensemap = popdensemap * inputs["building_counts"].squeeze(1)
-                popvarmap = popvarmap * inputs["building_counts"].squeeze(1)
+                popdensemap = popdensemap * inputs["input"][0,-1]
+                # popdensemap = popdensemap * inputs["building_counts"].squeeze(1)
+                popvarmap = popvarmap * inputs["input"][0,-1].squeeze(1)
+                # popvarmap = popvarmap * inputs["building_counts"].squeeze(1)
         
         if "admin_mask" in inputs.keys():
             # make the following line work for both 2D and 3D

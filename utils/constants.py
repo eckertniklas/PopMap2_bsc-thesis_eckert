@@ -51,7 +51,8 @@ all_patches_mixed_test_part2 = os.path.join(all_patches_mixed_part2, 'test')   #
 large_file_paths = [
         "/scratch2/metzgern/HAC/data",
         "/scratch/metzgern/HAC/data",
-        "/cluster/work/igp_psr/metzgern/HAC/data"
+        "/cluster/work/igp_psr/metzgern/HAC/data",
+        
 ]
 for name in large_file_paths:
     if os.path.isdir(name):

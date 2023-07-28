@@ -146,6 +146,7 @@ class Population_Dataset_target(Dataset):
             winter_dir = os.path.join(rawEE_map_root, region, "S1winter")
 
             if not os.path.exists(os.path.join(rawEE_map_root, region, "S1winter_out.vrt")):
+                print("VRT {} file do not exist".format(os.path.exists(os.path.join(rawEE_map_root, region, "S1winter_out.vrt"))))
                 from osgeo import gdal
                 _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1spring_out.vrt"), [ os.path.join(spring_dir, f) for f in os.listdir(spring_dir) if f.endswith(".tif")])
                 _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1summer_out.vrt"), [ os.path.join(summer_dir, f) for f in os.listdir(summer_dir) if f.endswith(".tif")])
@@ -533,7 +534,7 @@ class Population_Dataset_target(Dataset):
                 indata["building_segmentation"] = np.random.randint(0, 1, size=(1,patchsize_x,patchsize_y))
                 indata["building_counts"] = np.random.randint(0, 2, size=(1,patchsize_x,patchsize_y))
             else:
-                if self.sentinelbuildings and os.path.exists(self.sbuildings_segmentation_file):
+                if self.sentinelbuildings:
                     with rasterio.open(self.sbuildings_segmentation_file, "r") as src:
                         indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32)/255
 

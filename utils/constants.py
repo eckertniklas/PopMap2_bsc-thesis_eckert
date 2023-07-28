@@ -104,11 +104,11 @@ datalocations = {
             'boundary': "boundaries4.tif",
             'census': "census4.csv",
         },
-        'fineBlockCE': {
+        'fineBLOCKCE': {
             'boundary': "boundaries_BLOCKCE20.tif",
             'census': "census_BLOCKCE20.csv",
         },
-        'fineCountyFP': {
+        'fineCOUNTYFP': {
             'boundary': "boundaries_COUNTYFP20.tif",
             'census': "census_COUNTYFP20.csv",
         },

@@ -33,7 +33,7 @@ class Population_Dataset_target(Dataset):
     Use this dataset to evaluate the model on the target domain and compare it the census data
     """
     def __init__(self, region, S1=False, S2=True, VIIRS=True, NIR=False, patchsize=1024, overlap=32, fourseasons=False, mode="test",
-                 max_samples=None, transform=None, sentinelbuildings=True, ascfill=False) -> None:
+                 max_samples=None, transform=None, sentinelbuildings=True, ascfill=False, train_level="fine") -> None:
         """
         Input:
             region: the region identifier (e.g. "pri" for puerto rico)

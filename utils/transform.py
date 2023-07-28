@@ -270,13 +270,34 @@ class RandomGamma(torch.nn.Module):
         if torch.rand(1) < self.p:
             gamma = random.uniform(self.gamma_limit[0], self.gamma_limit[1])
             x = torch.clip(x, min=0)
+
+            # convert to 0-1 range
             x = x / self.s2_max
-            if x.shape[0] == 3:
-                x = TF.adjust_gamma(x, gamma)
-            else:
-                # Apply gamma to each channel separately
-                for i in range(x.shape[0]):
-                    x[:,i] = TF.adjust_gamma(x[:,i], gamma)
+
+            if len(x.shape) == 3:
+                if x.shape[0] == 3:
+                    x = TF.adjust_brightness(x, gamma)
+                else:
+                    # Apply brightness to each channel separately
+                    for i in range(x.shape[1]):
+                        x[i:i+1] = TF.adjust_gamma(x[i:i+1], gamma)
+            elif len(x.shape) == 4:
+                if x.shape[1] == 3:
+                    x = TF.adjust_brightness(x, gamma)
+                else:
+                    # Apply brightness to each channel separately
+                    for i in range(x.shape[1]):
+                        x[:,i:i+1] = TF.adjust_gamma(x[:,i:i+1], gamma)
+
+            # if x.shape[0] == 3:
+            #     x = TF.adjust_gamma(x, gamma)
+            # else:
+            #     # Apply gamma to each channel separately
+            #     for i in range(x.shape[0]):
+            #         x[:,i] = TF.adjust_gamma(x[:,i], gamma)
+
+
+            # convert back to 0-10000 range
             x = x * self.s2_max
         return x
 
@@ -288,7 +309,7 @@ class RandomBrightness(torch.nn.Module):
     def __init__(self, beta_limit=(0.666, 1.5), p=0.5):
         self.beta_limit = beta_limit
         self.p = p
-        self.s2_max = 10000
+        self.s2_max = 10000 # for the conversion to a pillow-typical range
 
     def __call__(self, x):
         """
@@ -298,63 +319,32 @@ class RandomBrightness(torch.nn.Module):
         :return: Tensor, output image with brightness adjusted if the transformation was applied
         """
         if torch.rand(1) < self.p:
+
+            # get random brightness factor
             beta = random.uniform(self.beta_limit[0], self.beta_limit[1])
+
+            # convert to pillow-typical range
             x = x / self.s2_max
-            if x.shape[0] == 3:
-                x = TF.adjust_brightness(x, beta)
-            else:
-                # Apply brightness to each channel separately
-                for i in range(x.shape[0]):
-                    x[:,i] = TF.adjust_brightness(x[:,0], beta) 
+
+
+            if len(x.shape) == 3:
+                if x.shape[0] == 3:
+                    x = TF.adjust_brightness(x, beta)
+                else:
+                    # Apply brightness to each channel separately
+                    for i in range(x.shape[1]):
+                        x[i:i+1] = TF.adjust_brightness(x[i:i+1], beta)
+            elif len(x.shape) == 4:
+                if x.shape[1] == 3:
+                    x = TF.adjust_brightness(x, beta)
+                else:
+                    # Apply brightness to each channel separately
+                    for i in range(x.shape[1]):
+                        x[:,i:i+1] = TF.adjust_brightness(x[:,i:i+1], beta)
+
+            # back to the original range
             x = x * self.s2_max
         return x
-
-
-# import torch
-# import torch.nn as nn
-# import cv2
-# import numpy as np
-
-
-# class SyntheticHaze(nn.Module):
-#     def __init__(self, p=0.75, haze_intensity=0.5, blur_radius=30, brightness_reduction=40):
-#         super(SyntheticHaze, self).__init__()
-#         self.p = p
-#         self.haze_intensity = haze_intensity
-#         self.blur_radius = blur_radius
-#         self.brightness_reduction = brightness_reduction
-    
-#     def create_gaussian_kernel(self, size, sigma=None):
-#         if sigma is None:
-#             sigma = 0.3 * ((size - 1) * 0.5 - 1) + 0.8
-#         x = torch.linspace(-(size // 2), size // 2, steps=size)
-#         gauss_kernel = torch.exp(-0.5 * (x / sigma) ** 2)
-#         gauss_kernel /= gauss_kernel.sum()
-#         return gauss_kernel.view(1, -1)
-
-#     def gaussian_blur(self, img):
-#         padding = self.blur_radius // 2
-#         img_padded = torch.nn.functional.pad(img, (padding, padding, padding, padding), mode='reflect')
-#         # kernel = cv2.getGaussianKernel(self.blur_radius, 0)
-#         # kernel = torch.from_numpy(kernel).float().view(1, -1)
-#         kernel = self.create_gaussian_kernel(self.blur_radius)
-#         kernel2d = torch.matmul(kernel.t(), kernel)
-#         # kernel2d = kernel2d.view(1, 1, self.blur_radius, self.blur_radius)
-#         kernel2d = kernel2d.repeat(img.shape[0], 1, 1, 1)
-#         blurred_img = torch.nn.functional.conv2d(img_padded, kernel2d, groups=img.shape[0])
-#         return blurred_img
-
-#     def forward(self, x):
-#         if torch.rand(1) < self.p:
-#             x_float = x.float()
-#             white_img = torch.full_like(x_float, 255)
-#             haze_img = self.gaussian_blur(white_img)
-#             haze_img -= self.brightness_reduction
-#             haze_img = torch.clamp(haze_img, 0, 255)
-#             hazed_image  = x_float * (1 - self.haze_intensity) + haze_img * self.haze_intensity
-#             hazed_image  = torch.clamp(hazed_image , 0, 255).to(x.dtype)
-#             x = hazed_image
-#         return x
     
 
 def generate_haze_parameters():

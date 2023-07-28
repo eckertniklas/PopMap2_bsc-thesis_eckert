@@ -85,8 +85,8 @@ class Population_Dataset_target(Dataset):
             self.coarse_census = pd.read_csv(self.file_paths["coarse"]["census"])
             # self.coarse_census = pd.read_csv(self.coarse_census_file)
             # max_pix = 2e6
-            # max_pix = 5e6
-            max_pix = 1.25e6
+            max_pix = 5e6
+            # max_pix = 1.25e6
             # max_pix = 1e16
             # max_pix = 1e16
             print("Kicking out ", (self.coarse_census["count"]>=max_pix).sum(), "samples with more than ", int(max_pix), " pixels")

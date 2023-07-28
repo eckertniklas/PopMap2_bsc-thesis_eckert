@@ -305,7 +305,7 @@ class RandomBrightness(torch.nn.Module):
             else:
                 # Apply brightness to each channel separately
                 for i in range(x.shape[0]):
-                    x[i] = TF.adjust_brightness(x[i], beta) 
+                    x[:,i] = TF.adjust_brightness(x[:,0], beta) 
             x = x * self.s2_max
         return x
 

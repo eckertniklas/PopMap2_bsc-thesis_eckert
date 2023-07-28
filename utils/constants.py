@@ -123,8 +123,8 @@ datalocations = {
     },
     'rwa': {
         'fine': {
-            'boundary': "boundaries_kigali100.tif",
-            'census': "census_kigali100.csv",
+            'boundary': "boundaries_coarse.tif",
+            'census': "census_coarse.csv",
         },
         'fine100': {
             'boundary': "boundaries_kigali100.tif",

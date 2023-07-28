@@ -857,7 +857,7 @@ class Trainer:
             for reg in args.target_regions_train:
                 weak_datasets.append( Population_Dataset_target(reg, mode="weaksup", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
                                                                 fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
-                                                                ascfill=True, **input_defs)  )
+                                                                ascfill=True, train_level=args.train_level, **input_defs)  )
             dataloaders["weak_target_dataset"] = ConcatDataset(weak_datasets)
             
             # create own simulation of a dataloader for the weakdataset

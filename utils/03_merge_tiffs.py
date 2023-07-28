@@ -90,7 +90,8 @@ def process(parent_dir, output_dir):
             g = gdal.Translate(output_file1C, g, format="GTiff", bandList=[2,3,4,8], outputType=gdal.GDT_UInt16, options=["COMPRESS=LZW"])
             g = None
 
-        if ty in ["S2Aspring", "S2Asummer", "S2Aautumn", "S2Awinter"]:
+        # if ty in ["S2Aspring", "S2Asummer", "S2Aautumn", "S2Awinter"]:
+        if ty in ["S2Aspring", "S2Asummer", "S2Aautumn"]:
             # Skip if file already exists
             if isfile(output_file):
                 print("File already exists, skipping")

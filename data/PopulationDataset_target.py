@@ -82,7 +82,7 @@ class Population_Dataset_target(Dataset):
         # weaksup data specific preparation
         if self.mode == "weaksup":
             # read the census file
-            self.coarse_census = pd.read_csv(self.file_paths["coarse"]["census"])
+            self.coarse_census = pd.read_csv(self.file_paths[train_level]["census"])
             # self.coarse_census = pd.read_csv(self.coarse_census_file)
             # max_pix = 2e6
             max_pix = 5e6
@@ -102,7 +102,7 @@ class Population_Dataset_target(Dataset):
             print("Using", len(self.coarse_census), "samples for weakly supervised training")
 
             # get the shape of the coarse regions
-            with rasterio.open(self.file_paths["coarse"]["boundary"], "r") as src:
+            with rasterio.open(self.file_paths[train_level]["boundary"], "r") as src:
                 self.cr_regions = src.read(1)
                 self.cr_shape = src.shape
 

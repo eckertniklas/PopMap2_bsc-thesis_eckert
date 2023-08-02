@@ -85,6 +85,7 @@ class BoostUNet(nn.Module):
         # POMELO occupancy model
         if self.occupancymodel:
             if "building_counts" in inputs.keys():
+                scale_raw = popdensemap_raw_valid.clone().cpu().detach().numpy()
                 popdensemap_raw_valid = popdensemap_raw_valid * inputs["input"][0,-1]
                 # popvarmap = popvarmap * inputs["building_counts"].squeeze(1)
 
@@ -150,6 +151,7 @@ class BoostUNet(nn.Module):
         # POMELO occupancy model
         if self.occupancymodel:
             if "building_counts" in inputs.keys():
+                scale = popdensemap.clone().cpu().detach().numpy()
                 popdensemap = popdensemap * inputs["input"][0,-1].squeeze(1)
                 popvarmap = popvarmap * inputs["input"][0,-1].squeeze(1)
 
@@ -171,10 +173,12 @@ class BoostUNet(nn.Module):
         # builtupmap = torch.sigmoid(out[:,3])
 
         return {"popcount": popcount, "popdensemap": popdensemap, "popvar": popvar ,"popvarmap": popvarmap, 
-                "intermediate": {"popcount": popcount_raw, "popdensemap": popdensemap_raw_valid, "popvar": popvar_raw ,"popvarmap": popvarmap_raw, "domain": None, "decoder_features": None}, 
+                "intermediate": {"popcount": popcount_raw, "popdensemap": popdensemap_raw_valid, "popvar": popvar_raw,
+                                 "popvarmap": popvarmap_raw, "domain": None, "decoder_features": None, "scale_raw": scale_raw}, 
                 "popvar": popvar ,"popvarmap": popvarmap, 
                 # "builtdensemap": builtdensemap, "builtcount": builtcount,
                 # "builtupmap": builtupmap,
+                "scale": scale,
                 "domain": domain, "features": features,
                 "decoder_features": decoder_features}
 

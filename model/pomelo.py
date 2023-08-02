@@ -167,6 +167,7 @@ class JacobsUNet(nn.Module):
         if self.occupancymodel:
             popdensemap = nn.functional.softplus(out[:,0]) 
             if "building_counts" in inputs.keys():
+                scale = popdensemap.clone().cpu().detach().numpy()
                 popdensemap = popdensemap * inputs["input"][0,-1]
                 popvarmap = popvarmap * inputs["input"][0,-1].squeeze(1)
             else:
@@ -188,16 +189,18 @@ class JacobsUNet(nn.Module):
             popvar = popvarmap.sum((1,2))
 
         # Building map
-        builtdensemap = nn.functional.softplus(out[:,2])
-        builtcount = builtdensemap.sum((1,2))
+        # builtdensemap = nn.functional.softplus(out[:,2])
+        # builtcount = builtdensemap.sum((1,2))
 
-        # Builtup mask
-        builtupmap = torch.sigmoid(out[:,3])
+        # # Builtup mask
+        # builtupmap = torch.sigmoid(out[:,3])
 
         return {"popcount": popcount, "popdensemap": popdensemap,
                 "popvar": popvar ,"popvarmap": popvarmap, 
-                "builtdensemap": builtdensemap, "builtcount": builtcount,
-                "builtupmap": builtupmap, "domain": domain, "features": features,
+                # "builtdensemap": builtdensemap, "builtcount": builtcount,
+                # "builtupmap": builtupmap,
+                "scale": scale,
+                "domain": domain, "features": features,
                 "decoder_features": decoder_features}
 
 

@@ -79,6 +79,10 @@ class Trainer:
 
         # define input channels based on the number of input modalities
         # input_channels = args.Sentinel1*2  + args.NIR*1 + args.Sentinel2*3 + args.VIIRS*1
+
+        # set up experiment folder
+        self.experiment_folder, self.args.expN, self.args.randN = new_log(os.path.join(args.save_dir, "So2Sat"), args)
+        self.args.experiment_folder = self.experiment_folder
         
         # define architecture
         if args.model in model_dict:
@@ -134,10 +138,6 @@ class Trainer:
         args.pytorch_total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         print("Model", args.model, "; #Params:", args.pytorch_total_params)
 
-        # set up experiment folder
-        self.experiment_folder, self.args.expN, self.args.randN = new_log(os.path.join(args.save_dir, "So2Sat"), args)
-        self.args.experiment_folder = self.experiment_folder
-        
         # wandb config
         wandb.init(project=args.wandb_project, dir=self.experiment_folder)
         wandb.config.update(self.args) 
@@ -148,16 +148,20 @@ class Trainer:
         # set up optimizer and scheduler
         if args.optimizer == "Adam":
             # Get all parameters except the head bias
-            params_with_decay = [param for name, param in self.model.named_parameters() if name not in ['head.bias', 'head1.bias', 'head2.bias']]
+            params_with_decay = [param for name, param in self.model.named_parameters() if name not in ['head.bias', 'head1.bias', 'head2.bias'] and 'embedder' not in name]
+            params_positional = [param for name, param in self.model.embedder.named_parameters()]
 
             # Get the head bias parameter
-            params_without_decay = [param for name, param in self.model.named_parameters() if name in ['head.bias', 'head1.bias', 'head2.bias']]
+            params_without_decay = [param for name, param in self.model.named_parameters() if name in ['head.bias', 'head1.bias', 'head2.bias'] and 'embedder' not in name]
+
+            # new
 
             self.optimizer = optim.Adam([
                     {'params': params_with_decay, 'weight_decay': args.weightdecay}, # Apply weight decay here
+                    {'params': params_positional, 'weight_decay': args.weightdecay_pos}, # Apply weight decay here
                     {'params': params_without_decay, 'weight_decay': 0.0}, # No weight decay
                 ]
-                , lr=args.learning_rate, weight_decay=args.weightdecay)
+                , lr=args.learning_rate)
             # self.optimizer = optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
         elif args.optimizer == "SGD":
             self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
@@ -261,7 +265,7 @@ class Trainer:
 
                     # forward pass and loss computation 
                     sample_weak = to_cuda_inplace(sample_weak) 
-                    sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput)
+                    sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
                     # check if the input is to large
                     # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 1400000:
                     num_pix = sample_weak["input"].shape[0]*sample_weak["input"].shape[2]*sample_weak["input"].shape[3]
@@ -317,7 +321,7 @@ class Trainer:
 
                 if self.args.CyCADA:
                     # CyCADA forward pass and loss computation
-                    sample = apply_transformations_and_normalize(sample, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput)
+                    sample = apply_transformations_and_normalize(sample, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
                     data = {"A": sample["input"][sample["source"]], "B": sample["input"][~sample["source"]], "A_paths": "", "B_paths": ""}
                     self.CyCADAmodel.set_input(data)         # unpack data from dataset and apply preprocessing
                     self.CyCADAmodel.optimize_parameters(gt=sample["y"][sample["source"]])
@@ -327,7 +331,7 @@ class Trainer:
 
                 else:
                     if not self.args.GANonly and not self.args.nomain: 
-                        sample = apply_transformations_and_normalize(sample, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput)
+                        sample = apply_transformations_and_normalize(sample, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
                 
 
                 if not self.args.GANonly and not self.args.nomain:
@@ -498,7 +502,7 @@ class Trainer:
 
                 # forward pass
                 sample = to_cuda_inplace(sample)
-                sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput)
+                sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
 
                 output = self.model(sample)
                 
@@ -566,7 +570,7 @@ class Trainer:
 
                 # forward pass
                 sample = to_cuda_inplace(sample)
-                sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput)
+                sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
                 # sample = apply_normalize(sample, self.dataset_stats)
 
                 output = self.model(sample)
@@ -680,7 +684,7 @@ class Trainer:
                 for sample in tqdm(testdataloader, leave=False):
                     sample = to_cuda_inplace(sample)
                     # sample = apply_normalize(sample, self.dataset_stats)
-                    sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput)
+                    sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
 
                     # get the valid coordinates
                     # xmin, xmax, ymin, ymax = [val.item() for val in sample["valid_coords"]]
@@ -897,6 +901,18 @@ class Trainer:
             'optimizer': self.optimizer.state_dict(),
             'scheduler': self.scheduler.state_dict(),
         }, os.path.join(self.experiment_folder, f'{prefix}_model.pth'))
+
+        # if there is a self.model.unet, save the unet as well
+        if hasattr(self.model, "unet"):
+            torch.save({
+                'model': self.model.unet.state_dict(),
+            }, os.path.join(self.experiment_folder, f'{prefix}_unet.pth'))
+
+        # if there is a self.model.head, save the head as well
+        if hasattr(self.model, "head"):
+            torch.save({
+                'model': self.model.head.state_dict(),
+            }, os.path.join(self.experiment_folder, f'{prefix}_head.pth'))
 
     def resume(self, path):
         """

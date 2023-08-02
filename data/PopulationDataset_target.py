@@ -18,6 +18,9 @@ from typing import Dict, Tuple
 from utils.constants import pop_map_root_large, pop_map_root, pop_map_covariates, pop_map_covariates_large, config_path, pop_gbuildings_path, rawEE_map_root, skip_indices
 from utils.constants import datalocations
 from utils.plot import plot_2dmatrix
+
+from utils.positional_encoding import PositionalEncoding2D
+
 # from osgeo import gdal
 
 # module load gdal/3.4.3
@@ -235,6 +238,14 @@ class Population_Dataset_target(Dataset):
             self.gbuildings_counts_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_counts.tif")
             self.gbuildings = True
         self.gbuildings = False
+
+        self.positional_encoding = True
+        if self.positional_encoding:
+            with rasterio.open(self.file_paths[list(self.file_paths.keys())[0]]["boundary"], "r") as src:
+                self.img_shape = src.shape
+        
+            self.pos_enc = PositionalEncoding2D(src.shape, 8)
+            # test = self.pos_enc(window=((1050,1100), (1075, 1110)))
 
         # normalize the dataset (do not use, this does not make sense for variable regions sizes like here)
         self.y_stats = load_json(os.path.join(config_path, 'dataset_stats', 'label_stats.json'))
@@ -546,6 +557,13 @@ class Population_Dataset_target(Dataset):
                     with rasterio.open(self.gbuildings_counts_file, "r") as src:
                         indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32) 
 
+        if self.positional_encoding:
+
+            if fake:
+                indata["positional_encoding"] = np.random.randint(0, 10000, size=(32,patchsize_x,patchsize_y))
+            else:
+                indata["positional_encoding"] = self.pos_enc(window=window)
+
         # # load administrative mask
         # admin_mask = self.cr_regions[x:x+patchsize_x, y:y+patchsize_y]==idx
 
@@ -782,8 +800,16 @@ def Population_Dataset_collate_fn(batch):
     max_y = max([item['S1'].shape[2] for item in batch])
 
     # Create empty tensors with the maximum dimensions
-    input_batch_S1 = torch.zeros(len(batch), batch[0]['S1'].shape[0], max_x, max_y)
-    input_batch_S2 = torch.zeros(len(batch), batch[0]['S2'].shape[0], max_x, max_y)
+    use_S2, use_S1 = False, False
+    if 'S2' in batch[0]:
+        input_batch_S2 = torch.zeros(len(batch), batch[0]['S2'].shape[0], max_x, max_y)
+        use_S2 = True
+    if 'S1' in batch[0]:
+        input_batch_S1 = torch.zeros(len(batch), batch[0]['S1'].shape[0], max_x, max_y)
+        use_S1 = True
+
+    if 'positional_encoding' in batch[0]:
+        positional_encoding = torch.zeros(len(batch), batch[0]['positional_encoding'].shape[0], max_x, max_y)
 
     building_segmentation = torch.zeros(len(batch), 1, max_x, max_y),
     building_counts = torch.zeros(len(batch), 1, max_x, max_y)
@@ -797,9 +823,12 @@ def Population_Dataset_collate_fn(batch):
     for i, item in enumerate(batch):
         # x_size, y_size = item['input'].shape[1], item['input'].shape[2]
         # input_batch[i, :, :x_size, :y_size] = item['input']
-        x_size, y_size = item['S1'].shape[1], item['S1'].shape[2]
-        input_batch_S1[i, :, :x_size, :y_size] = item['S1']
-        input_batch_S2[i, :, :x_size, :y_size] = item['S2']
+        if use_S2:
+            x_size, y_size = item['S2'].shape[1], item['S2'].shape[2]
+            input_batch_S2[i, :, :x_size, :y_size] = item['S2']
+        if use_S1:
+            x_size, y_size = item['S1'].shape[1], item['S1'].shape[2]
+            input_batch_S1[i, :, :x_size, :y_size] = item['S1']
 
         admin_mask_batch[i, :x_size, :y_size] = item['admin_mask']
         y_batch[i] = item['y']
@@ -810,10 +839,13 @@ def Population_Dataset_collate_fn(batch):
         if "building_counts" in item:
             building_counts[i, :, :x_size, :y_size] = item['building_counts']
             use_building_counts = True
+        if 'positional_encoding' in item:
+            positional_encoding[i, :, :x_size, :y_size] = item['positional_encoding']
+            use_positional_encoding = True
 
     out_dict = {
-        'S1': input_batch_S1,
-        'S2': input_batch_S2,
+        # 'S1': input_batch_S1,
+        # 'S2': input_batch_S2,
         'admin_mask': admin_mask_batch,
         'y': y_batch,
         'img_coords': [item['img_coords'] for item in batch],
@@ -822,10 +854,18 @@ def Population_Dataset_collate_fn(batch):
         'source': torch.tensor([item['source'] for item in batch], dtype=torch.bool),
         'census_idx': torch.cat([item['census_idx'] for item in batch]),
     }
+
+    if use_S2:
+        out_dict["S2"] = input_batch_S2
+    if use_S1:
+        out_dict["S1"] = input_batch_S1
+
     if use_building_segmentation:
         out_dict["building_segmentation"] = building_segmentation
     if use_building_counts:
         out_dict["building_counts"] = building_counts
+    if use_positional_encoding:
+        out_dict["positional_encoding"] = positional_encoding
 
     return out_dict
 

@@ -275,7 +275,7 @@ def apply_normalize(indata, dataset_stats):
     return indata
 
 
-def apply_transformations_and_normalize(sample, transform, dataset_stats, buildinginput=False):
+def apply_transformations_and_normalize(sample, transform, dataset_stats, buildinginput=False, segmentationinput=False):
     """
     :param sample: image to be transformed
     :param transform: transform to be applied to the image
@@ -303,15 +303,25 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
         
         if "building_counts" in sample.keys() and "building_segmentation" not in sample.keys():
             # fake some more input for the validationset without building footprints
-            sample["building_segmentation"] = sample["building_counts"]>0.5
-        
-        sample["building_counts"][sample["building_counts"] < 0.1] = 0.0
 
+            if segmentationinput:
+                sample["building_segmentation"] = sample["building_counts"]>0.5
+
+        if not segmentationinput and "building_segmentation" in sample.keys():
+            # delete the segmentation input
+            del sample["building_segmentation"]
+
+
+        # sparsify the building counts
+        # sample["building_counts"][sample["building_counts"] < 0.1] = 0.0
+
+        # merge the inputs
         sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS", "building_segmentation", "building_counts"] if key in sample], dim=1)
         
-        if "building_segmentation" not in sample.keys(): 
-            # fake some more input for the validationset without building footprints
-            sample["input"] = torch.concatenate([sample["input"], torch.zeros_like(sample["input"][:,:2,:,:])], dim=1)
+        # 
+        # if "building_segmentation" not in sample.keys(): 
+        #     # fake some more input for the validationset without building footprints
+        #     sample["input"] = torch.concatenate([sample["input"], torch.zeros_like(sample["input"][:,:2,:,:])], dim=1)
 
     else:
         sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS"] if key in sample], dim=1)
@@ -322,10 +332,17 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
 
         if "general" in transform.keys():
             # if masked
-            if "mask" in sample.keys(): 
-                sample["input"], sample["mask"] = transform["general"]((sample["input"], sample["mask"]))
+            # if "mask" in sample.keys(): 
+            #     sample["input"], sample["mask"] = transform["general"]((sample["input"], sample["mask"]))
             if "admin_mask" in sample.keys():
-                sample["input"], sample["admin_mask"] = transform["general"]((sample["input"], sample["admin_mask"]))
+                if "positional_encoding" in sample.keys():
+                    mask = torch.cat([sample["positional_encoding"], sample["admin_mask"].unsqueeze(1)], dim=1)
+                                        
+                    sample["input"], mask = transform["general"]((sample["input"], mask))
+                    sample["positional_encoding"] = mask[:,:-1,:,:]
+                    sample["admin_mask"] = mask[:,-1,:,:]
+                else:
+                    sample["input"], sample["admin_mask"] = transform["general"]((sample["input"], sample["admin_mask"]))
             else:
                 sample["input"] = transform["general"](sample["input"])
     

@@ -12,6 +12,7 @@ from torch.nn.functional import upsample_nearest, interpolate
 
 from utils.plot import plot_2dmatrix, plot_and_save
 
+import os
 
 
 class POMELO_module(nn.Module):
@@ -21,8 +22,9 @@ class POMELO_module(nn.Module):
         - UNet with a regression head
 
     '''
-    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1", head="v1", down=5,
-                occupancymodel=False, pretrained=False, dilation=1, replace7x7=True):
+    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", down=5,
+                occupancymodel=False, pretrained=False, dilation=1, replace7x7=True,
+                parent=None, experiment_folder=None, useposembedding=False):
         super(POMELO_module, self).__init__()
         """
         Args:
@@ -32,98 +34,68 @@ class POMELO_module(nn.Module):
             - classifier (str): name of the classifier
             - head (str): name of the regression head
             - down (int): number of downsampling steps in the feature extractor
+            - occupancymodel (bool): whether to use the occupancy model
+            - pretrained (bool): whether to use the pretrained feature extractor
+            - dilation (int): dilation factor
+            - replace7x7 (bool): whether to replace the 7x7 convolutions with 3 3x3 convolutions
         """
 
         self.down = down
         self.occupancymodel = occupancymodel
+        self.useposembedding = useposembedding
         
         # Padding Params
         self.p = 14
         self.p2d = (self.p, self.p, self.p, self.p)
 
-        # Build the main model
-        self.unetmodel = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=self.down, dilation=dilation, replace7x7=replace7x7)
+        # own parent file
+        parent_file = os.path.join(experiment_folder, "parent.txt")
 
-        # Define batchnorm layer for the feature extractor
-        # self.bn = nn.BatchNorm2d(input_channels)
-        # self.maxi = torch.tensor([0,0,0,0,0,0], dtype=torch.float32)
+        if os.path.exists(parent_file):
+            loaded_parent = open(parent_file, "r").readline().strip()
+            assert os.path.exists(loaded_parent)
+            if parent is not None:
+                assert loaded_parent == parent
+            parent = loaded_parent
 
-        # Build the regression head
-        if head=="v1":
+        elif parent is not None:
+            # means that this is a new model and we need to create the parent file
+            with open(parent_file, "w") as f:
+                f.write(parent)
+        
+        if parent is not None or os.path.exists(parent_file):
+            # recursive loading of the boosting model
+
+            # load the parent
+            self.parent = POMELO_module(input_channels, feature_dim, feature_extractor, down, experiment_folder=parent)
+
+            # load the weights
+            self.parent.unetmodel.load_state_dict(torch.load(os.path.join(parent, "last_unet.pth")))
+            self.parent.head.load_state_dict(torch.load(os.path.join(parent, "last_head.pth")))
+        
+        else:
+            # create the parent file
+            self.parent = None
+
+        this_input_dim = input_channels if self.parent is None else input_channels + 1
+
+
+        if useposembedding:
+            self.embedder = nn.Sequential(
+                nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.Sigmoid(),
+                nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.Sigmoid(),
+                nn.Conv2d(32, feature_dim, kernel_size=1, padding=0)
+            )
+
+            self.head = nn.Conv2d(feature_dim+feature_dim, 5, kernel_size=1, padding=0)
+        else:
             self.head = nn.Conv2d(feature_dim, 5, kernel_size=1, padding=0)
-        elif head=="v2":
-            self.head = nn.Sequential(
-                nn.Conv2d(feature_dim, 32, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(32, 5, kernel_size=1, padding=0)
-            )
-        elif head=="v3":
-            self.head = nn.Sequential(
-                nn.Conv2d(feature_dim, 100, kernel_size=3, padding=1), nn.ReLU(),
-                nn.Conv2d(100, 100, kernel_size=3, padding=1), nn.ReLU(),
-                nn.Conv2d(100, 5, kernel_size=1, padding=0)
-            )
-        elif head=="v4":
-            self.head = nn.Sequential(
-                nn.Conv2d(feature_dim, 100, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(100, 5, kernel_size=1, padding=0)
-            )
-        elif head=="v5":
-            self.head = nn.Sequential(
-                nn.Conv2d(feature_dim, 32, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(32, 5, kernel_size=1, padding=0)
-            )
 
+        # Build the main model
+        self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 
+                                    down=self.down, dilation=dilation, replace7x7=replace7x7, pretrained=pretrained)
         # lift the bias of the head
         self.head.bias.data = 0.75 * torch.ones(5)
-
-        # Build the domain classifier
-        # latent_dim = self.unetmodel.latent_dim
-        if classifier=="v1":
-            self.domain_classifier = DomainClassifier(feature_dim)
-        elif classifier=="v2":
-            self.domain_classifier = DomainClassifier1x1(feature_dim)
-        elif classifier=="v3":
-            self.domain_classifier = DomainClassifier_v3(feature_dim)
-        elif classifier=="v4":
-            self.domain_classifier = DomainClassifier_v4(feature_dim)
-        elif classifier=="v5":
-            self.domain_classifier = DomainClassifier_v5(feature_dim)
-        elif classifier=="v6":
-            self.domain_classifier = DomainClassifier_v6(feature_dim)
-        elif classifier=="v7":
-            self.domain_classifier = nn.Sequential(nn.Conv2d(feature_dim, 1, kernel_size=1, padding=0), nn.Sigmoid())
-        elif classifier=="v8":
-            self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel.latent_dim, 100), nn.ReLU(),
-                nn.Linear(100, 1),  nn.Sigmoid()
-            )
-        elif classifier=="v9":
-            self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel.latent_dim, 64), nn.ReLU(),
-                nn.Linear(64, 64),  nn.ReLU(),
-                nn.Linear(64, 1),  nn.Sigmoid()
-            )
-        elif classifier=="v10":
-            self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel.latent_dim, 32), nn.ReLU(),
-                nn.Linear(32, 1),  nn.Sigmoid()
-            )
-        elif classifier=="v11":
-            self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel.latent_dim, 8), nn.ReLU(),
-                nn.Linear(8, 1),  nn.Sigmoid()
-            )
-        elif classifier=="v12":
-            self.domain_classifier = nn.Sequential(
-                nn.Linear(self.unetmodel.latent_dim, 64), nn.ReLU(),
-                nn.Linear(64, 64),  nn.ReLU(),
-                nn.Linear(64, 64),  nn.ReLU(),
-                nn.Linear(64, 64),  nn.ReLU(),
-                nn.Linear(64, 1),  nn.Sigmoid()
-            )
-        else:
-            self.domain_classifier = None
 
         # calculate the number of parameters
         self.params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
@@ -137,8 +109,19 @@ class POMELO_module(nn.Module):
             - inputs["input"].shape = [batch_size, input_channels, height, width]
         """
 
+        # forward the parent model without gradient if exists
+        if self.parent is not None:
+            # Forward the parent model
+            with torch.no_grad():
+                output_dict = self.parent(inputs, padding=False, return_features=False, unet_no_grad=unet_no_grad)
+            # Concatenate the parent features with the input
+            inputdata = torch.cat([ output_dict["popdensemap"], inputs["input"]], dim=1)
+        else:
+            inputdata = inputs["input"]
+
+
         # Add padding
-        data, (px1,px2,py1,py2) = self.add_padding(inputs["input"], padding)
+        data, (px1,px2,py1,py2) = self.add_padding(inputdata, padding)
 
         # Forward the main model
         if  unet_no_grad:
@@ -151,14 +134,20 @@ class POMELO_module(nn.Module):
         features = self.revert_padding(features, (px1,px2,py1,py2))
 
         # Forward the head
-        out = self.head(features)
+
+        if self.useposembedding:
+            pose = self.embedder(inputs["positional_encoding"])
+            # pose = self.embedder(features)
+            out = self.head(torch.cat([features, pose], dim=1))
+        else:
+            out = self.head(features)
 
         # Foward the domain classifier
-        if self.domain_classifier is not None and return_features and alpha>0:
-            reverse_features = ReverseLayerF.apply(decoder_features.unsqueeze(3), alpha) # apply gradient reversal layer
-            domain = self.domain_classifier(reverse_features.permute(0,2,3,1).reshape(-1, reverse_features.size(1))).view(reverse_features.size(0),-1)
-        else:
-            domain = None
+        # if self.domain_classifier is not None and return_features and alpha>0:
+        #     reverse_features = ReverseLayerF.apply(decoder_features.unsqueeze(3), alpha) # apply gradient reversal layer
+        #     domain = self.domain_classifier(reverse_features.permute(0,2,3,1).reshape(-1, reverse_features.size(1))).view(reverse_features.size(0),-1)
+        # else:
+        #     domain = None
         
         # Population map and total count
         popvarmap = nn.functional.softplus(out[:,1])
@@ -199,7 +188,7 @@ class POMELO_module(nn.Module):
                 # "builtdensemap": builtdensemap, "builtcount": builtcount,
                 # "builtupmap": builtupmap,
                 "scale": scale,
-                "domain": domain, "features": features,
+                "features": features,
                 "decoder_features": decoder_features}
 
 

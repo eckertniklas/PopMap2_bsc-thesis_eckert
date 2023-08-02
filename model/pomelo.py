@@ -42,7 +42,8 @@ class JacobsUNet(nn.Module):
         self.p2d = (self.p, self.p, self.p, self.p)
 
         # Build the main model
-        self.unetmodel = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=self.down, dilation=dilation, replace7x7=replace7x7)
+        self.unetmodel = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, 
+                                    down=self.down, dilation=dilation, replace7x7=replace7x7, pretrained=pretrained)
 
         # Define batchnorm layer for the feature extractor
         # self.bn = nn.BatchNorm2d(input_channels)
@@ -161,7 +162,6 @@ class JacobsUNet(nn.Module):
             domain = None
         
         # Population map and total count
-        # popdensemap = nn.functional.relu(out[:,0])
         popvarmap = nn.functional.softplus(out[:,1])
 
         if self.occupancymodel:

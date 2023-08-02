@@ -331,19 +331,47 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
         # apply the transformation to the image
 
         if "general" in transform.keys():
-            # if masked
-            # if "mask" in sample.keys(): 
-            #     sample["input"], sample["mask"] = transform["general"]((sample["input"], sample["mask"]))
-            if "admin_mask" in sample.keys():
-                if "positional_encoding" in sample.keys():
-                    mask = torch.cat([sample["positional_encoding"], sample["admin_mask"].unsqueeze(1)], dim=1)
-                                        
-                    sample["input"], mask = transform["general"]((sample["input"], mask))
-                    sample["positional_encoding"] = mask[:,:-1,:,:]
-                    sample["admin_mask"] = mask[:,-1,:,:]
-                else:
-                    sample["input"], sample["admin_mask"] = transform["general"]((sample["input"], sample["admin_mask"]))
+
+            # Collect data and lengths
+            data = []
+            lens = []
+            keys = ["admin_mask", "positional_encoding", "building_counts"]
+
+            for key in keys:
+                if key in sample:
+                    if key == "admin_mask":
+                        data.append(sample[key].unsqueeze(1))
+                    else:
+                        data.append(sample[key])
+                    lens.append(data[-1].shape[1])
+        
+            # Transform the data
+            if sum(lens) > 0:
+                sample["input"], data = transform["general"]((sample["input"], torch.cat(data, dim=1)))
+                # Reassign transformed data back into sample
+                start = 0
+                for i, key in enumerate(keys):
+                    if key in sample:
+                        end = start + lens[i]
+                        sample[key] = data[:, start:end, :, :]
+                        if key == "admin_mask":
+                            sample[key] = sample[key][:,0,:,:]
+                        start = end
+                        
             else:
                 sample["input"] = transform["general"](sample["input"])
+
+            # if "admin_mask" in sample.keys():
+            #     if "positional_encoding" in sample.keys():
+
+            #         mask = torch.cat([sample["positional_encoding"], sample["admin_mask"].unsqueeze(1)], dim=1)
+                                        
+            #         sample["input"], mask = transform["general"]((sample["input"], mask))
+            #         sample["positional_encoding"] = mask[:,:-1,:,:]
+            #         sample["admin_mask"] = mask[:,-1,:,:]
+            #     else:
+            #         sample["input"], sample["admin_mask"] = transform["general"]((sample["input"], sample["admin_mask"]))
+            # else:
+            #     sample["input"] = transform["general"](sample["input"])
     
     return sample

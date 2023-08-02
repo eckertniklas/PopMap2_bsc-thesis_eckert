@@ -156,8 +156,8 @@ class POMELO_module(nn.Module):
             popdensemap = nn.functional.softplus(out[:,0]) 
             if "building_counts" in inputs.keys():
                 scale = popdensemap.clone().cpu().detach().numpy()
-                popdensemap = popdensemap * inputs["input"][0,-1]
-                popvarmap = popvarmap * inputs["input"][0,-1].squeeze(1)
+                popdensemap = popdensemap * inputs["building_counts"][:,0]
+                popvarmap = popvarmap * inputs["building_counts"][:,0]
             else:
                 raise ValueError("building_counts not in inputs.keys()")
         else:

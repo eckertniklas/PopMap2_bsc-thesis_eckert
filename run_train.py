@@ -149,7 +149,13 @@ class Trainer:
         if args.optimizer == "Adam":
             # Get all parameters except the head bias
             params_with_decay = [param for name, param in self.model.named_parameters() if name not in ['head.bias', 'head1.bias', 'head2.bias'] and 'embedder' not in name]
-            params_positional = [param for name, param in self.model.embedder.named_parameters()]
+
+            # check if the model has an embedder
+            if hasattr(self.model, 'embedder'):
+                # Get the positional embedding parameters
+                params_positional = [param for name, param in self.model.embedder.named_parameters()]
+            else:
+                params_positional = []
 
             # Get the head bias parameter
             params_without_decay = [param for name, param in self.model.named_parameters() if name in ['head.bias', 'head1.bias', 'head2.bias'] and 'embedder' not in name]

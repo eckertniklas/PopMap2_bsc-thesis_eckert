@@ -862,7 +862,7 @@
                 // "-r77",
                 "--pretrained",
                 "--gradientaccumulation",
-                "--weightdecay", "0.001"
+                // "--weightdecay", "0.001"
                 // "--optimizer", "SGD",
                 // "--weightdecay", "0.000001",
                 // "--eu2rwa" 

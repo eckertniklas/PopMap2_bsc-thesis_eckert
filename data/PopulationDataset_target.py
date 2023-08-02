@@ -20,6 +20,8 @@ from utils.constants import datalocations
 from utils.plot import plot_2dmatrix
 # from osgeo import gdal
 
+# module load gdal/3.4.3
+# pip install --global-option=build_ext --global-option="-I/usr/include/gdal" GDAL==`gdal-config --version`
 
 def load_json(file):
     with open(file, 'r') as f:

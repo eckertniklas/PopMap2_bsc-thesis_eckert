@@ -2,7 +2,7 @@
 
 from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep, ResBlocksSqueeze
 from model.ownmodels import BoostUNet
-
+from model.resblock_pomelo import ResBlocksPomelo
 
 model_dict = {
     "JacobsUNet": JacobsUNet,
@@ -51,4 +51,7 @@ def get_model_kwargs(args, model_name):
         kwargs['pretrained'] = args.pretrained
         kwargs['dilation'] = args.dilation
         kwargs['replace7x7'] = args.replace7x7
+    if model_name == 'ResBlockPomelo':
+        kwargs['classifier'] = args.classifier if args.adversarial else None
+        kwargs['occupancymodel'] = args.occupancymodel
     return kwargs

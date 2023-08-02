@@ -17,9 +17,6 @@ from torch.nn.functional import upsample_nearest, interpolate
 from utils.plot import plot_2dmatrix, plot_and_save
 
 
-
-
-
 class BoostUNet(nn.Module):
     '''
     PomeloUNet
@@ -72,12 +69,9 @@ class BoostUNet(nn.Module):
         #### STAGE 1 ####
         # Forward the main model1
         if  unet_no_grad:
-            with torch.no_grad():
-                # self.unetmodel1.eval()
+            with torch.no_grad(): 
                 features, decoder_features_raw = self.unetmodel1(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
-                features.detach()
-                # features.cpu()
-                # self.unetmodel1.train()
+                features.detach() 
         else:
             features, decoder_features_raw = self.unetmodel1(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
 

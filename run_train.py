@@ -147,7 +147,18 @@ class Trainer:
 
         # set up optimizer and scheduler
         if args.optimizer == "Adam":
-            self.optimizer = optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
+            # Get all parameters except the head bias
+            params_with_decay = [param for name, param in self.model.named_parameters() if name not in ['head.bias', 'head1.bias', 'head2.bias']]
+
+            # Get the head bias parameter
+            params_without_decay = [param for name, param in self.model.named_parameters() if name in ['head.bias', 'head1.bias', 'head2.bias']]
+
+            self.optimizer = optim.Adam([
+                    {'params': params_with_decay, 'weight_decay': args.weightdecay}, # Apply weight decay here
+                    {'params': params_without_decay, 'weight_decay': 0.0}, # No weight decay
+                ]
+                , lr=args.learning_rate, weight_decay=args.weightdecay)
+            # self.optimizer = optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
         elif args.optimizer == "SGD":
             self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
             # self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weightdecay)
@@ -685,7 +696,7 @@ class Trainer:
                         output_map_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popdensemap"][0][mask].cpu().to(torch.float16)
                         if self.args.probabilistic:
                             output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popvarmap"][0][mask].cpu().to(torch.float16)
-                    # output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
+                    output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
 
                 # average over the number of times each pixel was visited
 

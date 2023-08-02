@@ -46,11 +46,19 @@ class CustomUNet(smp.Unet):
             center=True if encoder_name.startswith("vgg") else False
         )
 
+        if dilation > 1:
+            self.encoder.modify_dilation(dilation=dilation)
+
         # replace first layer with 3x3 conv instead of 7x7 (better suitable for remote sensing datasets)
         if encoder_name.startswith("resnet") and replace7x7:
             conv1w = self.encoder.conv1.weight # old kernel
-            self.encoder.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, stride=2, padding=1, bias=False)
+            self.encoder.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, stride=2, padding=1, bias=False, dilation=1)
             self.encoder.conv1.weight = nn.Parameter(conv1w[:,:,2:-2,2:-2])
+        else:
+            conv1w = self.encoder.conv1.weight # old kernel
+            self.encoder.conv1 = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False, dilation=1)
+            self.encoder.conv1.weight = nn.Parameter(conv1w)
+
 
         # adapt size of the center block for vgg
         if encoder_name.startswith("vgg"):
@@ -63,8 +71,6 @@ class CustomUNet(smp.Unet):
  
         self.remove_batchnorm(self)
 
-        if dilation > 1:
-            self.modify_dilation(dilation=dilation)
 
         # initialize
         print("self.encoder.out_channels", self.encoder.out_channels)

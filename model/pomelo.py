@@ -1,6 +1,5 @@
 
-
-import torchvision.models as models
+ 
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
@@ -75,6 +74,7 @@ class JacobsUNet(nn.Module):
                 nn.Conv2d(32, 5, kernel_size=1, padding=0)
             )
 
+        # lift the bias of the head
         self.head.bias.data = 0.75 * torch.ones(5)
 
         # Build the domain classifier
@@ -161,15 +161,19 @@ class JacobsUNet(nn.Module):
             domain = None
         
         # Population map and total count
-        popdensemap = nn.functional.relu(out[:,0])
+        # popdensemap = nn.functional.relu(out[:,0])
         popvarmap = nn.functional.softplus(out[:,1])
 
         if self.occupancymodel:
+            popdensemap = nn.functional.softplus(out[:,0]) 
             if "building_counts" in inputs.keys():
                 popdensemap = popdensemap * inputs["input"][0,-1]
-                # popdensemap = popdensemap * inputs["building_counts"].squeeze(1)
                 popvarmap = popvarmap * inputs["input"][0,-1].squeeze(1)
-                # popvarmap = popvarmap * inputs["building_counts"].squeeze(1)
+            else:
+                raise ValueError("building_counts not in inputs.keys()")
+        else:
+            popdensemap = nn.functional.relu(out[:,0])
+            popvarmap = nn.functional.softplus(out[:,1])
         
         if "admin_mask" in inputs.keys():
             # make the following line work for both 2D and 3D
@@ -252,7 +256,6 @@ class Block(nn.Module):
         x = self.net(x)
         x += identity
         return self.act(x)
-        # return self.act(self.net(x) + x)
 
 
 class ResBlocks(nn.Module):
@@ -292,9 +295,9 @@ class ResBlocks(nn.Module):
         
 
 
-        a = torch.zeros((1,6,128,128))
-        a[0,:,64,64] = 500
-        plot_2dmatrix(self.model(a)[0,0])
+        # a = torch.zeros((1,6,128,128))
+        # a[0,:,64,64] = 500
+        # plot_2dmatrix(self.model(a)[0,0])
 
         params_sum = sum(p.numel() for p in self.model.parameters() if p.requires_grad)    
                                   
@@ -658,15 +661,3 @@ class PomeloUNet(nn.Module):
         return {"popcount": popcount, "popdensemap": popdensemap,
                 "builtdensemap": builtdensemap, "builtcount": builtcount,
                 "builtupmap": builtupmap, "tau": self.gumbeltau.detach()}
-        # return Popcount, {"Popmap": Popmap, "built_map": sparse_buildings, "builtcount": builtcount}
-    
-        # # Population map
-        # popdensemap = nn.functional.softplus(x[:,0])
-        # popcount = popdensemap.sum((1,2))
-
-        # # Builtup mask
-        # builtupmap = nn.functional.sigmoid(x[:,2]) 
-
-        # return {"popcount": popcount, "popdensemap": popdensemap,
-        #         "builtdensemap": builtdensemap, "builtcount": builtcount,
-        #         "builtupmap": builtupmap}

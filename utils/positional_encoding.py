@@ -16,15 +16,15 @@ class PositionalEncoding2D(nn.Module):
         self.h_pe = torch.zeros(self.max_len*2, h)
         h_position = torch.arange(0, h)/ h *2* math.pi
         for i in range(self.max_len):
-            self.h_pe[i, :] = torch.sin(h_position * i)
-            self.h_pe[i+self.max_len, :] = torch.cos(h_position * i)
+            self.h_pe[i, :] = torch.sin(h_position * 2**i)
+            self.h_pe[i+self.max_len, :] = torch.cos(h_position * 2**i)
 
         # now for width
         self.w_pe = torch.zeros(self.max_len*2, w)
         w_position = torch.arange(0, w)/ w *2* math.pi
         for i in range(self.max_len):
-            self.w_pe[i, :] = torch.sin(w_position * i)
-            self.w_pe[i+self.max_len, :] = torch.cos(w_position * i)
+            self.w_pe[i, :] = torch.sin(w_position *  2**i)
+            self.w_pe[i+self.max_len, :] = torch.cos(w_position * 2**i)
             
 
     def forward(self, window):

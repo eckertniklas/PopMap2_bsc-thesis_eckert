@@ -244,7 +244,7 @@ class Population_Dataset_target(Dataset):
             with rasterio.open(self.file_paths[list(self.file_paths.keys())[0]]["boundary"], "r") as src:
                 self.img_shape = src.shape
         
-            self.pos_enc = PositionalEncoding2D(src.shape, 8)
+            self.pos_enc = PositionalEncoding2D(src.shape, 5)
             # test = self.pos_enc(window=((1050,1100), (1075, 1110)))
 
         # normalize the dataset (do not use, this does not make sense for variable regions sizes like here)
@@ -796,15 +796,19 @@ def Population_Dataset_collate_fn(batch):
         :return: the batch of data with same shapes
     """
     # Find the maximum dimensions for each item in the batch
-    max_x = max([item['S1'].shape[1] for item in batch])
-    max_y = max([item['S1'].shape[2] for item in batch])
+    # max_x = max([item['S1'].shape[1] for item in batch])
+    # max_y = max([item['S1'].shape[2] for item in batch])
 
     # Create empty tensors with the maximum dimensions
     use_S2, use_S1 = False, False
     if 'S2' in batch[0]:
+        max_x = max([item['S2'].shape[1] for item in batch])
+        max_y = max([item['S2'].shape[2] for item in batch])
         input_batch_S2 = torch.zeros(len(batch), batch[0]['S2'].shape[0], max_x, max_y)
         use_S2 = True
     if 'S1' in batch[0]:
+        max_x = max([item['S1'].shape[1] for item in batch])
+        max_y = max([item['S1'].shape[2] for item in batch])
         input_batch_S1 = torch.zeros(len(batch), batch[0]['S1'].shape[0], max_x, max_y)
         use_S1 = True
 

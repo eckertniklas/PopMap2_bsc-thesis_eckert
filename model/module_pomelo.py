@@ -10,6 +10,8 @@ from model.DANN import DomainClassifier, DomainClassifier1x1, DomainClassifier_v
 from model.customUNet import CustomUNet
 from torch.nn.functional import upsample_nearest, interpolate
 
+from utils.siren import Siren, Siren1x1
+
 from utils.plot import plot_2dmatrix, plot_and_save
 
 import os
@@ -82,10 +84,17 @@ class POMELO_module(nn.Module):
 
         if useposembedding:
             self.embedder = nn.Sequential(
-                nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.Sigmoid(),
-                nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.Sigmoid(),
+                nn.Conv2d(20, 32, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(32, feature_dim, kernel_size=1, padding=0)
             )
+
+            # self.embedder = nn.Sequential(
+            #     Siren1x1(2, 32, w0=30., is_first=True),
+            #     Siren1x1(32, 32, w0=1.),
+            #     Siren1x1(32, feature_dim, w0=1, activation=torch.nn.Identity())
+            # )
+
 
             self.head = nn.Conv2d(feature_dim+feature_dim, 5, kernel_size=1, padding=0)
         else:
@@ -136,8 +145,14 @@ class POMELO_module(nn.Module):
         # Forward the head
 
         if self.useposembedding:
-            pose = self.embedder(inputs["positional_encoding"])
-            # pose = self.embedder(features)
+            if isinstance(self.embedder[0], Siren1x1):
+                xy = torch.cat([  inputs["positional_encoding"][:,0].unsqueeze(0),
+                                  inputs["positional_encoding"][:,inputs["positional_encoding"].shape[1]//2].unsqueeze(0) ],
+                                  dim=1)
+                pose = self.embedder(xy)
+            else:
+                pose = self.embedder(inputs["positional_encoding"])
+
             out = self.head(torch.cat([features, pose], dim=1))
         else:
             out = self.head(features)

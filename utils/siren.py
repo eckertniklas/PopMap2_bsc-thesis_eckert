@@ -14,9 +14,13 @@ def cast_tuple(val, repeat = 1):
 # sin activation
 
 class Sine(nn.Module):
-    def __init__(self, w0 = 1.):
+    def __init__(self, w0=1., dim=None):
         super().__init__()
-        self.w0 = w0
+        if dim is None:
+            self.w0 = w0
+        else: 
+            self.w0 = nn.Parameter(w0 * torch.rand((1, dim, 1, 1)))
+
     def forward(self, x):
         return torch.sin(self.w0 * x)
 
@@ -44,7 +48,7 @@ class Siren(nn.Module):
 
         self.weight = nn.Parameter(weight)
         self.bias = nn.Parameter(bias) if use_bias else None
-        self.activation = Sine(w0) if activation is None else activation
+        self.activation = Sine(w0, dim_out) if activation is None else activation
         self.dropout = nn.Dropout(dropout)
 
     def init_(self, weight, bias, c, w0):
@@ -85,7 +89,7 @@ class Siren1x1(nn.Module):
 
         self.weight = nn.Parameter(weight)
         self.bias = nn.Parameter(bias) if use_bias else None
-        self.activation = Sine(w0) if activation is None else activation
+        self.activation = Sine(w0, dim_out) if activation is None else activation
         self.dropout = nn.Dropout(dropout)
 
     def init_(self, weight, bias, c, w0):

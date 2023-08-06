@@ -38,7 +38,8 @@ class Population_Dataset_target(Dataset):
     Use this dataset to evaluate the model on the target domain and compare it the census data
     """
     def __init__(self, region, S1=False, S2=True, VIIRS=True, NIR=False, patchsize=1024, overlap=32, fourseasons=False, mode="test",
-                 max_samples=None, transform=None, sentinelbuildings=True, ascfill=False, train_level="fine") -> None:
+                 max_samples=None, transform=None, sentinelbuildings=True, ascfill=False, train_level="fine", split="all",
+                 max_pix=5e6) -> None:
         """
         Input:
             region: the region identifier (e.g. "pri" for puerto rico)
@@ -50,6 +51,7 @@ class Population_Dataset_target(Dataset):
             overlap: the overlap between patches
             fourseasons: whether to use the four seasons data
             mode: the mode to use ("weaksup" (weakly supervised training) or "test")
+            split: the split to use ("all", "train", "val")
         """
         super().__init__()
 
@@ -66,6 +68,7 @@ class Population_Dataset_target(Dataset):
         self.use2A = True
         self.sentinelbuildings = sentinelbuildings
         self.ascfill = ascfill
+        self.split = split
 
         # get the path to the data
         # region_root = os.path.join(pop_map_root_large, region)
@@ -90,7 +93,7 @@ class Population_Dataset_target(Dataset):
             self.coarse_census = pd.read_csv(self.file_paths[train_level]["census"])
             # self.coarse_census = pd.read_csv(self.coarse_census_file)
             # max_pix = 2e6
-            max_pix = 5e6
+            max_pix = max_pix
             # max_pix = 1.25e6
             # max_pix = 1e16
             # max_pix = 1e16
@@ -104,7 +107,19 @@ class Population_Dataset_target(Dataset):
             if max_samples is not None:
                 # self.coarse_census = self.coarse_census.sample(frac=1, random_state=1610)[:max_samples].reset_index(drop=True)
                 self.coarse_census = self.coarse_census.sample(frac=1, random_state=1610)[-max_samples:].reset_index(drop=True)
-            print("Using", len(self.coarse_census), "samples for weakly supervised training")
+
+            if split=="all":
+                self.coarse_census = self.coarse_census
+            elif split=="train":
+                # shuffle and split the data
+                self.coarse_census = self.coarse_census.sample(frac=1, random_state=1610)[:int(len(self.coarse_census)*0.8)].reset_index(drop=True)
+                print("Using", len(self.coarse_census), "samples for weakly supervised training")
+            elif split=="val":
+                # shuffle and split the data
+                self.coarse_census = self.coarse_census.sample(frac=1, random_state=1610)[int(len(self.coarse_census)*0.8):].reset_index(drop=True)
+                print("Using", len(self.coarse_census), "samples for weakly supervised validation")
+            else:
+                raise ValueError("Split not recognized")
 
             # get the shape of the coarse regions
             with rasterio.open(self.file_paths[train_level]["boundary"], "r") as src:
@@ -244,7 +259,7 @@ class Population_Dataset_target(Dataset):
             with rasterio.open(self.file_paths[list(self.file_paths.keys())[0]]["boundary"], "r") as src:
                 self.img_shape = src.shape
         
-            self.pos_enc = PositionalEncoding2D(src.shape, 5)
+            self.pos_enc = PositionalEncoding2D(src.shape, 4)
             # test = self.pos_enc(window=((1050,1100), (1075, 1110)))
 
         # normalize the dataset (do not use, this does not make sense for variable regions sizes like here)

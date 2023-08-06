@@ -206,6 +206,13 @@ class Trainer:
                 #     torch.cuda.empty_cache()
 
                     # TODO weak validation
+                if (self.info["epoch"] + 1) % self.args.val_every_n_epochs == 0:
+                    if self.args.supmode=="weaksup" and self.args.weak_validation:
+                        self.validate_weak()
+                        torch.cuda.empty_cache()
+                    # self.validate()
+                    # torch.cuda.empty_cache()
+
                     # if self.args.supmode=="weaksup":
                     #     self.validate_weak()
                     #     torch.cuda.empty_cache()
@@ -214,6 +221,8 @@ class Trainer:
                 # if (self.info["epoch"] + 1) % (1*self.args.val_every_n_epochs) == 0:
                 #     self.test(plot=((self.info["epoch"]+1) % 20)==0, full_eval=((self.info["epoch"]+1) % 10)==0, zh_eval=True) #ZH
                 #     torch.cuda.empty_cache()
+
+                
                 if (self.info["epoch"] + 1) % (1*self.args.val_every_n_epochs) == 0:
                     self.test_target(save=True)
                     torch.cuda.empty_cache()
@@ -275,13 +284,15 @@ class Trainer:
                     # check if the input is to large
                     # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 1400000:
                     num_pix = sample_weak["input"].shape[0]*sample_weak["input"].shape[2]*sample_weak["input"].shape[3]
-                    if num_pix > 10000000:
+                    # limit1, limit2, limit3 = 10000000, 12500000, 15000000
+                    limit1, limit2, limit3 =    2000000,  300000, 10000000
+                    if num_pix > limit1:
                         encoder_no_grad, unet_no_grad = True, False
                         # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 6000000:
-                        if num_pix > 12500000:
+                        if num_pix > limit2:
                             encoder_no_grad, unet_no_grad = True, True 
                             # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 12000000:
-                            if num_pix > 15000000:
+                            if num_pix > limit3:
                                 print("Input to large for encoder and unet")
                                 continue 
                     else:
@@ -315,7 +326,7 @@ class Trainer:
                         
                         loss_weak_dict_raw = detach_tensors_in_dict(loss_weak_dict_raw)
                         loss_dict_weak = {**loss_dict_weak, **loss_weak_dict_raw}
-                        loss_weak += loss_weak_raw
+                        loss_weak += loss_weak_raw * self.args.lam_raw
 
                     # update loss
                     optim_loss += loss_weak * self.args.lam_weak #* self.info["beta"]
@@ -451,6 +462,13 @@ class Trainer:
                         self.CyCADAmodel.save_networks(save_suffix)
 
                 # logging and stuff
+                if (i+1) % self.args.val_every_i_steps == 0:
+                    if self.args.supmode=="weaksup":
+                        self.log_train(train_stats)
+                        self.validate_weak()
+                        self.model.train()
+
+                # logging and stuff
                 if (i+1) % self.args.test_every_i_steps == 0:
                     self.log_train(train_stats)
                     self.test_target(save=True)
@@ -548,6 +566,29 @@ class Trainer:
                 if self.args.save_model in ['best', 'both']:
                     self.save_model('best')
 
+    def validate_weak(self):
+        self.valweak_stats = defaultdict(float)
+
+        self.model.eval()
+
+        with torch.no_grad():
+            for valdataloader in self.dataloaders["weak_target_val"]:
+                pred, gt = [], []
+                for i,sample in enumerate(tqdm(valdataloader, leave=False)):
+                    sample = to_cuda_inplace(sample)
+                    sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
+
+                    output = self.model(sample, padding=False)
+
+                    # Colellect predictions and samples
+                    pred.append(output["popcount"]); gt.append(sample["y"])
+
+                # compute metrics
+                pred = torch.cat(pred); gt = torch.cat(gt)
+                self.valweak_stats = { **self.valweak_stats,
+                                       **get_test_metrics(pred, gt.float().cuda(), tag="MainCensus_{}_{}".format(valdataloader.dataset.region, self.args.train_level))  }
+
+            wandb.log({**{k + '/val': v for k, v in self.valweak_stats.items()}, **self.info}, self.info["iter"])
 
     def test(self, plot=False, full_eval=False, zh_eval=True, save=False):
         self.test_stats = defaultdict(float)
@@ -677,6 +718,7 @@ class Trainer:
                 # inputialize the output map
                 h, w = testdataloader.dataset.shape()
                 output_map = torch.zeros((h, w), dtype=torch.float16)
+                output_scale_map = torch.zeros((h, w), dtype=torch.float16)
                 # census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True, level=level)
                 output_map_count = torch.zeros((h, w), dtype=torch.int8)
 
@@ -706,6 +748,10 @@ class Trainer:
                         output_map_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popdensemap"][0][mask].cpu().to(torch.float16)
                         if self.args.probabilistic:
                             output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popvarmap"][0][mask].cpu().to(torch.float16)
+
+                    if "scale" in output.keys():
+                        output_scale_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale"][0][mask.cpu()].to(torch.float16)
+
                     output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
 
                 # average over the number of times each pixel was visited
@@ -720,6 +766,9 @@ class Trainer:
                     if self.args.probabilistic: 
                         output_map_var_raw[div_mask] = output_map_var_raw[div_mask] / output_map_count[div_mask]
 
+                if "scale" in output.keys():
+                    output_scale_map[div_mask] = output_scale_map[div_mask] / output_map_count[div_mask]
+
                 if save:
                     # save the output map
                     testdataloader.dataset.save(output_map, self.experiment_folder)
@@ -729,6 +778,9 @@ class Trainer:
                         testdataloader.dataset.save(output_map_raw, self.experiment_folder, tag="RAW_{}".format(testdataloader.dataset.region))
                         if self.args.probabilistic:
                             testdataloader.dataset.save(output_map_var_raw, self.experiment_folder, tag="VAR_RAW_{}".format(testdataloader.dataset.region))
+
+                    if "scale" in output.keys():
+                        testdataloader.dataset.save(output_scale_map, self.experiment_folder, tag="SCALE_{}".format(testdataloader.dataset.region))
                 
                 # convert populationmap to census
                 for level in testlevels[testdataloader.dataset.region]:
@@ -877,9 +929,10 @@ class Trainer:
                 
             weak_datasets = []
             for reg in args.target_regions_train:
-                weak_datasets.append( Population_Dataset_target(reg, mode="weaksup", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
+                splitmode = 'train' if self.args.weak_validation else 'all'
+                weak_datasets.append( Population_Dataset_target(reg, mode="weaksup", split=splitmode, patchsize=None, overlap=None, max_samples=args.max_weak_samples,
                                                                 fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
-                                                                ascfill=True, train_level=args.train_level, **input_defs)  )
+                                                                ascfill=True, train_level=args.train_level, max_pix=self.args.max_weak_pix, **input_defs)  )
             dataloaders["weak_target_dataset"] = ConcatDataset(weak_datasets)
             
             # create own simulation of a dataloader for the weakdataset
@@ -891,7 +944,15 @@ class Trainer:
             # create dataloader for the weakly supervised dataset
             dataloaders["weak_target"] = DataLoader(dataloaders["weak_target_dataset"], batch_size=weak_loader_batchsize, num_workers=1, shuffle=True, collate_fn=Population_Dataset_collate_fn, drop_last=True)
             dataloaders["weak_target_iter"] = iter(dataloaders["weak_target"])
-        
+
+            weak_datasets_val = []
+            if self.args.weak_validation:
+                for reg in args.target_regions:
+                    weak_datasets_val.append(Population_Dataset_target(reg, mode="weaksup", split="val", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
+                                                                    fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
+                                                                    ascfill=True, train_level=args.train_level, max_pix=self.args.max_weak_pix*2, **input_defs) )
+                dataloaders["weak_target_val"] = [ DataLoader(weak_datasets_val[i], batch_size=self.args.weak_val_batch_size, num_workers=1, shuffle=False, collate_fn=Population_Dataset_collate_fn, drop_last=True) for i in range(len(args.target_regions)) ]
+
         return dataloaders
    
 
@@ -909,16 +970,22 @@ class Trainer:
         }, os.path.join(self.experiment_folder, f'{prefix}_model.pth'))
 
         # if there is a self.model.unet, save the unet as well
-        if hasattr(self.model, "unet"):
+        if hasattr(self.model, "unetmodel"):
             torch.save({
-                'model': self.model.unet.state_dict(),
-            }, os.path.join(self.experiment_folder, f'{prefix}_unet.pth'))
+                'model': self.model.unetmodel.state_dict(),
+            }, os.path.join(self.experiment_folder, f'{prefix}_unetmodel.pth'))
 
         # if there is a self.model.head, save the head as well
         if hasattr(self.model, "head"):
             torch.save({
                 'model': self.model.head.state_dict(),
             }, os.path.join(self.experiment_folder, f'{prefix}_head.pth'))
+
+        if hasattr(self.model, "embedder"):
+            torch.save({
+                'model': self.model.embedder.state_dict(),
+            }, os.path.join(self.experiment_folder, f'{prefix}_embedder.pth'))
+
 
     def resume(self, path):
         """

@@ -165,13 +165,6 @@ class BoostUNet(nn.Module):
         else:
             popvar = popvarmap.sum((1,2))
 
-        # Building map
-        # builtdensemap = nn.functional.softplus(out[:,2])
-        # builtcount = builtdensemap.sum((1,2))
-
-        # # Builtup mask
-        # builtupmap = torch.sigmoid(out[:,3])
-
         return {"popcount": popcount, "popdensemap": popdensemap, "popvar": popvar ,"popvarmap": popvarmap, 
                 "intermediate": {"popcount": popcount_raw, "popdensemap": popdensemap_raw_valid, "popvar": popvar_raw,
                                  "popvarmap": popvarmap_raw, "domain": None, "decoder_features": None, "scale_raw": scale_raw}, 

@@ -3,7 +3,7 @@
 import argparse
 from torch.utils.data import DataLoader
 from data.PopulationDataset_target import Population_Dataset_target
-from model.DDA_model.utils import networks#,datasets, loss_functions, evaluation, experiment_manager, parsers
+# from model.DDA_model.utils import networks #,datasets, loss_functions, evaluation, experiment_manager, parsers
 from model.DDA_model.utils.networks import load_checkpoint
 
 from utils.utils import Namespace
@@ -55,7 +55,6 @@ def main(args):
 
     ## load weights from checkpoint
     net, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
-    # net, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda")
 
     # get dataset stats
     dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
@@ -88,7 +87,6 @@ def main(args):
             S1 = sample["input"][:, 4:6] 
             S2_RGB = torch.flip(sample["input"][:, :3],dims=(1,))
             S2_NIR = sample["input"][:, 3:4]
-
             x_fusion = torch.cat([S1, S2_RGB, S2_NIR], dim=1)
 
             xl,yl = [val.item() for val in sample["img_coords"]]

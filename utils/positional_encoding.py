@@ -31,8 +31,8 @@ class PositionalEncoding2D(nn.Module):
         '''
         window := ((new_x,x_stop),(new_y,y_stop))
         '''
-        xemb = self.h_pe[:,window[0][0]:window[0][1]].unsqueeze(2).repeat(1,1,window[1][1]-window[1][0])
-        yemb = self.w_pe[:,window[1][0]:window[1][1]].unsqueeze(1).repeat(1,window[0][1]-window[0][0],1)
+        x = self.h_pe[:,window[0][0]:window[0][1]].unsqueeze(2).repeat(1,1,window[1][1]-window[1][0])
+        y = self.w_pe[:,window[1][0]:window[1][1]].unsqueeze(1).repeat(1,window[0][1]-window[0][0],1)
 
-        return torch.cat((xemb, yemb), dim=0)
+        return torch.cat((x, y), dim=0)
 

@@ -132,16 +132,26 @@ class UNet(nn.Module):
 
         self.up_seq = nn.ModuleDict(up_dict)
 
-    def forward(self, x1, x2=None):
+    def forward(self, x1, x2=None, encoder_no_grad=False):
         x = x1 if x2 is None else torch.cat((x1, x2), 1)
 
-        x1 = self.inc(x)
+        if encoder_no_grad:
+            with torch.no_grad():
+                x1 = self.inc(x)
 
-        inputs = [x1]
-        # Downward U:
-        for layer in self.down_seq.values():
-            out = layer(inputs[-1])
-            inputs.append(out)
+                inputs = [x1]
+                # Downward U:
+                for layer in self.down_seq.values():
+                    out = layer(inputs[-1])
+                    inputs.append(out)
+        else:  
+            x1 = self.inc(x)
+
+            inputs = [x1]
+            # Downward U:
+            for layer in self.down_seq.values():
+                out = layer(inputs[-1])
+                inputs.append(out)
 
         # Upward U:
         inputs.reverse()
@@ -182,25 +192,39 @@ class DualStreamUNet(nn.Module):
         #Discriminator
         self.disc = ownDiscriminator(in_channels=out_dim, out_channels=2)
 
-    def forward(self, x_fusion, alpha=0):
+    def forward(self, x_fusion, alpha=0, encoder_no_grad=False, unet_no_grad=False):
 
-        # sar
-        x_sar = x_fusion[:, :self.sar_in, ]
-        features_sar = self.sar_stream(x_sar)
+        if unet_no_grad:
+            with torch.no_grad():
+                # sar
+                x_sar = x_fusion[:, :self.sar_in, ]
+                features_sar = self.sar_stream(x_sar)
 
-        # optical
-        x_optical = x_fusion[:, self.sar_in:, ]
-        features_optical = self.optical_stream(x_optical)
+                # optical
+                x_optical = x_fusion[:, self.sar_in:, ]
+                features_optical = self.optical_stream(x_optical)
+        else:
+            # sar
+            x_sar = x_fusion[:, :self.sar_in, ]
+            features_sar = self.sar_stream(x_sar, encoder_no_grad=encoder_no_grad)
+
+            # optical
+            x_optical = x_fusion[:, self.sar_in:, ]
+            features_optical = self.optical_stream(x_optical, encoder_no_grad=encoder_no_grad)
 
         features_fusion = torch.cat((features_sar, features_optical), dim=1)
         logits_fusion = self.fusion_out_conv(features_fusion)
 
         #### get features before outConv 
         #stacked_features = torch.cat((features_sar, features_optical), dim=0)
-        reverse_feature_sar = ReverseLayerF.apply(features_sar, alpha)
-        reverse_feature_optical = ReverseLayerF.apply(features_optical, alpha)
-        logits_disc_sar = self.disc(reverse_feature_sar)
-        logits_disc_optical = self.disc(reverse_feature_optical)
+        if alpha != 0:
+            reverse_feature_sar = ReverseLayerF.apply(features_sar, alpha)
+            reverse_feature_optical = ReverseLayerF.apply(features_optical, alpha)
+            logits_disc_sar = self.disc(reverse_feature_sar)
+            logits_disc_optical = self.disc(reverse_feature_optical)
+        else:
+            logits_disc_sar = None
+            logits_disc_optical = None
 
         logits_sar = self.sar_out_conv(features_sar)
         logits_optical = self.optical_out_conv(features_optical)

@@ -10,11 +10,14 @@ from model.DANN import DomainClassifier, DomainClassifier1x1, DomainClassifier_v
 from model.customUNet import CustomUNet
 from torch.nn.functional import upsample_nearest, interpolate
 
+from model.DDA_model.utils.networks import load_checkpoint
+
 from utils.siren import Siren, Siren1x1
 
 from utils.plot import plot_2dmatrix, plot_and_save
 
 import os
+from utils.utils import Namespace
 
 
 class POMELO_module(nn.Module):
@@ -45,6 +48,7 @@ class POMELO_module(nn.Module):
         self.down = down
         self.occupancymodel = occupancymodel
         self.useposembedding = useposembedding
+        self.feature_extractor = feature_extractor
         
         # Padding Params
         self.p = 14
@@ -67,42 +71,71 @@ class POMELO_module(nn.Module):
         
         if parent is not None or os.path.exists(parent_file):
             # recursive loading of the boosting model
+            self.parent = POMELO_module(input_channels, feature_dim, feature_extractor, down, occupancymodel=occupancymodel,
+                                        useposembedding=useposembedding, experiment_folder=parent)
+            self.parent.unetmodel.load_state_dict(torch.load(os.path.join(parent, "last_unetmodel.pth"))["model"])
+            self.parent.head.load_state_dict(torch.load(os.path.join(parent, "last_head.pth"))["model"])
 
-            # load the parent
-            self.parent = POMELO_module(input_channels, feature_dim, feature_extractor, down, experiment_folder=parent)
-
-            # load the weights
-            self.parent.unetmodel.load_state_dict(torch.load(os.path.join(parent, "last_unet.pth")))
-            self.parent.head.load_state_dict(torch.load(os.path.join(parent, "last_head.pth")))
-        
+            if self.useposembedding:
+                self.parent.embedder.load_state_dict(torch.load(os.path.join(parent, "last_embedder.pth"))["model"])
         else:
             # create the parent file
             self.parent = None
 
         this_input_dim = input_channels if self.parent is None else input_channels + 1
 
-
         if useposembedding:
             self.embedder = nn.Sequential(
-                nn.Conv2d(20, 32, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(16, 32, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(32, feature_dim, kernel_size=1, padding=0)
+                nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
             )
+
+            # self.embedder = nn.Sequential(
+            #     nn.Conv2d(20, 32, kernel_size=1, padding=0), nn.GELU(),
+            #     nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.GELU(),
+            #     nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.GELU(),
+            # )
+
+
+            # self.embedder = nn.Sequential(
+            #     nn.Conv2d(20, 64, kernel_size=1, padding=0), nn.GELU(),
+            #     nn.Conv2d(64, 64, kernel_size=1, padding=0), nn.GELU(),
+            #     nn.Conv2d(64, 64, kernel_size=1, padding=0), nn.GELU(),
+            #     nn.Conv2d(64, feature_dim, kernel_size=1, padding=0), nn.GELU(),
+            # )
+
+            # self.embedder = nn.Sequential(
+            #     nn.Conv2d(20, 64, kernel_size=1, padding=0), nn.ReLU(),
+            #     nn.Conv2d(64, 64, kernel_size=1, padding=0), nn.ReLU(),
+            #     nn.C
 
             # self.embedder = nn.Sequential(
             #     Siren1x1(2, 32, w0=30., is_first=True),
             #     Siren1x1(32, 32, w0=1.),
-            #     Siren1x1(32, feature_dim, w0=1, activation=torch.nn.Identity())
+            #     # Siren1x1(32, feature_dim, w0=1, activation=torch.nn.Identity())
+            #     Siren1x1(32, feature_dim, w0=1, activation=torch.nn.Tanh())
             # )
+            this_input_dim += feature_dim
 
-
-            self.head = nn.Conv2d(feature_dim+feature_dim, 5, kernel_size=1, padding=0)
-        else:
-            self.head = nn.Conv2d(feature_dim, 5, kernel_size=1, padding=0)
+        self.head = nn.Conv2d(feature_dim, 5, kernel_size=1, padding=0)
 
         # Build the main model
-        self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 
-                                    down=self.down, dilation=dilation, replace7x7=replace7x7, pretrained=pretrained)
+        if feature_extractor=="DDA":
+                # get model
+                MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
+                CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
+                PATHS = Namespace(OUTPUT="/scratch2/metzgern/HAC/data/DDAdata/outputsDDA")
+                DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
+                TRAINER = Namespace(LR=1e5)
+                cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS,
+                                DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_new")
+
+                ## load weights from checkpoint
+                self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
+        else:
+            self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 
+                                        down=self.down, dilation=dilation, replace7x7=replace7x7, pretrained=pretrained)
         # lift the bias of the head
         self.head.bias.data = 0.75 * torch.ones(5)
 
@@ -117,6 +150,7 @@ class POMELO_module(nn.Module):
             - inputs["input"] is the input image (Concatenation of Sentinel-1 and/or Sentinel-2)
             - inputs["input"].shape = [batch_size, input_channels, height, width]
         """
+        aux = {}
 
         # forward the parent model without gradient if exists
         if self.parent is not None:
@@ -124,26 +158,11 @@ class POMELO_module(nn.Module):
             with torch.no_grad():
                 output_dict = self.parent(inputs, padding=False, return_features=False, unet_no_grad=unet_no_grad)
             # Concatenate the parent features with the input
-            inputdata = torch.cat([ output_dict["popdensemap"], inputs["input"]], dim=1)
+            inputdata = torch.cat([ output_dict["popdensemap"].unsqueeze(1), inputs["input"]], dim=1)
         else:
             inputdata = inputs["input"]
 
-
-        # Add padding
-        data, (px1,px2,py1,py2) = self.add_padding(inputdata, padding)
-
-        # Forward the main model
-        if  unet_no_grad:
-            with torch.no_grad():
-                features, decoder_features = self.unetmodel(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
-        else:
-            features, decoder_features = self.unetmodel(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
-
-        # revert padding
-        features = self.revert_padding(features, (px1,px2,py1,py2))
-
-        # Forward the head
-
+        # Embed the pose information
         if self.useposembedding:
             if isinstance(self.embedder[0], Siren1x1):
                 xy = torch.cat([  inputs["positional_encoding"][:,0].unsqueeze(0),
@@ -153,58 +172,100 @@ class POMELO_module(nn.Module):
             else:
                 pose = self.embedder(inputs["positional_encoding"])
 
-            out = self.head(torch.cat([features, pose], dim=1))
+            # Concatenate the pose embedding to the input data
+            inputdata = torch.cat([inputdata, pose], dim=1)
+
         else:
+            inputdata = inputdata
+
+
+        # Add padding
+        data, (px1,px2,py1,py2) = self.add_padding(inputdata, padding)
+
+        # Forward the main model
+        if self.feature_extractor=="DDA":
+            x_fusion = torch.cat([data[:, 4:6], # S1
+                                  torch.flip(data[:, :3],dims=(1,)), # S2_RGB
+                                  data[:, 3:4]], # S2_NIR
+                                  dim=1)
+            
+            _, _, fusion_logits, _, _ = self.unetmodel(x_fusion, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
+
+            # repeat along dim 1
+            out = fusion_logits.repeat(1, 2, 1, 1)
+            out = self.revert_padding(out, (px1,px2,py1,py2))
+
+        else:
+
+            if unet_no_grad:
+                with torch.no_grad():
+                    features, decoder_features = self.unetmodel(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
+            else:
+                features, decoder_features = self.unetmodel(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
+
+            # revert padding
+            features = self.revert_padding(features, (px1,px2,py1,py2))
+
+            aux["features"] = features
+            aux["decoder_features"] = decoder_features
+
+            # Forward the head
+            # out_raw = self.head(features)
             out = self.head(features)
 
-        # Foward the domain classifier
-        # if self.domain_classifier is not None and return_features and alpha>0:
-        #     reverse_features = ReverseLayerF.apply(decoder_features.unsqueeze(3), alpha) # apply gradient reversal layer
-        #     domain = self.domain_classifier(reverse_features.permute(0,2,3,1).reshape(-1, reverse_features.size(1))).view(reverse_features.size(0),-1)
-        # else:
-        #     domain = None
-        
         # Population map and total count
+        # popvarmap_raw = nn.functional.softplus(out_raw[:,1])
         popvarmap = nn.functional.softplus(out[:,1])
 
+        # popdensemap_raw = nn.functional.relu(out_raw[:,0])
+        popdensemap = nn.functional.relu(out[:,0])
+
+        # popdensemap = (popdensemap*1.8 + popdensemap_raw*0.2) / 2
+        # popdensemap = (popdensemap + popdensemap_raw) / 2
+
         if self.occupancymodel:
-            popdensemap = nn.functional.softplus(out[:,0]) 
+            # for raw
             if "building_counts" in inputs.keys():
-                scale = popdensemap.clone().cpu().detach().numpy()
+                # aux["scale_raw"] = popdensemap_raw.clone().cpu().detach()
+                # popdensemap_raw = popdensemap_raw * inputs["building_counts"][:,0]
+                # popvarmap_raw = popvarmap_raw * inputs["building_counts"][:,0]
+                # for final
+                aux["scale"] = popdensemap.clone().cpu().detach()
                 popdensemap = popdensemap * inputs["building_counts"][:,0]
                 popvarmap = popvarmap * inputs["building_counts"][:,0]
-            else:
+            else: 
                 raise ValueError("building_counts not in inputs.keys()")
         else:
+            # popdensemap_raw = nn.functional.relu(out_raw[:,0])
+            # popvarmap_raw = nn.functional.softplus(out_raw[:,1])
             popdensemap = nn.functional.relu(out[:,0])
             popvarmap = nn.functional.softplus(out[:,1])
         
+        # aggregate the population counts
         if "admin_mask" in inputs.keys():
             # make the following line work for both 2D and 3D
-            popcount = (popdensemap * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
+            this_mask = inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1)
+            # popcount_raw = (popdensemap_raw * this_mask).sum((1,2))
+            popcount = (popdensemap * this_mask).sum((1,2))
+            # popvar_raw = (popvarmap_raw * this_mask).sum((1,2))
+            popvar = (popvarmap * this_mask).sum((1,2))
         else:
+            # popcount_raw = popdensemap_raw.sum((1,2))
             popcount = popdensemap.sum((1,2))
-
-        if "admin_mask" in inputs.keys():
-            # make the following line work for both 2D and 3D
-            popvar = (popvarmap * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
-        else:
+            # popvar_raw = popvarmap_raw.sum((1,2))
             popvar = popvarmap.sum((1,2))
 
-        # Building map
-        # builtdensemap = nn.functional.softplus(out[:,2])
-        # builtcount = builtdensemap.sum((1,2))
-
-        # # Builtup mask
-        # builtupmap = torch.sigmoid(out[:,3])
 
         return {"popcount": popcount, "popdensemap": popdensemap,
                 "popvar": popvar ,"popvarmap": popvarmap, 
                 # "builtdensemap": builtdensemap, "builtcount": builtcount,
                 # "builtupmap": builtupmap,
-                "scale": scale,
-                "features": features,
-                "decoder_features": decoder_features}
+                # "intermediate": {"popcount": popcount_raw, "popdensemap": popdensemap_raw, "popvar": popvar_raw,
+                # "popvarmap": popvarmap_raw, "domain": None, "decoder_features": None}, 
+                **aux,
+                # "features": features,
+                # "decoder_features": decoder_features
+                }
 
 
     def add_padding(self, data, force=True):

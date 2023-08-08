@@ -82,11 +82,12 @@ class POMELO_module(nn.Module):
             # create the parent file
             self.parent = None
 
-        this_input_dim = input_channels if self.parent is None else input_channels + 1
+        # this_input_dim = input_channels if self.parent is None else input_channels + 1
+        this_input_dim = input_channels if self.parent is None else input_channels + feature_dim
 
         if useposembedding:
             self.embedder = nn.Sequential(
-                nn.Conv2d(16, 32, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(6*4, 32, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
             )
@@ -158,13 +159,15 @@ class POMELO_module(nn.Module):
             with torch.no_grad():
                 output_dict = self.parent(inputs, padding=False, return_features=False, unet_no_grad=unet_no_grad)
             # Concatenate the parent features with the input
-            inputdata = torch.cat([ output_dict["popdensemap"].unsqueeze(1), inputs["input"]], dim=1)
+            inputdata = torch.cat([ output_dict["features"], inputs["input"]], dim=1)
+            # inputdata = torch.cat([ output_dict["popdensemap"].unsqueeze(1), inputs["input"]], dim=1)
         else:
             inputdata = inputs["input"]
 
         # Embed the pose information
         if self.useposembedding:
             if isinstance(self.embedder[0], Siren1x1):
+                # only use the first sine and cosine frequency
                 xy = torch.cat([  inputs["positional_encoding"][:,0].unsqueeze(0),
                                   inputs["positional_encoding"][:,inputs["positional_encoding"].shape[1]//2].unsqueeze(0) ],
                                   dim=1)
@@ -215,15 +218,20 @@ class POMELO_module(nn.Module):
 
         # Population map and total count
         # popvarmap_raw = nn.functional.softplus(out_raw[:,1])
-        popvarmap = nn.functional.softplus(out[:,1])
+        # popvarmap = nn.functional.softplus(out[:,1])
 
         # popdensemap_raw = nn.functional.relu(out_raw[:,0])
-        popdensemap = nn.functional.relu(out[:,0])
+        # popdensemap = nn.functional.relu(out[:,0])
 
         # popdensemap = (popdensemap*1.8 + popdensemap_raw*0.2) / 2
         # popdensemap = (popdensemap + popdensemap_raw) / 2
 
         if self.occupancymodel:
+
+            # activation function
+            popvarmap = nn.functional.softplus(out[:,1])
+            popdensemap = nn.functional.relu(out[:,0])
+
             # for raw
             if "building_counts" in inputs.keys():
                 # aux["scale_raw"] = popdensemap_raw.clone().cpu().detach()

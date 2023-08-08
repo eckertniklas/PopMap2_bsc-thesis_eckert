@@ -252,14 +252,14 @@ class Population_Dataset_target(Dataset):
             self.gbuildings_segmentation_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_segmentation.tif")
             self.gbuildings_counts_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_counts.tif")
             self.gbuildings = True
-        self.gbuildings = False
+        # self.gbuildings = False
 
         self.positional_encoding = True
         if self.positional_encoding:
             with rasterio.open(self.file_paths[list(self.file_paths.keys())[0]]["boundary"], "r") as src:
                 self.img_shape = src.shape
         
-            self.pos_enc = PositionalEncoding2D(src.shape, 4)
+            self.pos_enc = PositionalEncoding2D(src.shape, 6)
             # test = self.pos_enc(window=((1050,1100), (1075, 1110)))
 
         # normalize the dataset (do not use, this does not make sense for variable regions sizes like here)
@@ -826,17 +826,20 @@ def Population_Dataset_collate_fn(batch):
         max_y = max([item['S1'].shape[2] for item in batch])
         input_batch_S1 = torch.zeros(len(batch), batch[0]['S1'].shape[0], max_x, max_y)
         use_S1 = True
-
-    if 'positional_encoding' in batch[0]:
-        positional_encoding = torch.zeros(len(batch), batch[0]['positional_encoding'].shape[0], max_x, max_y)
-
-    building_segmentation = torch.zeros(len(batch), 1, max_x, max_y),
-    building_counts = torch.zeros(len(batch), 1, max_x, max_y)
     
-    use_building_segmentation = False
-
+    # initialize tensors
     admin_mask_batch = torch.zeros(len(batch), max_x, max_y)
     y_batch = torch.zeros(len(batch))
+
+    # initialize the other tensors
+    if 'building_segmentation' in batch[0]:
+        building_segmentation = torch.zeros(len(batch), 1, max_x, max_y)
+    if 'positional_encoding' in batch[0]:
+        positional_encoding = torch.zeros(len(batch), batch[0]['positional_encoding'].shape[0], max_x, max_y)
+    if 'building_counts' in batch[0]:
+        building_counts = torch.zeros(len(batch), 1, max_x, max_y)
+    
+    use_building_segmentation, use_building_counts, use_positional_encoding = False, False, False
 
     # Fill the tensors with the data from the batch
     for i, item in enumerate(batch):
@@ -852,6 +855,7 @@ def Population_Dataset_collate_fn(batch):
         admin_mask_batch[i, :x_size, :y_size] = item['admin_mask']
         y_batch[i] = item['y']
 
+        # check if the other tensors are present and fill them if they are
         if "building_segmentation" in item:
             building_segmentation[i, :, :x_size, :y_size] = item['building_segmentation']
             use_building_segmentation = True

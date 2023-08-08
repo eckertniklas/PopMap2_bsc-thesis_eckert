@@ -101,7 +101,7 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
     dataset = Population_Dataset_target("rwa")
 
     # adjust map with the coarse census
-    hr_pop_map_adj = dataset.adjust_map_to_census(hr_pop_map.clone()/255)
+    hr_pop_map_adj = dataset.adjust_map_to_census(hr_pop_map.clone())
 
     # save adjusted map
     hr_map_path_adj = map_path.replace(".tif", "_hr_adj.tif")
@@ -110,11 +110,14 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
                      "compress": "lzw"})
     with rasterio.open(hr_map_path_adj, 'w', **metadata) as dst:
         dst.write(hr_pop_map_adj.to(torch.float32).cpu().numpy(), 1)
+ 
+     # reproject to the worldpop map
+    hr_map_path_reproj = map_path.replace(".tif", "_hr_reproj.tif")
+    _, _ = reproject_maps(map_path, wpop_raster_template, hr_map_path_reproj, sumpool=True)
 
     # reproject to the worldpop map
     hr_map_path_adj_reproj = map_path.replace(".tif", "_hr_adj_reproj.tif")
-    _, _ = reproject_maps(hr_map_path_adj, wpop_raster_template, hr_map_path_adj_reproj)
-
+    _, _ = reproject_maps(hr_map_path_adj, wpop_raster_template, hr_map_path_adj_reproj, sumpool=True)
 
     # define levels
     levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
@@ -150,8 +153,10 @@ if __name__=="__main__":
     """
     Evaluates the Worldpop-maps on the test set of Rwanda
     """
-    # map_path = "/scratch/metzgern/HAC/data/PopMapData/processed/rwa/buildingsDDA2_44C.tif"
-    map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1540_88/rwa_predictions.tif"
+    # sample
+    map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1542_618/rwa_predictions.tif"
+
+
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa/S2Aautumn/rwa_S2Aautumn.tif"
     wpop_raster_template = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_constrained.tif"
 

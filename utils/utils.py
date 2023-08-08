@@ -335,8 +335,9 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
             # Collect data and lengths
             data = []
             lens = []
-            keys = ["admin_mask", "positional_encoding", "building_counts"]
+            keys = ["admin_mask", "positional_encoding", "building_counts", "building_segmentation"]
 
+            # Collect data and lengths
             for key in keys:
                 if key in sample:
                     if key == "admin_mask":
@@ -344,10 +345,13 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
                     else:
                         data.append(sample[key])
                     lens.append(data[-1].shape[1])
-        
-            # Transform the data
+
+            # Apply the transformation if there is data
             if sum(lens) > 0:
+                
+                # Transform the data
                 sample["input"], data = transform["general"]((sample["input"], torch.cat(data, dim=1)))
+
                 # Reassign transformed data back into sample
                 start = 0
                 for i, key in enumerate(keys):
@@ -360,18 +364,5 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
                         
             else:
                 sample["input"] = transform["general"](sample["input"])
-
-            # if "admin_mask" in sample.keys():
-            #     if "positional_encoding" in sample.keys():
-
-            #         mask = torch.cat([sample["positional_encoding"], sample["admin_mask"].unsqueeze(1)], dim=1)
-                                        
-            #         sample["input"], mask = transform["general"]((sample["input"], mask))
-            #         sample["positional_encoding"] = mask[:,:-1,:,:]
-            #         sample["admin_mask"] = mask[:,-1,:,:]
-            #     else:
-            #         sample["input"], sample["admin_mask"] = transform["general"]((sample["input"], sample["admin_mask"]))
-            # else:
-            #     sample["input"] = transform["general"](sample["input"])
     
     return sample

@@ -87,7 +87,7 @@ class POMELO_module(nn.Module):
 
         if useposembedding:
             self.embedder = nn.Sequential(
-                nn.Conv2d(6*4, 32, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(8*4, 32, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
             )
@@ -248,6 +248,8 @@ class POMELO_module(nn.Module):
             # popvarmap_raw = nn.functional.softplus(out_raw[:,1])
             popdensemap = nn.functional.relu(out[:,0])
             popvarmap = nn.functional.softplus(out[:,1])
+            aux["scale"] = popdensemap.clone().cpu().detach()
+            aux["scale"] = None
         
         # aggregate the population counts
         if "admin_mask" in inputs.keys():

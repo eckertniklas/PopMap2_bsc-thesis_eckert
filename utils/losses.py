@@ -10,8 +10,8 @@ from torch.nn.modules.loss import _Loss
 from torch import Tensor
 
 
-def get_loss(output, gt, loss=["l1_loss"], lam=[1.0], merge_aug=False,
-             lam_adv=0.0, lam_coral=0.0, lam_mmd=0.0, tag=""):
+def get_loss(output, gt, scale=None, loss=["l1_loss"], lam=[1.0], merge_aug=False,
+             lam_adv=0.0, lam_coral=0.0, lam_mmd=0.0, tag="", scale_regularization=0.0):
     """
     Compute the loss for the model
     input:

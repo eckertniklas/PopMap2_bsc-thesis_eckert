@@ -63,35 +63,8 @@ class PopulationDataset_Reg(Dataset):
         self.y_stats['max'] = float(self.y_stats['max'])
         self.y_stats['min'] = float(self.y_stats['min'])
 
-        # if self.use2A:
-        #     self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
-        # else:
-        #     self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified.json'))
-        
-        # for mkey in self.dataset_stats.keys():
-        #     if isinstance(self.dataset_stats[mkey], dict):
-        #         for key,val in self.dataset_stats[mkey].items():
-        #             self.dataset_stats[mkey][key] = torch.tensor(val)
-        #     else:
-        #         self.dataset_stats[mkey] = torch.tensor(val)
-
-        # Memory Mode
-        # self.all_samples = {}
-        # if in_memory:
-        #     print("Loading to memory for Dataset: ", mode)
-        #     self.move_to_memory = True              
-        #     for idx in tqdm(range(len(self.all_ids))):
-        #         # self.all_samples[self.list_IDs[idx]] = self[idx]
-        #         self.all_samples[self.all_ids[idx]] = self[idx]
-        #     self.move_to_memory = False 
-        #     print("Done Loading to memory for Dataset: ", mode)
 
     def __getitem__(self, idx):
-        # if self.in_memory and not self.move_to_memory:
-        #     sample = self.all_samples[self.all_ids[idx]] 
-        #     if self.transform:
-        #         sample["input"] = self.transform(sample["input"])
-        #     return sample
 
         # query the data ID
         ID_temp = self.all_ids[idx]
@@ -121,23 +94,6 @@ class PopulationDataset_Reg(Dataset):
 
         if self.move_to_memory:
             return {**indata, **auxdata, 'y': y, 'y_norm': y_norm, 'identifier': ID, 'source': source}
-        
-        # Modality-wise transformations
-        # if self.transform:
-        #     if "S2" in self.transform and "S2" in indata:
-        #         indata["S2"] = self.transform["S2"](indata["S2"])
-        #     if "S1" in self.transform and "S1" in indata:
-        #         indata["S1"] = self.transform["S1"](indata["S1"])
-
-        # Normalizations
-        # indata = self.normalize_indata(indata)
-
-        # merge inputs
-        # X = torch.concatenate([indata[key] for key in ["S2", "S1", "VIIRS"] if key in indata], dim=0)
-
-        # # General transformations
-        # if self.transform:
-        #     X = self.transform["general"](X) if "general" in self.transform.keys() else X
         
         # Collect all variables
         sample = {

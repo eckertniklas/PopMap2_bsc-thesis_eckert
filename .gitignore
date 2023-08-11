@@ -4,3 +4,4 @@ gdal*
 vis
 *__pycache__
 euleroutputs/
+wandb/

@@ -127,9 +127,11 @@ def scatter_plot2(predicted, ground_truth):
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
 from scipy.stats import gaussian_kde
 
-def scatter_plot3(predicted, ground_truth):
+def scatter_plot3(predicted, ground_truth, log_scale=True):
     # Create a scatterplot of the predicted and ground truth values
 
     x = np.array(predicted)
@@ -151,14 +153,16 @@ def scatter_plot3(predicted, ground_truth):
     ax.scatter(x, y, c=z, s=12)
 
     # Set the x and y limits to match the ground truth min and max
-    min_value, max_value = np.min(0.5), np.max(ground_truth)
+    if log_scale:
+        min_value, max_value = np.max([0.5,np.min(ground_truth)]), np.max(ground_truth)
     ax.set_xlim(min_value, max_value)
     ax.set_ylim(min_value, max_value)
     # plt.show()
 
     # Set both axes to a log scale
-    ax.set_xscale('log')
-    ax.set_yscale('log')
+    if log_scale:
+        ax.set_xscale('log')
+        ax.set_yscale('log')
 
     # Add axis labels and a title
     plt.xlabel('Predicted Values')
@@ -169,6 +173,9 @@ def scatter_plot3(predicted, ground_truth):
     buffer = BytesIO()
     plt.savefig(buffer, format='png')
     buffer.seek(0)
+
+    # close the figure
+    plt.close()
 
     # Open the BytesIO object as a PIL Image and return it
     return Image.open(buffer)

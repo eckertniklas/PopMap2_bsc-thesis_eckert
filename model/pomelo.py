@@ -1,6 +1,5 @@
 
-
-import torchvision.models as models
+ 
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
@@ -22,7 +21,8 @@ class JacobsUNet(nn.Module):
         - UNet with a regression head
 
     '''
-    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1", head="v1", down=5):
+    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", classifier="v1", head="v1", down=5,
+                occupancymodel=False, pretrained=False, dilation=1, replace7x7=True):
         super(JacobsUNet, self).__init__()
         """
         Args:
@@ -35,13 +35,15 @@ class JacobsUNet(nn.Module):
         """
 
         self.down = down
+        self.occupancymodel = occupancymodel
         
         # Padding Params
         self.p = 14
         self.p2d = (self.p, self.p, self.p, self.p)
 
         # Build the main model
-        self.unetmodel = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, down=self.down)
+        self.unetmodel = CustomUNet(feature_extractor, in_channels=input_channels, classes=feature_dim, 
+                                    down=self.down, dilation=dilation, replace7x7=replace7x7, pretrained=pretrained)
 
         # Define batchnorm layer for the feature extractor
         # self.bn = nn.BatchNorm2d(input_channels)
@@ -73,6 +75,7 @@ class JacobsUNet(nn.Module):
                 nn.Conv2d(32, 5, kernel_size=1, padding=0)
             )
 
+        # lift the bias of the head
         self.head.bias.data = 0.75 * torch.ones(5)
 
         # Build the domain classifier
@@ -127,24 +130,26 @@ class JacobsUNet(nn.Module):
         self.params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
 
                                   
-    def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True):
+    def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True, encoder_no_grad=False, unet_no_grad=False):
         """
         Forward pass of the model
         Assumptions:
             - inputs["input"] is the input image (Concatenation of Sentinel-1 and/or Sentinel-2)
             - inputs["input"].shape = [batch_size, input_channels, height, width]
         """
-        data = inputs["input"]
 
         # Add padding
-        data, (px1,px2,py1,py2) = self.add_padding(data, padding)
+        data, (px1,px2,py1,py2) = self.add_padding(inputs["input"], padding)
 
         # Forward the main model
-        features, decoder_features = self.unetmodel(data, return_features=return_features)
+        if  unet_no_grad:
+            with torch.no_grad():
+                features, decoder_features = self.unetmodel(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
+        else:
+            features, decoder_features = self.unetmodel(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
 
         # revert padding
         features = self.revert_padding(features, (px1,px2,py1,py2))
-
 
         # Forward the head
         out = self.head(features)
@@ -157,14 +162,26 @@ class JacobsUNet(nn.Module):
             domain = None
         
         # Population map and total count
-        popdensemap = nn.functional.relu(out[:,0])
+        popvarmap = nn.functional.softplus(out[:,1])
+
+        if self.occupancymodel:
+            popdensemap = nn.functional.softplus(out[:,0]) 
+            if "building_counts" in inputs.keys():
+                scale = popdensemap.clone().cpu().detach().numpy()
+                popdensemap = popdensemap * inputs["input"][0,-1]
+                popvarmap = popvarmap * inputs["input"][0,-1].squeeze(1)
+            else:
+                raise ValueError("building_counts not in inputs.keys()")
+        else:
+            popdensemap = nn.functional.relu(out[:,0])
+            popvarmap = nn.functional.softplus(out[:,1])
+        
         if "admin_mask" in inputs.keys():
             # make the following line work for both 2D and 3D
             popcount = (popdensemap * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
         else:
             popcount = popdensemap.sum((1,2))
 
-        popvarmap = nn.functional.softplus(out[:,1])
         if "admin_mask" in inputs.keys():
             # make the following line work for both 2D and 3D
             popvar = (popvarmap * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
@@ -172,16 +189,18 @@ class JacobsUNet(nn.Module):
             popvar = popvarmap.sum((1,2))
 
         # Building map
-        builtdensemap = nn.functional.softplus(out[:,2])
-        builtcount = builtdensemap.sum((1,2))
+        # builtdensemap = nn.functional.softplus(out[:,2])
+        # builtcount = builtdensemap.sum((1,2))
 
-        # Builtup mask
-        builtupmap = torch.sigmoid(out[:,3])
+        # # Builtup mask
+        # builtupmap = torch.sigmoid(out[:,3])
 
         return {"popcount": popcount, "popdensemap": popdensemap,
                 "popvar": popvar ,"popvarmap": popvarmap, 
-                "builtdensemap": builtdensemap, "builtcount": builtcount,
-                "builtupmap": builtupmap, "domain": domain, "features": features,
+                # "builtdensemap": builtdensemap, "builtcount": builtcount,
+                # "builtupmap": builtupmap,
+                "scale": scale,
+                "domain": domain, "features": features,
                 "decoder_features": decoder_features}
 
 
@@ -240,7 +259,6 @@ class Block(nn.Module):
         x = self.net(x)
         x += identity
         return self.act(x)
-        # return self.act(self.net(x) + x)
 
 
 class ResBlocks(nn.Module):
@@ -280,9 +298,9 @@ class ResBlocks(nn.Module):
         
 
 
-        a = torch.zeros((1,6,128,128))
-        a[0,:,64,64] = 500
-        plot_2dmatrix(self.model(a)[0,0])
+        # a = torch.zeros((1,6,128,128))
+        # a[0,:,64,64] = 500
+        # plot_2dmatrix(self.model(a)[0,0])
 
         params_sum = sum(p.numel() for p in self.model.parameters() if p.requires_grad)    
                                   
@@ -646,15 +664,3 @@ class PomeloUNet(nn.Module):
         return {"popcount": popcount, "popdensemap": popdensemap,
                 "builtdensemap": builtdensemap, "builtcount": builtcount,
                 "builtupmap": builtupmap, "tau": self.gumbeltau.detach()}
-        # return Popcount, {"Popmap": Popmap, "built_map": sparse_buildings, "builtcount": builtcount}
-    
-        # # Population map
-        # popdensemap = nn.functional.softplus(x[:,0])
-        # popcount = popdensemap.sum((1,2))
-
-        # # Builtup mask
-        # builtupmap = nn.functional.sigmoid(x[:,2]) 
-
-        # return {"popcount": popcount, "popdensemap": popdensemap,
-        #         "builtdensemap": builtdensemap, "builtcount": builtcount,
-        #         "builtupmap": builtupmap}

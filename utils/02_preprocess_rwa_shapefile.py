@@ -17,6 +17,7 @@ from rasterio import Affine
 
 import os
 import torch
+import matplotlib.pyplot as plt
 
 
 def process(hd_regions_path, wp_regions_path,
@@ -33,14 +34,21 @@ def process(hd_regions_path, wp_regions_path,
     # hd_regions = gdp.read_file(hd_regions_path)["geometry"]
     
     wp_regions = gdp.read_file(wp_regions_path)[["adm_id", "geometry"]]
+
+    plot = False
+    if plot:
+        fig, ax = plt.subplots(1, 1)
+        wp_regions.plot(ax=ax)
+        plt.savefig('plot_outputs/shapefile_plot.png', dpi=300)
     
     # all_census = read_multiple_targets_from_csv(census_data_path)
     all_census = pd.read_csv(census_data_path)[["ISO","GID", target_col]]
     all_census = all_census.rename(columns={'ISO': 'ISO', 'GID': 'adm_id', target_col: "pop_count"})
 
-    wp_joined = pd.concat([wp_regions, all_census], axis=1, join="inner")
+    # wp_joined = pd.concat([wp_regions, all_census], axis=1, join="inner")
+    wp_joined2 = wp_regions.merge(all_census, on='adm_id', how='inner')
     
-    iou = np.zeros((len(hd_regions), len(wp_joined)))
+    iou_calc = np.zeros((len(hd_regions), len(wp_joined2)))
     for i,hd_row in tqdm(hd_regions.iterrows(), total=len(hd_regions)):
         hd_geometry = hd_row["geometry"]
         hd_regions.loc[i,"idx"] = int(i)
@@ -50,24 +58,49 @@ def process(hd_regions_path, wp_regions_path,
             yoff = 0 if yoff is None else yoff
             hd_geometry = translate(hd_geometry, xoff=-xoff, yoff=-yoff)
 
-        for j, wp_row in wp_joined.iterrows():
+        for j, wp_row in wp_joined2.iterrows():
             wp_geometry = wp_row["geometry"]
             intersection = hd_geometry.intersection(wp_geometry)
             if not intersection.is_empty:
                 union = hd_geometry.union(wp_geometry)
-                iou[i,j] = intersection.area / union.area
+                iou_calc[i,j] = intersection.area / union.area
 
-    print("Mean ioU matching score", iou.max(1).mean())
-    iou[iou<0.5] = 0.
+    print("Mean IoU matching score", iou_calc.max(1).mean())
+    print("Median IoU matching score", np.median(iou_calc.max(1)))
+
+    iou = iou_calc.copy()
+    iou_thresh = 0.66
+    iou[iou<iou_thresh] = 0.
 
     valid_matches = iou.sum(1)>=0.5
     print("Number of valid matches", sum(valid_matches))
     
+    # hardening the matches
     iou_argmax = iou.argmax(1)
 
-    hd_regions["pop_count"] = hd_regions.apply(lambda row: wp_joined["pop_count"][iou_argmax[row["idx"]]], axis=1)
-    
-    hd_regions = hd_regions[valid_matches] 
+
+    new = False
+    if new:
+        hd_regions["pop_count"] = 0.0
+        for i, j in zip(hd_regions.index, iou_argmax):
+            # print(i,j)
+            if j==0:
+                continue
+            if wp_joined2["pop_count"][j] in hd_regions["pop_count"].values:
+                print("Duplicate found")
+                print(i, j, wp_joined2["pop_count"][j])
+                continue
+            hd_regions.loc[i[0], "pop_count"] = wp_joined2["pop_count"][i[1]]
+
+        # zero_matches = iou_argmax==0
+        # new_arg_max = iou_argmax[~zero_matches]
+        # hd_regions = hd_regions[~zero_matches]
+        hd_regions = hd_regions[valid_matches] 
+
+    else:
+        hd_regions["pop_count"] = hd_regions.apply(lambda row: wp_joined2["pop_count"][iou_argmax[row["idx"]]], axis=1) 
+        hd_regions = hd_regions[valid_matches] 
+
     #(minx, miny, maxx, maxy) as a list
     hd_regions = pd.concat([hd_regions, hd_regions["geometry"].bounds], axis=1)
 
@@ -78,6 +111,8 @@ def process(hd_regions_path, wp_regions_path,
     metadata.update({"count": 1, "dtype": rasterio.int32})
     
     this_outputfile = os.path.join(output_path, 'boundaries_coarse.tif')
+    this_outputfile_densities = os.path.join(output_path, 'densities_coarse.tif')
+    this_outputfile_totals = os.path.join(output_path, 'totals_coarse.tif')
     this_censusfile = os.path.join(output_path, 'census_coarse.csv')
 
     if not os.path.exists(output_path):
@@ -87,6 +122,7 @@ def process(hd_regions_path, wp_regions_path,
     hd_regions["idx"] = hd_regions.index+1
 
     # rasterize
+    metadata.update({"compress": "lzw"})
     with rasterio.open(this_outputfile, 'w+', **metadata) as out:
         out_arr = out.read(1)
 
@@ -104,7 +140,7 @@ def process(hd_regions_path, wp_regions_path,
     hd_regions["bbox"] = ""
     hd_regions["count"] = 0
 
-    # get the bounding box and count of each region    
+    # get the bounding box and count of each region to enrich the data, also add the count to the dataframe  
     for rowi, row in enumerate(tqdm(hd_regions.itertuples(), total=len(hd_regions))):
         i = row.idx
         mask = burned==i
@@ -125,9 +161,32 @@ def process(hd_regions_path, wp_regions_path,
     hd_regions["POP20"] = hd_regions["pop_count"]
     hd_regions[["idx", "POP20", "bbox", "count"]].to_csv(this_censusfile)
 
+    # create map of densities
+    densities = torch.zeros_like(burned, dtype=torch.float32)
+    totals = torch.zeros_like(burned, dtype=torch.float32)
+    for row in hd_regions.itertuples():
+        densities[burned==row.idx] = row.pop_count/row.count
+        totals[burned==row.idx] = row.pop_count
+
     if burned.is_cuda:
         burned = burned.cpu()
+        densities = densities.cpu()
+        totals = totals.cpu()
 
+    #save densities
+    metadatad = metadata.copy()
+    metadatad.update({"dtype": rasterio.float32, "compress": "lzw"})
+    with rasterio.open(this_outputfile_densities, 'w+', **metadatad) as out:
+        out.write_band(1, densities.numpy())
+
+    #save totals
+    metadatad = metadata.copy()
+    metadatad.update({"dtype": rasterio.float32, "compress": "lzw"})
+    with rasterio.open(this_outputfile_totals, 'w+', **metadatad) as out:
+        out.write_band(1, totals.numpy())
+
+    
+    
 
     ##############################
     # now process the fine census data
@@ -171,7 +230,7 @@ def process(hd_regions_path, wp_regions_path,
         
         # update the metadata for the temporary file
         tmp_meta = kigali_census_meta.copy()
-        tmp_meta.update({"count": 1, "dtype": rasterio.int32, "nodata": 0})
+        tmp_meta.update({"count": 1, "dtype": rasterio.int32, "nodata": 0, "compress": "lzw"})
 
         # write censusmap_ids to temporary file
         with rasterio.open(tmp_path, 'w+', **tmp_meta) as out:
@@ -196,7 +255,8 @@ def process(hd_regions_path, wp_regions_path,
                     # 'transform': transform,
                     'transform': dst.transform,
                     'width': width,
-                    'height': height
+                    'height': height,
+                    'compress': 'lzw'
                 })
 
                 # Write the reprojected raster to the new dataset

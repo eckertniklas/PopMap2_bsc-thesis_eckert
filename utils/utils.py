@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 # from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep, ResBlocksSqueeze
 # from model.ownmodels import BoostUNet
 import json
-
+from utils.plot import plot_2dmatrix
 
 def to_cuda(sample):
     sampleout = {}
@@ -234,20 +234,29 @@ def get_fnames_unlab_reg(parent_dir, force_recompute=False):
 #         kwargs['useallfeatures'] = args.useallfeatures
 #     return kwargs
 
+class Namespace:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
 
 def load_json(file):
     with open(file, 'r') as f:
         a = json.load(f)
     return a
 
+def single_normalize(data, stat):
+    """
+    nomalize th data witht the given statistics
+
+    """
+
 
 def apply_normalize(indata, dataset_stats):
 
     # S2
     if "S2" in indata:
-        if indata["S2"].shape[0] == 4:
+        if indata["S2"].shape[1] == 4:
             # indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2springNIR"]['p2'][:,None,None], self.dataset_stats["sen2springNIR"]['p2'][:,None,None], indata["S2"])
-            indata["S2"] = ((indata["S2"].permute((0,2,3,1)) - dataset_stats["sen2springNIR"]['mean'] ) / dataset_stats["sen2springNIR"]['std']).permute((0,3,1,2))
+            indata["S2"] = ((indata["S2"].permute((0,2,3,1)) - dataset_stats["sen2springNIR"]['mean'].cuda() ) / dataset_stats["sen2springNIR"]['std'].cuda()).permute((0,3,1,2))
         else: 
             # indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], indata["S2"])
             # indata["S2"] = ((indata["S2"].permute((1,2,0)) - dataset_stats["sen2spring"]['mean'] ) / dataset_stats["sen2spring"]['std']).permute((2,0,1))
@@ -266,15 +275,15 @@ def apply_normalize(indata, dataset_stats):
     return indata
 
 
-def apply_transformations_and_normalize(sample, transform, dataset_stats):
+def apply_transformations_and_normalize(sample, transform, dataset_stats, buildinginput=False, segmentationinput=False):
     """
-    :param image: image to be transformed
-    :param mask: mask to be transformed
+    :param sample: image to be transformed
     :param transform: transform to be applied to the image
-    :param transform_mask: transform to be applied to the mask
+    :param dataset_stats: dataset statistics for normalization
+    :param sample["mask"]: mask corresponding to the image (not mandatory)
+    :param sample["admin_mask"]: mask corresponding to the image (not mandatory)
     :return: transformed image and mask
     """
-    # transforms
 
     # Modality-wise transformations
     if transform is not None:
@@ -290,19 +299,70 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats):
     # sample = normalize_indata(sample, normalization)
     
     # merge inputs
-    sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS"] if key in sample], dim=1)
+    if buildinginput:
+        
+        if "building_counts" in sample.keys() and "building_segmentation" not in sample.keys():
+            # fake some more input for the validationset without building footprints
+
+            if segmentationinput:
+                sample["building_segmentation"] = sample["building_counts"]>0.5
+
+        if not segmentationinput and "building_segmentation" in sample.keys():
+            # delete the segmentation input
+            del sample["building_segmentation"]
+
+
+        # sparsify the building counts
+        # sample["building_counts"][sample["building_counts"] < 0.1] = 0.0
+
+        # merge the inputs
+        sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS", "building_segmentation", "building_counts"] if key in sample], dim=1)
+        
+        # 
+        # if "building_segmentation" not in sample.keys(): 
+        #     # fake some more input for the validationset without building footprints
+        #     sample["input"] = torch.concatenate([sample["input"], torch.zeros_like(sample["input"][:,:2,:,:])], dim=1)
+
+    else:
+        sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS"] if key in sample], dim=1)
 
     # General transformations
     if transform is not None:
         # apply the transformation to the image
 
         if "general" in transform.keys():
-            # if masked
-            if "mask" in sample.keys(): 
-                sample["input"], sample["mask"] = transform["general"]((sample["input"], sample["mask"])) 
+
+            # Collect data and lengths
+            data = []
+            lens = []
+            keys = ["admin_mask", "positional_encoding", "building_counts", "building_segmentation"]
+
+            # Collect data and lengths
+            for key in keys:
+                if key in sample:
+                    if key == "admin_mask":
+                        data.append(sample[key].unsqueeze(1))
+                    else:
+                        data.append(sample[key])
+                    lens.append(data[-1].shape[1])
+
+            # Apply the transformation if there is data
+            if sum(lens) > 0:
+                
+                # Transform the data
+                sample["input"], data = transform["general"]((sample["input"], torch.cat(data, dim=1)))
+
+                # Reassign transformed data back into sample
+                start = 0
+                for i, key in enumerate(keys):
+                    if key in sample:
+                        end = start + lens[i]
+                        sample[key] = data[:, start:end, :, :]
+                        if key == "admin_mask":
+                            sample[key] = sample[key][:,0,:,:]
+                        start = end
+                        
             else:
                 sample["input"] = transform["general"](sample["input"])
-            
     
-
     return sample

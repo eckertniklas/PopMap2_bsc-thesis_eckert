@@ -29,7 +29,7 @@ class POMELO_module(nn.Module):
     '''
     def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", down=5,
                 occupancymodel=False, pretrained=False, dilation=1, replace7x7=True,
-                parent=None, experiment_folder=None, useposembedding=False):
+                parent=None, experiment_folder=None, useposembedding=False, head="v1"):
         super(POMELO_module, self).__init__()
         """
         Args:
@@ -49,6 +49,7 @@ class POMELO_module(nn.Module):
         self.occupancymodel = occupancymodel
         self.useposembedding = useposembedding
         self.feature_extractor = feature_extractor
+        self.head_name = head
         
         # Padding Params
         self.p = 14
@@ -86,8 +87,9 @@ class POMELO_module(nn.Module):
         this_input_dim = input_channels if self.parent is None else input_channels + feature_dim
 
         if useposembedding:
+            freq = 4 # for 2 dimensions and 2 components (sin and cos)
             self.embedder = nn.Sequential(
-                nn.Conv2d(8*4, 32, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
             )
@@ -119,7 +121,33 @@ class POMELO_module(nn.Module):
             # )
             this_input_dim += feature_dim
 
-        self.head = nn.Conv2d(feature_dim, 5, kernel_size=1, padding=0)
+        if head=="v1":
+            self.head = nn.Sequential(
+                nn.Conv2d(feature_dim, 5, kernel_size=1, padding=0)
+            )
+        elif head=="v2":
+            # 3 layer MLP
+            h = 64
+            self.head = nn.Sequential(
+                nn.Conv2d(feature_dim+feature_dim, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(h, 5, kernel_size=1, padding=0)
+            )
+            this_input_dim -= feature_dim
+
+        elif head=="v3":
+            # 3 layer MLP
+            h = 64
+            self.head = nn.Sequential(
+                nn.Conv2d(feature_dim+feature_dim+1, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(h, 5, kernel_size=1, padding=0)
+            )
+            this_input_dim -= feature_dim # no position embedding
+            this_input_dim -= 1 # no building footprint
+
 
         # Build the main model
         if feature_extractor=="DDA":
@@ -137,8 +165,9 @@ class POMELO_module(nn.Module):
         else:
             self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 
                                         down=self.down, dilation=dilation, replace7x7=replace7x7, pretrained=pretrained)
-        # lift the bias of the head
-        self.head.bias.data = 0.75 * torch.ones(5)
+            
+        # lift the bias of the head to avoid the risk of dying ReLU
+        self.head[-1].bias.data = 0.75 * torch.ones(5)
 
         # calculate the number of parameters
         self.params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
@@ -176,7 +205,13 @@ class POMELO_module(nn.Module):
                 pose = self.embedder(inputs["positional_encoding"])
 
             # Concatenate the pose embedding to the input data
-            inputdata = torch.cat([inputdata, pose], dim=1)
+
+            if self.head_name in ["v2"]:
+                inputdata = inputdata
+            elif self.head_name in ["v3"]:
+                inputdata = inputdata[:,0:-1] # remove the building footprint from the variables
+            else:
+                inputdata = torch.cat([inputdata, pose], dim=1)
 
         else:
             inputdata = inputdata
@@ -214,7 +249,13 @@ class POMELO_module(nn.Module):
 
             # Forward the head
             # out_raw = self.head(features)
-            out = self.head(features)
+
+            if self.head_name in ["v2"]:
+                out = self.head(torch.cat([features, pose], dim=1))
+            elif self.head_name in ["v3"]:
+                out = self.head(torch.cat([features, pose, inputs["building_counts"]], dim=1))
+            else:
+                out = self.head(features)
 
         # Population map and total count
         # popvarmap_raw = nn.functional.softplus(out_raw[:,1])

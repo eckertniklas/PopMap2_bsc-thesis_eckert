@@ -97,6 +97,12 @@ def get_loss(output, gt, scale=None, loss=["l1_loss"], lam=[1.0], merge_aug=Fals
             optimization_loss += popdict[lo]*la
     # optimization_loss = sum([popdict[lo]*la for lo,la in zip(loss,lam)])
 
+    # occupancy scale regularization
+    if scale is not None:
+        popdict = {**popdict, **{"scale": scale.abs().mean()}}
+        if scale_regularization>0.0:
+            optimization_loss += scale_regularization * popdict["scale"]
+
     # prepare for logging
     if tag=="":
         auxdict = {**auxdict, **{"Population"+"/"+key: value for key,value in popdict.items()}}

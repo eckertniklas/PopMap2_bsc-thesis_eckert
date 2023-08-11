@@ -428,7 +428,7 @@ def export_S1_tile(season, dates, filename, roi, folder, scale=10, crs='EPSG:432
         crs=crs, 
         maxPixels=80000000000,
     )
-    # start(task)
+    start(task)
 
 
     filenameacs = filename.split('_')[0] + "Asc_" + filename.split('_')[1]

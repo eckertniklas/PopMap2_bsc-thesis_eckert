@@ -237,12 +237,12 @@ class Trainer:
                 
                 self.info["epoch"] += 1
 
-
     def train_epoch(self, tnr=None):
         """
         Train for one epoch
         """
         train_stats = defaultdict(float)
+        log_count = 0
 
         # set model to train mode
         self.model.train()
@@ -285,7 +285,8 @@ class Trainer:
                     # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 1400000:
                     num_pix = sample_weak["input"].shape[0]*sample_weak["input"].shape[2]*sample_weak["input"].shape[3]
                     # limit1, limit2, limit3 = 10000000, 12500000, 15000000
-                    limit1, limit2, limit3 =    2000000,  300000, 10000000
+                    limit1, limit2, limit3 =    4000000,  500000, 12000000
+                    # limit1, limit2, limit3 =    2000000,  300000, 10000000
                     if num_pix > limit1:
                         encoder_no_grad, unet_no_grad = True, False
                         # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 6000000:
@@ -366,7 +367,7 @@ class Trainer:
                     if self.boosted:
                         boosted_loss = [el.replace("gaussian", "l1") if el in ["gaussian_nll", "log_gaussian_nll", "gaussian_aug_loss", "log_gaussian_aug_loss"] else el for el in args.loss]
                         boosted_loss = [el.replace("laplace", "l1") if el in ["laplacian_nll", "log_laplacian_nll", "laplace_aug_loss", "log_laplace_aug_loss"] else el for el in boosted_loss]
-                        loss_raw, loss_dict_raw = get_loss(output["intermediate"], sample, loss=boosted_loss, lam=args.lam, merge_aug=args.merge_aug,
+                        loss_raw, loss_dict_raw = get_loss(output["intermediate"], sample,  scale=output["intermediate"]["scale"], loss=boosted_loss, lam=args.lam, merge_aug=args.merge_aug,
                                             lam_adv=args.lam_adv if self.args.adversarial else 0.0,
                                             lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                             lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
@@ -407,6 +408,7 @@ class Trainer:
                     train_stats[key] += loss_dict_weak[key].cpu().item() if torch.is_tensor(loss_dict_weak[key]) else loss_dict_weak[key]
                 for key in loss_dict_raw:
                     train_stats[key] += loss_dict_raw[key].cpu().item() if torch.is_tensor(loss_dict_raw[key]) else loss_dict_raw[key]
+                train_stats["log_count"] += 1
 
                 # detect NaN loss 
                 # backprop and stuff
@@ -493,7 +495,7 @@ class Trainer:
                             wandb.log({"fake_B_target_popdensemap": wandb_image}, step=self.info["iter"])
                             wandb_image = wandb.Image(tensor2im(output["popdensemap"][~sample["source"]].unsqueeze(1)-0.5))
                             wandb.log({"real_B_target_popdensemap": wandb_image}, step=self.info["iter"])
-                    train_stats = self.log_train(train_stats,(inner_tnr, tnr))
+                    self.log_train(train_stats,(inner_tnr, tnr))
                     train_stats = defaultdict(float)
         
         if self.args.stochasticWA:
@@ -503,7 +505,7 @@ class Trainer:
         return 2. / (1. + np.exp(-k * p)) - 1
 
     def log_train(self, train_stats, tqdmstuff=None):
-        train_stats = {k: v / self.args.logstep_train for k, v in train_stats.items()}
+        train_stats = {k: v / train_stats["log_count"] for k, v in train_stats.items()}
 
         # print logs to console via tqdm
         if tqdmstuff is not None:
@@ -1001,8 +1003,8 @@ class Trainer:
         # load checkpoint
         checkpoint = torch.load(path)
         self.model.load_state_dict(checkpoint['model'])
-        # self.optimizer.load_state_dict(checkpoint['optimizer'])
-        # self.scheduler.load_state_dict(checkpoint['scheduler'])
+        self.optimizer.load_state_dict(checkpoint['optimizer'])
+        self.scheduler.load_state_dict(checkpoint['scheduler'])
         self.info["epoch"] = checkpoint['epoch']
         self.info["iter"] = checkpoint['iter']
 

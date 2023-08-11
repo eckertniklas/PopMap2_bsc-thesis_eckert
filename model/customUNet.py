@@ -55,9 +55,19 @@ class CustomUNet(smp.Unet):
             self.encoder.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, stride=2, padding=1, bias=False, dilation=1)
             self.encoder.conv1.weight = nn.Parameter(conv1w[:,:,2:-2,2:-2])
         else:
-            conv1w = self.encoder.conv1.weight # old kernel
-            self.encoder.conv1 = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False, dilation=1)
-            self.encoder.conv1.weight = nn.Parameter(conv1w)
+            if encoder_name.startswith("resnet"):
+                conv1w = self.encoder.conv1.weight # old kernel
+
+                # we have to revert the dilation that might have been applied before
+                if dilation > 1:
+                    # self.encoder.conv1.modify_dilation(dilation=1)
+                    self.encoder.conv1 = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False, dilation=1)
+                    self.encoder.conv1.weight = nn.Parameter(conv1w)
+            else:
+                conv1w = self.encoder.features[0]
+                if dilation > 1:
+                    self.encoder.features[0] = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False, dilation=1)
+                    self.encoder.features[0].weight = nn.Parameter(conv1w)
 
 
         # adapt size of the center block for vgg

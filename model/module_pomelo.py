@@ -73,7 +73,7 @@ class POMELO_module(nn.Module):
         if parent is not None or os.path.exists(parent_file):
             # recursive loading of the boosting model
             self.parent = POMELO_module(input_channels, feature_dim, feature_extractor, down, occupancymodel=occupancymodel,
-                                        useposembedding=useposembedding, experiment_folder=parent)
+                                        useposembedding=useposembedding, experiment_folder=parent, replace7x7=replace7x7, head=head)
             self.parent.unetmodel.load_state_dict(torch.load(os.path.join(parent, "last_unetmodel.pth"))["model"])
             self.parent.head.load_state_dict(torch.load(os.path.join(parent, "last_head.pth"))["model"])
 
@@ -148,7 +148,6 @@ class POMELO_module(nn.Module):
             this_input_dim -= feature_dim # no position embedding
             this_input_dim -= 1 # no building footprint
 
-
         # Build the main model
         if feature_extractor=="DDA":
                 # get model
@@ -172,7 +171,10 @@ class POMELO_module(nn.Module):
         # calculate the number of parameters
         self.params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
 
-                                  
+        # print size of the embedder and head network
+        print("Embedder: ",sum(p.numel() for p in self.embedder.parameters() if p.requires_grad))
+        print("Head: ",sum(p.numel() for p in self.head.parameters() if p.requires_grad))
+                 
     def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True, encoder_no_grad=False, unet_no_grad=False):
         """
         Forward pass of the model
@@ -215,7 +217,6 @@ class POMELO_module(nn.Module):
 
         else:
             inputdata = inputdata
-
 
         # Add padding
         data, (px1,px2,py1,py2) = self.add_padding(inputdata, padding)
@@ -266,7 +267,6 @@ class POMELO_module(nn.Module):
 
         # popdensemap = (popdensemap*1.8 + popdensemap_raw*0.2) / 2
         # popdensemap = (popdensemap + popdensemap_raw) / 2
-
         if self.occupancymodel:
 
             # activation function

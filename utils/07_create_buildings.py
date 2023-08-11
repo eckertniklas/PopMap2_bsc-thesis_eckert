@@ -144,7 +144,7 @@ def main(args):
     # with rasterio.open(os.path.join(region_root, "buildingsDDA2_4.tif"), 'w', **metadata) as dst:
     #     dst.write(output_map, 1)
 
-    
+    # write files in small chunks to not run out of memory
     with rasterio.open(os.path.join(region_root, "buildingsDDA2_44C.tif"), 'w', **metadata) as dst:
         for i in tqdm(range(0, output_map.shape[0], chunk_size)):
             for j in range(0, output_map.shape[1], chunk_size):

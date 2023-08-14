@@ -22,9 +22,10 @@ if os.name == "nt":  # locally
     current_dir_path = dirname(dirname((os.getcwd())))
 
 # current_dir_path = "/scratch2/metzgern/HAC/code/So2SatPOP/data"
-current_dir_paths = ["/scratch/metzgern/HAC/data",
+current_dir_paths = [
+    "/scratch/metzgern/HAC/data",
     "/cluster/work/igp_psr/metzgern/HAC/data",
-    # "/cluster/scratch/metzgern"
+    "/cluster/scratch/metzgern/HAC/data/",
 ]
 # --info=progress2 --info=name0 --ignore-existing
 
@@ -47,10 +48,54 @@ all_patches_mixed_train_part2 = os.path.join(all_patches_mixed_part2, 'train')  
 all_patches_mixed_test_part2 = os.path.join(all_patches_mixed_part2, 'test')   # path to test folder
 
 # Sat2Pop data folder
-pop_map_root = os.path.join(current_dir_path, os.path.join("PopMapData", "processed"))
+large_file_paths = [
+        "/scratch2/metzgern/HAC/data",
+        "/scratch/metzgern/HAC/data",
+        "/cluster/work/igp_psr/metzgern/HAC/data",
+        
+]
+for name in large_file_paths:
+    if os.path.isdir(name):
+        large_file_path = name
+if large_file_path is None:
+    raise Exception("No data folder found")
+pop_map_root = os.path.join(large_file_path, os.path.join("PopMapData", "processed"))
 pop_map_root_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.join("PopMapData", "processed"))
-pop_map_covariates = os.path.join(current_dir_path, os.path.join("PopMapData", os.path.join("merged", "EE")))
+pop_map_covariates = os.path.join(large_file_path, os.path.join("PopMapData", os.path.join("merged", "EE")))
 pop_map_covariates_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.join("PopMapData", os.path.join("merged", "EE")))
+
+
+# Sat2Pop data folder
+raw_file_paths = [
+        "/scratch/metzgern/HAC/data",
+        "/scratch2/metzgern/HAC/data",
+        "/cluster/work/igp_psr/metzgern/HAC/data",
+        "/cluster/scratch/metzgern"
+]
+for name in raw_file_paths:
+    if os.path.isdir(name):
+        raw_file_path = name
+if raw_file_path is None:
+    raise Exception("No data folder found")
+raw_map_root = os.path.join(raw_file_path, os.path.join("PopMapData", "raw"))
+rawEE_map_root = os.path.join(raw_map_root, "EE")
+
+
+# Sat2Pop data folder
+data_paths_aux = [
+        "/scratch/metzgern/HAC/data",
+        "/scratch2/metzgern/HAC/data",
+        "/cluster/work/igp_psr/metzgern/HAC/data",
+        # /cluster/work/igp_psr/metzgern/HAC/data/PopMapData/raw/GoogleBuildings
+]
+for name in data_paths_aux:
+    if os.path.isdir(name):
+        data_path_aux = name
+if large_file_path is None:
+    raise Exception("No data folder found")
+pop_gbuildings_path = os.path.join(data_path_aux, os.path.join("PopMapData", os.path.join("raw", "GoogleBuildings")))
+
+
 
 # Definitions of where to find the census data and the boundaries of the target areas
 datalocations = {
@@ -59,11 +104,11 @@ datalocations = {
             'boundary': "boundaries4.tif",
             'census': "census4.csv",
         },
-        'fineBlockCE': {
+        'fineBLOCKCE': {
             'boundary': "boundaries_BLOCKCE20.tif",
             'census': "census_BLOCKCE20.csv",
         },
-        'fineCountyFP': {
+        'fineCOUNTYFP': {
             'boundary': "boundaries_COUNTYFP20.tif",
             'census': "census_COUNTYFP20.csv",
         },
@@ -78,8 +123,8 @@ datalocations = {
     },
     'rwa': {
         'fine': {
-            'boundary': "boundaries_kigali100.tif",
-            'census': "census_kigali100.csv",
+            'boundary': "boundaries_coarse.tif",
+            'census': "census_coarse.csv",
         },
         'fine100': {
             'boundary': "boundaries_kigali100.tif",
@@ -105,13 +150,33 @@ datalocations = {
             'boundary': "boundaries_coarse.tif",
             'census': "census_coarse.csv",
         } 
+    },
+    "uga": {
+        'coarse': {
+            'boundary': "boundaries.tif",
+            'census': "census.csv",
+        },
+        'fine': {
+            'boundary': "boundaries.tif",
+            'census': "census.csv",
+        },
     }
 }
 
 testlevels = {
     'pricp2': ["fine", "fineTRACTCE"],
-    'rwa': ["fine100", "fine200", "fine400", "fine1000", "coarse"]
+    # 'rwa': ["coarse"]
+    'rwa': ["fine100", "fine200", "fine400", "fine1000", "coarse"],
+    'uga': ["coarse"]
 }
+
+# inicies to skip while training
+skip_indices = {
+    "pricp2": [],
+    "rwa": [],
+    "uga": [1323]
+}
+
 
     
 src_path = os.path.dirname(os.path.dirname(__file__))

@@ -136,10 +136,6 @@ def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mod
             thisdb.at[i,"bbox"] = (xmin, xmax, ymin, ymax)
             thisdb.loc[i,"count"] = count.cpu().item()
 
-            # test
-            # p = 1
-            # plot_2dmatrix(burned[xmin-p:xmax+p, ymin-p:ymax+p])
-
         # write censusdata
         thisdb[["idx", "POP20", "bbox", "count"]].to_csv(this_censusfile)
 

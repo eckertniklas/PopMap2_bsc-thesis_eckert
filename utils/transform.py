@@ -12,6 +12,7 @@ from utils.file_folder_ops import load_json
 
 from utils.utils import *
 from utils.plot import plot_2dmatrix
+from utils.utils import Namespace
 
 # CycleGAN
 from model.cycleGAN.models import create_model
@@ -31,9 +32,6 @@ class OwnCompose(object):
             x = t(x)
         return x if mask is None else (x, mask)
 
-class Namespace:
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
 
 class UnNormalize(object):
     def __init__(self, mean, std):
@@ -96,9 +94,6 @@ class Eu2Rwa(object):
         return x if mask is None else (x, mask)
     
 
-
-    
-
 class AddGaussianNoise(object):
     """Add gaussian noise to a tensor image with a given probability.
     Args:
@@ -127,68 +122,105 @@ class AddGaussianNoise(object):
     
 
 class RandomHorizontalVerticalFlip(object):
-    def __init__(self, p=0.5): 
+    def __init__(self, p=0.5, allsame=False): 
         self.p = p
+        self.allsame = allsame
         
     def __call__(self, x):
         if torch.is_tensor(x):
             mask = None
         else:
             x, mask = x
-        if torch.rand(1) < self.p:
+
+        if self.allsame:
+            if torch.rand(1) < self.p:
+                x = TF.hflip(TF.vflip(x))
+                if mask is not None:
+                    mask = TF.hflip(TF.vflip(mask))
+                    return x, mask
+                return x
+            else:
+                if mask is not None:
+                    return x, mask
+                return x
+        else:
             selection = torch.rand(x.shape[0])<self.p
             x[selection] = TF.hflip(TF.vflip(x))[selection]
             if mask is not None:
                 mask[selection] = TF.hflip(TF.vflip(mask))[selection]
-            return x if mask is None else (x, mask)
-            # return TF.hflip(TF.vflip(x)) if mask is None else (TF.hflip(TF.vflip(x)), TF.hflip(TF.vflip(mask)))
-        return x if mask is None else (x, mask)
+                return x, mask
+            return x
     
     def __repr__(self):
         return self.__class__.__name__ + '(p={0}'.format(self.p)
 
 
+
 class RandomVerticalFlip(object):
-    def __init__(self, p=0.5): 
+    def __init__(self, p=0.5, allsame=False): 
         self.p = p
+        self.allsame = allsame
         
     def __call__(self, x):
         if torch.is_tensor(x):
             mask = None
         else:
             x, mask = x
-        if torch.rand(1) < self.p:
+        
+        if self.allsame:
+            if torch.rand(1) < self.p:
+                x = TF.vflip(x)
+                if mask is not None:
+                    mask = TF.vflip(mask)
+                    return x, mask
+                return x
+            else:
+                if mask is not None:
+                    return x, mask
+                return x
+        else:
             # random horizontal flip with probability 0.5 for each sample in batch
             selection = torch.rand(x.shape[0])<self.p
             x[selection] = TF.vflip(x)[selection]
             if mask is not None:
                 mask[selection] = TF.vflip(mask)[selection]
-            return x if mask is None else (x, mask)
-            # return TF.vflip(x) if mask is None else (TF.vflip(x), TF.vflip(mask))
-        return x if mask is None else (x, mask)
+                return x, mask
+            return x 
         
     def __repr__(self):
         return self.__class__.__name__ + '(p={0}'.format(self.p)
 
 
 class RandomHorizontalFlip(object):
-    def __init__(self, p=0.5): 
+    def __init__(self, p=0.5, allsame=False): 
         self.p = p
+        self.allsame = allsame
         
     def __call__(self, x):
         if torch.is_tensor(x):
             mask = None
         else:
             x, mask = x
-        if torch.rand(1) < self.p:
+        
+        if self.allsame:
+            if torch.rand(1) < self.p:
+                x = TF.hflip(x)
+                if mask is not None:
+                    mask = TF.hflip(mask)
+                    return x, mask
+                return x
+            else:
+                if mask is not None:
+                    return x, mask
+                return x
+        else:
             # random horizontal flip with probability 0.5 for each sample in batch
             selection = torch.rand(x.shape[0])<self.p
             x[selection] = TF.hflip(x)[selection]
             if mask is not None:
                 mask[selection] = TF.hflip(mask)[selection]
-            return x if mask is None else (x, mask)
-            # return TF.hflip(x) if mask is None else (TF.hflip(x), TF.hflip(mask))
-        return x if mask is None else (x, mask)
+                return x, mask
+            return x
         
     def __repr__(self):
         return self.__class__.__name__ + '(p={0}'.format(self.p)
@@ -216,7 +248,10 @@ class RandomRotationTransform(torch.nn.Module):
             x, mask = x
         if torch.rand(1) < self.p:
             angle = random.choice(self.angles)
-            return TF.rotate(x, angle) if mask is None else (TF.rotate(x, angle), TF.rotate(mask, angle))
+            if mask is not None:
+                return TF.rotate(x, angle, expand=True), TF.rotate(mask, angle, expand=True, fill=-1)
+                # return x.permute(0,1,3,2), mask.permute(0,1,3,2)
+            return TF.rotate(x, angle)
         return x if mask is None else (x, mask)
 
 
@@ -235,13 +270,34 @@ class RandomGamma(torch.nn.Module):
         if torch.rand(1) < self.p:
             gamma = random.uniform(self.gamma_limit[0], self.gamma_limit[1])
             x = torch.clip(x, min=0)
+
+            # convert to 0-1 range
             x = x / self.s2_max
-            if x.shape[0] == 3:
-                x = TF.adjust_gamma(x, gamma)
-            else:
-                # Apply gamma to each channel separately
-                for i in range(x.shape[0]):
-                    x[i] = TF.adjust_gamma(x[i], gamma)
+
+            if len(x.shape) == 3:
+                if x.shape[0] == 3:
+                    x = TF.adjust_brightness(x, gamma)
+                else:
+                    # Apply brightness to each channel separately
+                    for i in range(x.shape[1]):
+                        x[i:i+1] = TF.adjust_gamma(x[i:i+1], gamma)
+            elif len(x.shape) == 4:
+                if x.shape[1] == 3:
+                    x = TF.adjust_brightness(x, gamma)
+                else:
+                    # Apply brightness to each channel separately
+                    for i in range(x.shape[1]):
+                        x[:,i:i+1] = TF.adjust_gamma(x[:,i:i+1], gamma)
+
+            # if x.shape[0] == 3:
+            #     x = TF.adjust_gamma(x, gamma)
+            # else:
+            #     # Apply gamma to each channel separately
+            #     for i in range(x.shape[0]):
+            #         x[:,i] = TF.adjust_gamma(x[:,i], gamma)
+
+
+            # convert back to 0-10000 range
             x = x * self.s2_max
         return x
 
@@ -253,7 +309,7 @@ class RandomBrightness(torch.nn.Module):
     def __init__(self, beta_limit=(0.666, 1.5), p=0.5):
         self.beta_limit = beta_limit
         self.p = p
-        self.s2_max = 10000
+        self.s2_max = 10000 # for the conversion to a pillow-typical range
 
     def __call__(self, x):
         """
@@ -263,63 +319,32 @@ class RandomBrightness(torch.nn.Module):
         :return: Tensor, output image with brightness adjusted if the transformation was applied
         """
         if torch.rand(1) < self.p:
+
+            # get random brightness factor
             beta = random.uniform(self.beta_limit[0], self.beta_limit[1])
+
+            # convert to pillow-typical range
             x = x / self.s2_max
-            if x.shape[0] == 3:
-                x = TF.adjust_brightness(x, beta)
-            else:
-                # Apply brightness to each channel separately
-                for i in range(x.shape[0]):
-                    x[i] = TF.adjust_brightness(x[i], beta) 
+
+
+            if len(x.shape) == 3:
+                if x.shape[0] == 3:
+                    x = TF.adjust_brightness(x, beta)
+                else:
+                    # Apply brightness to each channel separately
+                    for i in range(x.shape[1]):
+                        x[i:i+1] = TF.adjust_brightness(x[i:i+1], beta)
+            elif len(x.shape) == 4:
+                if x.shape[1] == 3:
+                    x = TF.adjust_brightness(x, beta)
+                else:
+                    # Apply brightness to each channel separately
+                    for i in range(x.shape[1]):
+                        x[:,i:i+1] = TF.adjust_brightness(x[:,i:i+1], beta)
+
+            # back to the original range
             x = x * self.s2_max
         return x
-
-
-# import torch
-# import torch.nn as nn
-# import cv2
-# import numpy as np
-
-
-# class SyntheticHaze(nn.Module):
-#     def __init__(self, p=0.75, haze_intensity=0.5, blur_radius=30, brightness_reduction=40):
-#         super(SyntheticHaze, self).__init__()
-#         self.p = p
-#         self.haze_intensity = haze_intensity
-#         self.blur_radius = blur_radius
-#         self.brightness_reduction = brightness_reduction
-    
-#     def create_gaussian_kernel(self, size, sigma=None):
-#         if sigma is None:
-#             sigma = 0.3 * ((size - 1) * 0.5 - 1) + 0.8
-#         x = torch.linspace(-(size // 2), size // 2, steps=size)
-#         gauss_kernel = torch.exp(-0.5 * (x / sigma) ** 2)
-#         gauss_kernel /= gauss_kernel.sum()
-#         return gauss_kernel.view(1, -1)
-
-#     def gaussian_blur(self, img):
-#         padding = self.blur_radius // 2
-#         img_padded = torch.nn.functional.pad(img, (padding, padding, padding, padding), mode='reflect')
-#         # kernel = cv2.getGaussianKernel(self.blur_radius, 0)
-#         # kernel = torch.from_numpy(kernel).float().view(1, -1)
-#         kernel = self.create_gaussian_kernel(self.blur_radius)
-#         kernel2d = torch.matmul(kernel.t(), kernel)
-#         # kernel2d = kernel2d.view(1, 1, self.blur_radius, self.blur_radius)
-#         kernel2d = kernel2d.repeat(img.shape[0], 1, 1, 1)
-#         blurred_img = torch.nn.functional.conv2d(img_padded, kernel2d, groups=img.shape[0])
-#         return blurred_img
-
-#     def forward(self, x):
-#         if torch.rand(1) < self.p:
-#             x_float = x.float()
-#             white_img = torch.full_like(x_float, 255)
-#             haze_img = self.gaussian_blur(white_img)
-#             haze_img -= self.brightness_reduction
-#             haze_img = torch.clamp(haze_img, 0, 255)
-#             hazed_image  = x_float * (1 - self.haze_intensity) + haze_img * self.haze_intensity
-#             hazed_image  = torch.clamp(hazed_image , 0, 255).to(x.dtype)
-#             x = hazed_image
-#         return x
     
 
 def generate_haze_parameters():

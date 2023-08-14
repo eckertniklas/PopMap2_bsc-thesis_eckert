@@ -1,8 +1,13 @@
 import torch
 import itertools
-from util.image_pool import ImagePool
+from model.cycleGAN.util.image_pool import ImagePool
+# from .util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
+
+from utils.plot import plot_2dmatrix
+from utils.losses import get_loss, LogL1Loss
+from torchvision import transforms
 
 
 class CycleGANModel(BaseModel):
@@ -52,10 +57,19 @@ class CycleGANModel(BaseModel):
         """
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
-        self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B']
+        self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B',
+                           'fake_B_pop', 'fake_B_consistency', 'real_B_consistency', 'fake_B_pop_lam', 'fake_B_consistency_lam', 'real_B_consistency_lam',
+                           "G"]
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        visual_names_A = ['real_A', 'fake_B', 'rec_A']
-        visual_names_B = ['real_B', 'fake_A', 'rec_B']
+        visual_names_A = ['real_A', 'fake_B', 'rec_A', 'real_A_output_popdensemap', 'fake_B_output_popdensemap']
+        visual_names_B = ['real_B', 'fake_A', 'rec_B', 'real_B_output_popdensemap', 'fake_A_output_popdensemap']
+
+        if opt.input_nc == 5:
+            # visual_names_A = ['real_A_S2', 'fake_B_S2', 'rec_A_S2', 'real_A_output_popdensemap', 'fake_B_output_popdensemap']
+            # visual_names_B = ['real_B_S2', 'fake_A_S2', 'rec_B_S2', 'real_B_output_popdensemap', 'fake_A_output_popdensemap']
+            visual_names_A += ['real_A_S1', 'fake_B_S1', 'rec_A_S1']
+            visual_names_B += ['real_B_S1', 'fake_A_S1', 'rec_B_S1']
+
         if self.isTrain and self.opt.lambda_identity > 0.0:  # if identity loss is used, we also visualize idt_B=G_A(B) ad idt_A=G_A(B)
             visual_names_A.append('idt_B')
             visual_names_B.append('idt_A')
@@ -66,6 +80,9 @@ class CycleGANModel(BaseModel):
             self.model_names = ['G_A', 'G_B', 'D_A', 'D_B']
         else:  # during test time, only load Gs
             self.model_names = ['G_A', 'G_B']
+
+        self.normalize = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  
+        self.unnormalize  = transforms.Normalize( mean=[-1, -1, -1], std=[2, 2, 2] )   
 
         # define networks (both Generators and discriminators)
         # The naming is different from those used in the paper.
@@ -90,6 +107,10 @@ class CycleGANModel(BaseModel):
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)  # define GAN loss.
             self.criterionCycle = torch.nn.L1Loss()
             self.criterionIdt = torch.nn.L1Loss()
+            # self.criterionFakePop = torch.nn.L1Loss()
+            self.criterionFakePop = LogL1Loss()
+            # self.criterionFakePop = torch.nn.MSELoss()
+            # self.criterionFakePop = torch.nn.L1Loss()
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(itertools.chain(self.netD_A.parameters(), self.netD_B.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
@@ -111,10 +132,21 @@ class CycleGANModel(BaseModel):
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        self.fake_B = self.netG_A(self.real_A)  # G_A(A)
-        self.rec_A = self.netG_B(self.fake_B)   # G_B(G_A(A))
-        self.fake_A = self.netG_B(self.real_B)  # G_B(B)
-        self.rec_B = self.netG_A(self.fake_A)   # G_A(G_B(B))
+        fast = True
+        fast2 = False
+        if fast:
+            self.fake_B, self.fake_A = self.netG_A(self.real_A), self.netG_B(self.real_B)
+            self.rec_A, self.rec_B = self.netG_B(self.fake_B), self.netG_A(self.fake_A)
+        elif fast2:
+            self.fake_B = self.netG_A(self.real_A)
+            rec_A_fake_A = self.netG_B(torch.cat((self.fake_B, self.real_B), 0))
+            self.rec_A, self.fake_A = rec_A_fake_A[:self.real_A.shape[0],: , :, :], rec_A_fake_A[self.real_A.shape[0]:, :, :, :] 
+            self.rec_B = self.netG_A(self.fake_A)
+        else:
+            self.fake_B = self.netG_A(self.real_A)  # G_A(A)
+            self.rec_A = self.netG_B(self.fake_B)   # G_B(G_A(A))
+            self.fake_A = self.netG_B(self.real_B)  # G_B(B)
+            self.rec_B = self.netG_A(self.fake_A)   # G_A(G_B(B))
 
     def backward_D_basic(self, netD, real, fake):
         """Calculate GAN loss for the discriminator
@@ -148,7 +180,7 @@ class CycleGANModel(BaseModel):
         fake_A = self.fake_A_pool.query(self.fake_A)
         self.loss_D_B = self.backward_D_basic(self.netD_B, self.real_A, fake_A)
 
-    def backward_G(self):
+    def backward_G(self, gt=None): 
         """Calculate the loss for generators G_A and G_B"""
         lambda_idt = self.opt.lambda_identity
         lambda_A = self.opt.lambda_A
@@ -174,21 +206,126 @@ class CycleGANModel(BaseModel):
         # Backward cycle loss || G_A(G_B(B)) - B||
         self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
         # combined loss and calculate gradients
-        self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B
-        self.loss_G.backward()
+        self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_A
+        
+        # get the supervision of the CyCADA part of the network
+        if gt is not None:
+            self.convert_preprocessing()
+            self.calculate_consistency_loss(gt)
+            # self.loss_G += self.loss_fake_B_pop * self.opt.lambda_popB
+            # self.loss_G += self.loss_fake_B_consistency * self.opt.lambda_consistencyB
+            # self.loss_G += self.loss_real_B_consistency * self.opt.lambda_consistencyB
 
-    def optimize_parameters(self):
+            self.loss_fake_B_pop_lam = self.loss_fake_B_pop * self.opt.lambda_popB
+            self.loss_fake_B_consistency_lam = self.loss_fake_B_consistency * self.opt.lambda_consistency_fake_B
+            self.loss_real_B_consistency_lam = self.loss_real_B_consistency * self.opt.lambda_consistency_real_B 
+            self.loss_G += self.loss_fake_B_pop_lam + self.loss_fake_B_consistency_lam + self.loss_real_B_consistency_lam
+
+        self.loss_G.backward(retain_graph=True)
+
+    def optimize_parameters(self, gt=None):
         """Calculate losses, gradients, and update network weights; called in every training iteration"""
         # forward
         self.forward()      # compute fake images and reconstruction images.
         # G_A and G_B
         self.set_requires_grad([self.netD_A, self.netD_B], False)  # Ds require no gradients when optimizing Gs
         self.optimizer_G.zero_grad()  # set G_A and G_B's gradients to zero
-        self.backward_G()             # calculate gradients for G_A and G_B
+        self.backward_G(gt=gt)             # calculate gradients for G_A and G_B
         self.optimizer_G.step()       # update G_A and G_B's weights
         # D_A and D_B
-        self.set_requires_grad([self.netD_A, self.netD_B], True)
+        self.set_requires_grad([self.netD_A, self.netD_B], True) # Ds require gradients when optimizing Ds
         self.optimizer_D.zero_grad()   # set D_A and D_B's gradients to zero
         self.backward_D_A()      # calculate gradients for D_A
         self.backward_D_B()      # calculate graidents for D_B
         self.optimizer_D.step()  # update D_A and D_B's weights
+
+    def convert_preprocessing(self):
+        """
+        Convert the preprocessing of the images to the preprocessing of the source population model
+        """
+
+        self.real_A_prep = self.real_A
+        self.fake_A_prep = self.fake_A
+        self.real_B_prep = self.real_B
+        self.fake_B_prep = self.fake_B
+
+
+    def calculate_consistency_loss(self, gt, feature_loss = False):
+        """
+        Calculate the consistency losses of the CyCADA model
+        """
+
+        feature_loss = False
+
+        with torch.no_grad():
+            # TODO: optimize this, can also do just one forward pass
+            fast = True
+            if fast:
+                all_out = self.sourcepopmodel({"input": torch.cat((self.real_A_prep, self.fake_A_prep, self.real_B_prep, self.fake_B_prep), dim=0)}, train=True, alpha=0, return_features=feature_loss)
+                self.real_A_output = {
+                    "popdensemap": all_out["popdensemap"][:self.real_A_prep.shape[0]],
+                    "popcount": all_out["popcount"][:self.real_A_prep.shape[0]]
+                }
+                self.fake_A_output = {
+                    "popdensemap": all_out["popdensemap"][self.real_A_prep.shape[0]:self.real_A_prep.shape[0]*2],
+                    "popcount": all_out["popcount"][self.real_A_prep.shape[0]:self.real_A_prep.shape[0]*2]
+                }
+                self.real_B_output = {
+                    "popdensemap": all_out["popdensemap"][self.real_A_prep.shape[0]*2:self.real_A_prep.shape[0]*3],
+                    "popcount": all_out["popcount"][self.real_A_prep.shape[0]*2:self.real_A_prep.shape[0]*3]
+                }
+                self.fake_B_output = {
+                    "popdensemap": all_out["popdensemap"][self.real_A_prep.shape[0]*3:],
+                    "popcount": all_out["popcount"][self.real_A_prep.shape[0]*3:],
+                    "decoder_features": all_out["decoder_features"][self.real_A_prep.shape[0]*3:] if feature_loss else None
+                } 
+            else:
+                self.real_A_output = self.sourcepopmodel({"input": self.real_A_prep}, train=True, alpha=0, return_features=False) # noisy label
+                self.fake_A_output = self.sourcepopmodel({"input": self.fake_A_prep}, train=True, alpha=0, return_features=False)
+                self.real_B_output = self.sourcepopmodel({"input": self.real_B_prep}, train=True, alpha=0, return_features=False)
+                self.fake_B_output = self.sourcepopmodel({"input": self.fake_B_prep}, train=True, alpha=0, return_features=feature_loss)
+
+        if "decoder_features" in self.fake_B_output.keys():
+            self.fake_B_features = self.fake_B_output["decoder_features"]
+
+        self.real_A_output["popcount"] = self.real_A_output["popcount"].detach()
+        self.real_A_output["popdensemap"] = self.real_A_output["popdensemap"].detach()
+        self.real_A_output_popdensemap = self.real_A_output["popdensemap"].unsqueeze(1)
+        self.fake_A_output_popdensemap = self.fake_A_output["popdensemap"].unsqueeze(1)
+        self.real_B_output_popdensemap = self.real_B_output["popdensemap"].unsqueeze(1)
+        self.fake_B_output_popdensemap = self.fake_B_output["popdensemap"].unsqueeze(1)
+
+        self.loss_fake_B_pop, _ = get_loss(self.fake_B_output, {"y":gt, "source": torch.ones_like(gt, dtype=bool)}, loss=["log_l1_aug_loss"], lam=[1.0], merge_aug=2, tag="fakeBsource") 
+        # self.loss_fake_A_pop, _ = get_loss(self.fake_A_output, {"y":gt, "source": torch.ones_like(gt, dtype=bool)}, loss=["log_l1_aug_loss"], lam=[1.0], merge_aug=2, tag="fakeAsource") 
+        self.loss_fake_B_consistency = self.criterionFakePop(self.real_A_output["popdensemap"], self.fake_B_output["popdensemap"])
+        self.loss_real_B_consistency = self.criterionFakePop(self.real_B_output["popdensemap"], self.fake_A_output["popdensemap"])
+
+
+    def compute_visuals(self):
+        """
+        Calculate additional output images for visdom and HTML visualization
+        """
+
+        if self.real_A.shape[1] == 5:
+            self.real_A_S1 = torch.cat((self.real_A[:, 3:, :, :], torch.zeros_like(self.real_A[:, :1, :, :])), dim=1)*0.65
+            self.fake_A_S1 = torch.cat((self.fake_A[:, 3:, :, :], torch.zeros_like(self.fake_A[:, :1, :, :])), dim=1)*0.65
+            self.real_B_S1 = torch.cat((self.real_B[:, 3:, :, :], torch.zeros_like(self.real_B[:, :1, :, :])), dim=1)*0.65
+            self.fake_B_S1 = torch.cat((self.fake_B[:, 3:, :, :], torch.zeros_like(self.fake_B[:, :1, :, :])), dim=1)*0.65
+            self.rec_A_S1 = torch.cat((self.rec_A[:, 3:, :, :], torch.zeros_like(self.rec_A[:, :1, :, :])), dim=1)*0.65
+            self.rec_B_S1 = torch.cat((self.rec_B[:, 3:, :, :], torch.zeros_like(self.rec_B[:, :1, :, :])), dim=1)*0.65
+
+            self.real_A = self.real_A[:, :3, :, :]*0.65
+            self.fake_A = self.fake_A[:, :3, :, :]*0.65
+            self.real_B = self.real_B[:, :3, :, :]*0.65
+            self.fake_B = self.fake_B[:, :3, :, :]*0.65
+            self.rec_A = self.rec_A[:, :3, :, :]*0.65
+            self.rec_B = self.rec_B[:, :3, :, :]*0.65
+            self.idt_A = self.idt_A[:, :3, :, :]*0.65
+            self.idt_B = self.idt_B[:, :3, :, :]*0.65
+
+            self.real_A_output_popdensemap = self.real_A_output_popdensemap - 0.5
+            self.fake_A_output_popdensemap = self.fake_A_output_popdensemap - 0.5
+            self.real_B_output_popdensemap = self.real_B_output_popdensemap - 0.5
+            self.fake_B_output_popdensemap = self.fake_B_output_popdensemap - 0.5
+
+        

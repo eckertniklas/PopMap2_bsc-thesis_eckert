@@ -50,6 +50,7 @@ class POMELO_module(nn.Module):
         self.useposembedding = useposembedding
         self.feature_extractor = feature_extractor
         self.head_name = head
+        head_input_dim = feature_dim
         
         # Padding Params
         self.p = 14
@@ -84,7 +85,10 @@ class POMELO_module(nn.Module):
             self.parent = None
 
         # this_input_dim = input_channels if self.parent is None else input_channels + 1
-        this_input_dim = input_channels if self.parent is None else input_channels + feature_dim
+        # this_input_dim = input_channels if self.parent is None else input_channels + feature_dim #old
+        head_input_dim = head_input_dim if self.parent is None else head_input_dim + feature_dim
+        this_input_dim = input_channels
+
 
         if useposembedding:
             freq = 4 # for 2 dimensions and 2 components (sin and cos)
@@ -94,59 +98,44 @@ class POMELO_module(nn.Module):
                 nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
             )
 
-            # self.embedder = nn.Sequential(
-            #     nn.Conv2d(20, 32, kernel_size=1, padding=0), nn.GELU(),
-            #     nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.GELU(),
-            #     nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.GELU(),
-            # )
-
-
-            # self.embedder = nn.Sequential(
-            #     nn.Conv2d(20, 64, kernel_size=1, padding=0), nn.GELU(),
-            #     nn.Conv2d(64, 64, kernel_size=1, padding=0), nn.GELU(),
-            #     nn.Conv2d(64, 64, kernel_size=1, padding=0), nn.GELU(),
-            #     nn.Conv2d(64, feature_dim, kernel_size=1, padding=0), nn.GELU(),
-            # )
-
-            # self.embedder = nn.Sequential(
-            #     nn.Conv2d(20, 64, kernel_size=1, padding=0), nn.ReLU(),
-            #     nn.Conv2d(64, 64, kernel_size=1, padding=0), nn.ReLU(),
-            #     nn.C
-
-            # self.embedder = nn.Sequential(
-            #     Siren1x1(2, 32, w0=30., is_first=True),
-            #     Siren1x1(32, 32, w0=1.),
-            #     # Siren1x1(32, feature_dim, w0=1, activation=torch.nn.Identity())
-            #     Siren1x1(32, feature_dim, w0=1, activation=torch.nn.Tanh())
-            # )
-            this_input_dim += feature_dim
 
         if head=="v1":
             self.head = nn.Sequential(
-                nn.Conv2d(feature_dim, 5, kernel_size=1, padding=0)
+                nn.Conv2d(feature_dim, 2, kernel_size=1, padding=0)
             )
+            this_input_dim += feature_dim
+
         elif head=="v2":
-            # 3 layer MLP
             h = 64
+            head_input_dim += feature_dim
             self.head = nn.Sequential(
-                nn.Conv2d(feature_dim+feature_dim, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(h, 5, kernel_size=1, padding=0)
+                nn.Conv2d(h, 2, kernel_size=1, padding=0)
             )
-            this_input_dim -= feature_dim
 
         elif head=="v3":
-            # 3 layer MLP
             h = 64
+            head_input_dim += feature_dim + 1
             self.head = nn.Sequential(
-                nn.Conv2d(feature_dim+feature_dim+1, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(h, 5, kernel_size=1, padding=0)
+                nn.Conv2d(h, 2, kernel_size=1, padding=0)
             )
-            this_input_dim -= feature_dim # no position embedding
             this_input_dim -= 1 # no building footprint
+
+        elif head=="v4":
+            #footprint at the front and middle input
+            h = 64
+            head_input_dim += feature_dim + 1
+            self.head = nn.Sequential(
+                nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(h, 2, kernel_size=1, padding=0)
+            )
 
         # Build the main model
         if feature_extractor=="DDA":
@@ -166,7 +155,7 @@ class POMELO_module(nn.Module):
                                         down=self.down, dilation=dilation, replace7x7=replace7x7, pretrained=pretrained)
             
         # lift the bias of the head to avoid the risk of dying ReLU
-        self.head[-1].bias.data = 0.75 * torch.ones(5)
+        self.head[-1].bias.data = 0.75 * torch.ones(2)
 
         # calculate the number of parameters
         self.params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
@@ -174,7 +163,7 @@ class POMELO_module(nn.Module):
         # print size of the embedder and head network
         print("Embedder: ",sum(p.numel() for p in self.embedder.parameters() if p.requires_grad))
         print("Head: ",sum(p.numel() for p in self.head.parameters() if p.requires_grad))
-                 
+
     def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True, encoder_no_grad=False, unet_no_grad=False):
         """
         Forward pass of the model
@@ -190,7 +179,8 @@ class POMELO_module(nn.Module):
             with torch.no_grad():
                 output_dict = self.parent(inputs, padding=False, return_features=False, unet_no_grad=unet_no_grad)
             # Concatenate the parent features with the input
-            inputdata = torch.cat([ output_dict["features"], inputs["input"]], dim=1)
+            parent_features = output_dict["features"]
+            inputdata = torch.cat([ output_dict["features"], inputs["input"]], dim=1) #old
             # inputdata = torch.cat([ output_dict["popdensemap"].unsqueeze(1), inputs["input"]], dim=1)
         else:
             inputdata = inputs["input"]
@@ -208,7 +198,7 @@ class POMELO_module(nn.Module):
 
             # Concatenate the pose embedding to the input data
 
-            if self.head_name in ["v2"]:
+            if self.head_name in ["v2", "v4"]:
                 inputdata = inputdata
             elif self.head_name in ["v3"]:
                 inputdata = inputdata[:,0:-1] # remove the building footprint from the variables
@@ -253,8 +243,15 @@ class POMELO_module(nn.Module):
 
             if self.head_name in ["v2"]:
                 out = self.head(torch.cat([features, pose], dim=1))
-            elif self.head_name in ["v3"]:
-                out = self.head(torch.cat([features, pose, inputs["building_counts"]], dim=1))
+            elif self.head_name in ["v3", "v4"]:
+                if self.parent is not None:
+                    out = self.head(torch.cat([features, pose, output_dict["popdensemap"], inputs["building_counts"]], dim=1))
+                else:
+                    if self.occupancymodel:
+                        # TODO: switch to sparse convolutions, since self.head is an MLP, and the output is eventually sparse anyways
+                        out = self.head(torch.cat([features, pose, inputs["building_counts"]], dim=1))
+                    else:
+                        out = self.head(torch.cat([features, pose, inputs["building_counts"]], dim=1))
             else:
                 out = self.head(features)
 
@@ -267,10 +264,12 @@ class POMELO_module(nn.Module):
 
         # popdensemap = (popdensemap*1.8 + popdensemap_raw*0.2) / 2
         # popdensemap = (popdensemap + popdensemap_raw) / 2
+
         if self.occupancymodel:
 
             # activation function
             popvarmap = nn.functional.softplus(out[:,1])
+            # popdensemap = nn.functional.softplus(out[:,0])
             popdensemap = nn.functional.relu(out[:,0])
 
             # for raw
@@ -281,7 +280,9 @@ class POMELO_module(nn.Module):
                 # for final
                 aux["scale"] = popdensemap.clone().cpu().detach()
                 popdensemap = popdensemap * inputs["building_counts"][:,0]
-                popvarmap = popvarmap * inputs["building_counts"][:,0]
+                # popdensemap = popdensemap * (inputs["building_counts"][:,0]>0.25)
+                # popdensemap = popdensemap * (inputs["building_counts"][:,0]>0.25) * inputs["building_counts"][:,0]
+                # popvarmap = popvarmap #* inputs["building_counts"][:,0]
             else: 
                 raise ValueError("building_counts not in inputs.keys()")
         else:

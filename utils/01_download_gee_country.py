@@ -511,14 +511,14 @@ def download(minx, miny, maxx, maxy, name):
     # S2 = True
     S2 = False
 
-    # S2A = True
-    S2A = False
+    S2A = True
+    # S2A = False
 
     # VIIRS = True
     VIIRS = False
 
-    # GoogleBuildings = True
-    GoogleBuildings = False
+    GoogleBuildings = True
+    # GoogleBuildings = False
 
     if S1:
         ########################### Processing Sentinel 1 #############################################

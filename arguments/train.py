@@ -90,6 +90,8 @@ parser.add_argument('-lrg', '--lr_gamma', help='', type=float, default=0.75)
 parser.add_argument('-gc', '--gradient_clip', help='', type=float, default=0.01)
 parser.add_argument('--skip-first', action='store_true', help='Don\'t optimize during first epoch')
 parser.add_argument('-fa', '--full_aug', action='store_true', help='')
+parser.add_argument('-ascAug', '--ascAug', action='store_true', help='')
+
 parser.add_argument("-lm", "--lam_builtmask", help='', type=float, default=0.)
 parser.add_argument("-ld", "--lam_dense", help='', type=float, default=1.)
 

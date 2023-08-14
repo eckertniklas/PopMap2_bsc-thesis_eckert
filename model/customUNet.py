@@ -47,7 +47,7 @@ class CustomUNet(smp.Unet):
         )
 
         if dilation > 1:
-            self.encoder.modify_dilation(dilation=dilation)
+            self.modify_dilation(self.encoder, dilation=dilation)
 
         # replace first layer with 3x3 conv instead of 7x7 (better suitable for remote sensing datasets)
         if encoder_name.startswith("resnet") and replace7x7:
@@ -100,8 +100,8 @@ class CustomUNet(smp.Unet):
             else:
                 self.remove_batchnorm(module)
 
-    def modify_dilation(self, dilation=2):
-        for name, module in self.named_modules():
+    def modify_dilation(self, net, dilation=2):
+        for name, module in net.named_modules():
             if isinstance(module, nn.Conv2d):
                 module.dilation = (dilation, dilation)
                 # if you want to reinitialize the weights as well

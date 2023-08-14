@@ -38,7 +38,7 @@ class Population_Dataset_target(Dataset):
     Use this dataset to evaluate the model on the target domain and compare it the census data
     """
     def __init__(self, region, S1=False, S2=True, VIIRS=True, NIR=False, patchsize=1024, overlap=32, fourseasons=False, mode="test",
-                 max_samples=None, transform=None, sentinelbuildings=True, ascfill=False, train_level="fine", split="all",
+                 max_samples=None, transform=None, sentinelbuildings=True, ascfill=False, ascAug=False, train_level="fine", split="all",
                  max_pix=5e6) -> None:
         """
         Input:
@@ -69,6 +69,7 @@ class Population_Dataset_target(Dataset):
         self.sentinelbuildings = sentinelbuildings
         self.ascfill = ascfill
         self.split = split
+        self.ascAug = ascAug
 
         # get the path to the data
         # region_root = os.path.join(pop_map_root_large, region)
@@ -317,6 +318,14 @@ class Population_Dataset_target(Dataset):
         else:
             main_indices = torch.cat([main_indices, season_template*0], dim=1)
 
+        # TODO: add indices for ascending orbit!
+        # if self.ascAug:
+        #     main_indices_ = torch.cat([
+        #         torch.cat([main_indices, season_template*0], dim=1),
+        #         torch.cat([main_indices, season_template*1], dim=1),
+        #         dim=0
+        #     )
+
         return main_indices
 
 
@@ -357,11 +366,12 @@ class Population_Dataset_target(Dataset):
 
         # get the season for the S2 data
         season = random.choice(['spring', 'autumn', 'winter', 'summer']) if self.fourseasons else "spring"
+        descending = random.choice([True, False]) if self.ascAug else True
         # season = random.choice(['spring', 'autumn', 'winter', 'summer']) if self.fourseasons else "autumn"
 
         # get the data
         ad_over = 32
-        indata, auxdata, w = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0, admin_overlap=ad_over)
+        indata, auxdata, w = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0, admin_overlap=ad_over, descending=descending)
 
         if "S2" in indata:
             if np.any(np.isnan(indata["S2"])): 

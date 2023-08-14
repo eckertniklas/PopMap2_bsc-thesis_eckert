@@ -89,6 +89,22 @@
             ] 
         },
         {
+            "name": "01_download_gee_country.py, BDI",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/01_download_gee_country.py",
+            "console": "integratedTerminal",
+            "args": [
+                "28.959961",
+                "-4.497024",
+                "30.918274",
+                "-2.276317",
+                "bdi",
+                // "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/GEEraster/RWA",
+                // "P_2020"
+            ] 
+        },
+        {
             "name": "01_download_gee_country.py, CDI test",
             "type": "python",
             "request": "launch",
@@ -175,6 +191,20 @@
                 "38.685510",
                 "afg", 
             ]
+        },  
+        {
+            "name": "01_download_gee_country.py, TZA",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/01_download_gee_country.py",
+            "console": "integratedTerminal",
+            "args": [ 
+                "29.344482",
+                "-11.888853",
+                "40.638428",
+                "-0.911827",
+                "tza", 
+            ]
         }, 
         {
             "name": "01_download_gee_country.py, UGA",
@@ -254,7 +284,7 @@
             "console": "integratedTerminal",
             "args": [
                 "/scratch2/metzgern/HAC/data/PopMapData/raw/EE/rwa",
-                "/scratch/metzgern/HAC/data/PopMapData/merged/EE/rwa"
+                "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa"
             ]
         },
         {
@@ -395,10 +425,17 @@
             ]
         },
         {
-            "name": "08_preprocess_ugp_shapefile.py, UGA",
+            "name": "08_preprocess_uga_shapefile.py, UGA",
             "type": "python",
             "request": "launch",
             "program": "utils/08_preprocess_uga_shapefile.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "09_preprocess_tza_shapefile.py, TZA",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/09_preprocess_tza_shapefile.py",
             "console": "integratedTerminal"
         },
         {
@@ -897,7 +934,7 @@
                 "-b", "16",
                 "-lr", "1e-3", 
                 "--model", "POMELO_module", 
-                "--head", "v3",
+                "--head", "v2",
                 // "--feature_extractor", "vgg16",
                 // "--feature_extractor", "DDA", 
                 // "-l", "log_l1_loss", "L1reg", 
@@ -906,7 +943,7 @@
                 "-la", "1.0",
                 "--scale_regularization", "10.0",
                 // "--lam_raw", "0.1",
-                "-dw","1",
+                "-dw","1", 
                 "-S2",
                 "-NIR",
                 "-S1",
@@ -921,13 +958,14 @@
                 "-exZH",
                 "-val", "1",
                 "--lr_step", "5",
-                "--lr_gamma", "0.5",
+                "--lr_gamma", "0.75",
                 // "--lr_gamma", "0.75",
                 "--full_aug",
+                // "--ascAug",
                 "--num_workers", "6", 
                 "--seed", "1612",
                 "-gc", "0.01",
-                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1555_154/last_model.pth",
+                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1577_622/last_model.pth",
                 "--supmode", "weaksup",
                 "--lam_weak", "100",
                 // "--supmode", "unsup",
@@ -965,6 +1003,7 @@
                 "-b", "16",
                 "-lr", "1e-5", 
                 "--model", "POMELO_module", 
+                "--head", "v2",
                 // "--head", "v3",
                 // "--feature_extractor", "DDA", 
                 "-l", "log_l1_loss", "L1reg", 
@@ -972,7 +1011,7 @@
                 "-la", "1.0", "10.0",
                 // "-la", "1.0",
                 // "--lam_raw", "0.1",
-                "--scale_regularization", "1.0",
+                "--scale_regularization", "10.0",
                 "-dw","4",
                 "-S2",
                 "-NIR",
@@ -1033,7 +1072,7 @@
                 "-b", "16",
                 "-lr", "1e-3", 
                 "--model", "POMELO_module",  
-                "--head", "v2",
+                "--head", "v3",
                 // "-l", "log_l1_loss", "L1reg", 
                 "-l", "log_l1_loss",
                 "--scale_regularization", "10.0",
@@ -1062,7 +1101,7 @@
                 "-gc", "0.01",
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1110_933/last_model.pth",
                 // "--parent", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1522_224/",
-                "--parent", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1561_87",
+                "--parent", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1566_92",
                 "--supmode", "weaksup",
                 "--lam_weak", "100",
                 // "--supmode", "unsup",

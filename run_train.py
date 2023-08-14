@@ -937,7 +937,7 @@ class Trainer:
                 splitmode = 'train' if self.args.weak_validation else 'all'
                 weak_datasets.append( Population_Dataset_target(reg, mode="weaksup", split=splitmode, patchsize=None, overlap=None, max_samples=args.max_weak_samples,
                                                                 fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
-                                                                ascfill=True, train_level=args.train_level, max_pix=self.args.max_weak_pix, **input_defs)  )
+                                                                ascfill=True, train_level=args.train_level, max_pix=self.args.max_weak_pix, ascAug=args.ascAug, **input_defs)  )
             dataloaders["weak_target_dataset"] = ConcatDataset(weak_datasets)
             
             # create own simulation of a dataloader for the weakdataset

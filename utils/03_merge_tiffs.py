@@ -42,11 +42,15 @@ def process(parent_dir, output_dir):
         # Skip if file already exists
         if isfile(output_file) or ty in ["S2spring", "S2summer", "S2autumn", "S2winter"]:
             print("File already exists, skipping") 
-        # elif ty in ["S1spring", "S1summer", "S1autumn", "S1winter","S1springAsc", "S1summerAsc", "S1autumnAsc", "S1winterAsc"]:
-        elif ty in ["S1springAsc", "S1summerAsc", "S1autumnAsc", "S1winterAsc"]:
+
+        elif ty in ["S1spring", "S1summer", "S1autumn", "S1winter","S1springAsc", "S1summerAsc", "S1autumnAsc", "S1winterAsc"]:
+        # elif ty in ["S1springAsc", "S1summerAsc", "S1autumnAsc", "S1winterAsc"]:
             # elif ty in ["S1winterAsc"]:
             # elif ty in ["S1spring", "S1summer", "S1autumn", "S1winter"]:
             print("Merging files to", output_file)
+            if isfile(output_file):
+                print("File already exists, skipping")
+                continue
             # Merge files
             if len(files_to_mosaic) < 7:
                 g = gdal.Warp(output_file, files_to_mosaic, format="GTiff", options=["COMPRESS=LZW"])
@@ -58,10 +62,16 @@ def process(parent_dir, output_dir):
                     for filename in tqdm(files_to_mosaic):
                         with rasterio.open(filename, "r") as src:
                             profile = src.profile.copy()
+                            
+                            # check if file is already compressed
+                            if profile["compress"] == "lzw" and profile["dtype"] == "float32":
+                                print("already compressed")
+                                continue
+
                             profile["compress"] = "lzw"
                             profile["dtype"] = "float32"
-                            # with rasterio.open(filename, "w", **profile) as dst:
-                            #     dst.write(src.read())
+
+
 
                         with rasterio.open(filename, "r") as src:
                             a = src.read()
@@ -90,8 +100,8 @@ def process(parent_dir, output_dir):
             g = gdal.Translate(output_file1C, g, format="GTiff", bandList=[2,3,4,8], outputType=gdal.GDT_UInt16, options=["COMPRESS=LZW"])
             g = None
 
-        # if ty in ["S2Aspring", "S2Asummer", "S2Aautumn", "S2Awinter"]:
-        if ty in ["S2Aspring", "S2Asummer", "S2Aautumn"]:
+        if ty in ["S2Aspring", "S2Asummer", "S2Aautumn", "S2Awinter"]:
+        # if ty in ["S2Aspring", "S2Asummer", "S2Aautumn"]:
             # Skip if file already exists
             if isfile(output_file):
                 print("File already exists, skipping")
@@ -108,6 +118,12 @@ def process(parent_dir, output_dir):
                     for filename in tqdm(files_to_mosaic):
                         with rasterio.open(filename, "r") as src:
                             profile = src.profile.copy()
+
+                            # check if file is already compressed
+                            if profile["compress"] == "lzw" and profile["dtype"] == "uint16":
+                                print("already compressed")
+                                continue
+
                             profile["compress"] = "lzw"
                             profile["dtype"] = "uint16"
 

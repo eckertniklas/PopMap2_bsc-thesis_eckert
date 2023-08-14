@@ -281,23 +281,22 @@ class Trainer:
                     # forward pass and loss computation 
                     sample_weak = to_cuda_inplace(sample_weak) 
                     sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
+                    
                     # check if the input is to large
                     # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 1400000:
                     num_pix = sample_weak["input"].shape[0]*sample_weak["input"].shape[2]*sample_weak["input"].shape[3]
                     # limit1, limit2, limit3 = 10000000, 12500000, 15000000
                     limit1, limit2, limit3 =    4000000,  500000, 12000000
                     # limit1, limit2, limit3 =    2000000,  300000, 10000000
+
+                    encoder_no_grad, unet_no_grad = False, False 
                     if num_pix > limit1:
                         encoder_no_grad, unet_no_grad = True, False
-                        # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 6000000:
                         if num_pix > limit2:
                             encoder_no_grad, unet_no_grad = True, True 
-                            # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 12000000:
                             if num_pix > limit3:
                                 print("Input to large for encoder and unet")
-                                continue 
-                    else:
-                        encoder_no_grad, unet_no_grad = False, False 
+                                continue
 
                     output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
 

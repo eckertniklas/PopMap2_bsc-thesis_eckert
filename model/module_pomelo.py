@@ -136,6 +136,24 @@ class POMELO_module(nn.Module):
                 nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(h, 2, kernel_size=1, padding=0)
             )
+        elif head=="v6":
+            freq = 4 # for 2 dimensions and 2 components (sin and cos)
+            self.embedder = nn.Sequential(
+                nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
+            )
+            h = 64
+            head_input_dim += feature_dim + 1
+            self.head = nn.Sequential(
+                nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(h, 2, kernel_size=1, padding=0)
+            )
+            this_input_dim -= 1 # no building footprint
+
+
+
 
         # Build the main model
         if feature_extractor=="DDA":
@@ -278,7 +296,10 @@ class POMELO_module(nn.Module):
                 # popdensemap_raw = popdensemap_raw * inputs["building_counts"][:,0]
                 # popvarmap_raw = popvarmap_raw * inputs["building_counts"][:,0]
                 # for final
-                aux["scale"] = popdensemap.clone().cpu().detach()
+                # aux["scale"] = popdensemap.clone().cpu().detach()
+                aux["scale"] = popdensemap.clone().cpu()
+                # aux["scale"][inputs["building_counts"][:,0]==0] = 0
+
                 popdensemap = popdensemap * inputs["building_counts"][:,0]
                 # popdensemap = popdensemap * (inputs["building_counts"][:,0]>0.25)
                 # popdensemap = popdensemap * (inputs["building_counts"][:,0]>0.25) * inputs["building_counts"][:,0]

@@ -110,14 +110,17 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
                      "compress": "lzw"})
     with rasterio.open(hr_map_path_adj, 'w', **metadata) as dst:
         dst.write(hr_pop_map_adj.to(torch.float32).cpu().numpy(), 1)
+    print("Adjusted map saved to: ", hr_map_path_adj)
  
-     # reproject to the worldpop map
+    # reproject to the worldpop map
     hr_map_path_reproj = map_path.replace(".tif", "_hr_reproj.tif")
     _, _ = reproject_maps(map_path, wpop_raster_template, hr_map_path_reproj, sumpool=True)
+    print("Reprojected map to worldpop raster saved to: ", hr_map_path_reproj)
 
     # reproject to the worldpop map
     hr_map_path_adj_reproj = map_path.replace(".tif", "_hr_adj_reproj.tif")
     _, _ = reproject_maps(hr_map_path_adj, wpop_raster_template, hr_map_path_adj_reproj, sumpool=True)
+    print("Reprojected adjusted map to worldpop raster saved to: ", hr_map_path_adj_reproj)
 
     # define levels
     levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
@@ -154,7 +157,9 @@ if __name__=="__main__":
     Evaluates the Worldpop-maps on the test set of Rwanda
     """
     # sample
-    map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1542_618/rwa_predictions.tif"
+    # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1599_252/rwa_predictions.tif"
+    map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1602_553/rwa_predictions.tif"
+    # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1542_618/rwa_predictions.tif"
 
 
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa/S2Aautumn/rwa_S2Aautumn.tif"

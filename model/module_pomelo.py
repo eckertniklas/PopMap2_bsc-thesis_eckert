@@ -297,7 +297,7 @@ class POMELO_module(nn.Module):
                 # popvarmap_raw = popvarmap_raw * inputs["building_counts"][:,0]
                 # for final
                 # aux["scale"] = popdensemap.clone().cpu().detach()
-                aux["scale"] = popdensemap.clone().cpu()
+                aux["scale"] = popdensemap.clone()
                 # aux["scale"][inputs["building_counts"][:,0]==0] = 0
 
                 popdensemap = popdensemap * inputs["building_counts"][:,0]

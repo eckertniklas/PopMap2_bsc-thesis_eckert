@@ -941,7 +941,7 @@
                 "-l", "log_l1_loss",
                 // "-la", "1.0", "1.0",
                 "-la", "1.0",
-                "--scale_regularization", "10.0",
+                "--scale_regularization", "1.0",
                 // "--lam_raw", "0.1",
                 "-dw","1", 
                 "-S2",

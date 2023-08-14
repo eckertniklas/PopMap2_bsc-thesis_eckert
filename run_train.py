@@ -754,7 +754,7 @@ class Trainer:
                             output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popvarmap"][0][mask].cpu().to(torch.float16) 
 
                     if "scale" in output.keys():
-                        output_scale_map[xl:xl+ips, yl:yl+ips][mask] += output["scale"][0][mask].cpu().to(torch.float16)
+                        output_scale_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale"][0][mask].cpu().to(torch.float16)
 
                     output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
 

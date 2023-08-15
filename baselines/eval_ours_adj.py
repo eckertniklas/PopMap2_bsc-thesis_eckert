@@ -71,9 +71,9 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
 
     # load map
     with rasterio.open(map_path) as src:
-        pop_map = torch.from_numpy(src.read(1))
+        hr_pop_map = torch.from_numpy(src.read(1))
         # pop_map = pop_map.to(torch.float16)
-    pop_map[pop_map != pop_map] = 0
+    # hr_pop_map[hr_pop_map != hr_pop_map] = 0
     
     # translate the the meta maps in the template file coordinate system
     # force_recompute = False
@@ -83,14 +83,14 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
     #     x_stretch = 1.0
     #     y_stretch = 1.0
 
-    x_stretch = 1.0
-    y_stretch = 1.0
+    # x_stretch = 1.0
+    # y_stretch = 1.0
 
-    # Load the high resolution map
-    with rasterio.open(map_path) as src:
-        hr_pop_map = torch.from_numpy(src.read(1))
-        hr_pop_map = hr_pop_map/x_stretch/y_stretch
-        hr_pop_map = hr_pop_map.to(torch.float16)
+    # # Load the high resolution map
+    # with rasterio.open(map_path) as src:
+    #     hr_pop_map = torch.from_numpy(src.read(1))
+    #     hr_pop_map = hr_pop_map/x_stretch/y_stretch
+    #     hr_pop_map = hr_pop_map.to(torch.float16)
 
     # replace nan values with 0
     hr_pop_map[hr_pop_map != hr_pop_map] = 0
@@ -108,19 +108,24 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
     metadata = src.meta.copy()
     metadata.update({"dtype": "float32",
                      "compress": "lzw"})
-    with rasterio.open(hr_map_path_adj, 'w', **metadata) as dst:
-        dst.write(hr_pop_map_adj.to(torch.float32).cpu().numpy(), 1)
-    print("Adjusted map saved to: ", hr_map_path_adj)
- 
+
+    if not os.path.exists( hr_map_path_adj):
+        with rasterio.open(hr_map_path_adj, 'w', **metadata) as dst:
+            dst.write(hr_pop_map_adj.to(torch.float32).cpu().numpy(), 1)
+        print("Adjusted map saved to: ", hr_map_path_adj)
+    
     # reproject to the worldpop map
+    
     hr_map_path_reproj = map_path.replace(".tif", "_hr_reproj.tif")
-    _, _ = reproject_maps(map_path, wpop_raster_template, hr_map_path_reproj, sumpool=True)
-    print("Reprojected map to worldpop raster saved to: ", hr_map_path_reproj)
+    if not os.path.exists(hr_map_path_reproj):
+        _, _ = reproject_maps(map_path, wpop_raster_template, hr_map_path_reproj, sumpool=True)
+        print("Reprojected map to worldpop raster saved to: ", hr_map_path_reproj)
 
     # reproject to the worldpop map
     hr_map_path_adj_reproj = map_path.replace(".tif", "_hr_adj_reproj.tif")
-    _, _ = reproject_maps(hr_map_path_adj, wpop_raster_template, hr_map_path_adj_reproj, sumpool=True)
-    print("Reprojected adjusted map to worldpop raster saved to: ", hr_map_path_adj_reproj)
+    if not os.path.exists(hr_map_path_adj_reproj):
+        _, _ = reproject_maps(hr_map_path_adj, wpop_raster_template, hr_map_path_adj_reproj, sumpool=True)
+        print("Reprojected adjusted map to worldpop raster saved to: ", hr_map_path_adj_reproj)
 
     # define levels
     levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
@@ -158,7 +163,9 @@ if __name__=="__main__":
     """
     # sample
     # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1599_252/rwa_predictions.tif"
-    map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1602_553/rwa_predictions.tif"
+    map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1610_250/rwa_predictions.tif"
+    # map_path = "/scratch2/metzgern/Downloads/experiment_155_459/rwa_predictions.tif"
+    # map_path = "/scratch2/metzgern/Downloads/experiment_155_459/rwa_predictions.tif"
     # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1542_618/rwa_predictions.tif"
 
 

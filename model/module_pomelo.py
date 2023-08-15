@@ -50,7 +50,7 @@ class POMELO_module(nn.Module):
         self.useposembedding = useposembedding
         self.feature_extractor = feature_extractor
         self.head_name = head
-        head_input_dim = feature_dim
+        head_input_dim = 0
         
         # Padding Params
         self.p = 14
@@ -98,6 +98,8 @@ class POMELO_module(nn.Module):
                 nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
             )
 
+            head_input_dim += feature_dim
+
 
         if head=="v1":
             self.head = nn.Sequential(
@@ -136,7 +138,7 @@ class POMELO_module(nn.Module):
                 nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(h, 2, kernel_size=1, padding=0)
             )
-        elif head=="v6":
+        elif head=="v5":
             freq = 4 # for 2 dimensions and 2 components (sin and cos)
             self.embedder = nn.Sequential(
                 nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(),
@@ -179,7 +181,8 @@ class POMELO_module(nn.Module):
         self.params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
 
         # print size of the embedder and head network
-        print("Embedder: ",sum(p.numel() for p in self.embedder.parameters() if p.requires_grad))
+        if hasattr(self, "embedder"):
+            print("Embedder: ",sum(p.numel() for p in self.embedder.parameters() if p.requires_grad)) 
         print("Head: ",sum(p.numel() for p in self.head.parameters() if p.requires_grad))
 
     def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True, encoder_no_grad=False, unet_no_grad=False):
@@ -224,7 +227,12 @@ class POMELO_module(nn.Module):
                 inputdata = torch.cat([inputdata, pose], dim=1)
 
         else:
-            inputdata = inputdata
+            if self.head_name in ["v2", "v4"]:
+                inputdata = inputdata
+            elif self.head_name in ["v3"]:
+                inputdata = inputdata[:,0:-1] # remove the building footprint from the variables
+            else:
+                inputdata = inputdata
 
         # Add padding
         data, (px1,px2,py1,py2) = self.add_padding(inputdata, padding)
@@ -267,9 +275,15 @@ class POMELO_module(nn.Module):
                 else:
                     if self.occupancymodel:
                         # TODO: switch to sparse convolutions, since self.head is an MLP, and the output is eventually sparse anyways
-                        out = self.head(torch.cat([features, pose, inputs["building_counts"]], dim=1))
+                        if self.useposembedding:
+                            out = self.head(torch.cat([features, pose, inputs["building_counts"]], dim=1))
+                        else:
+                            out = self.head(torch.cat([features, inputs["building_counts"]], dim=1))
                     else:
-                        out = self.head(torch.cat([features, pose, inputs["building_counts"]], dim=1))
+                        if self.useposembedding:
+                            out = self.head(torch.cat([features, pose, inputs["building_counts"]], dim=1))
+                        else:
+                            out = self.head(torch.cat([features, inputs["building_counts"]], dim=1))
             else:
                 out = self.head(features)
 

@@ -954,7 +954,7 @@ class Trainer:
                 for reg in args.target_regions:
                     weak_datasets_val.append(Population_Dataset_target(reg, mode="weaksup", split="val", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
                                                                     fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
-                                                                    ascfill=True, train_level=args.train_level, max_pix=self.args.max_weak_pix*2, **input_defs) )
+                                                                    ascfill=True, train_level=args.train_level, max_pix=self.args.max_weak_pix, **input_defs) )
                 dataloaders["weak_target_val"] = [ DataLoader(weak_datasets_val[i], batch_size=self.args.weak_val_batch_size, num_workers=1, shuffle=False, collate_fn=Population_Dataset_collate_fn, drop_last=True) for i in range(len(args.target_regions)) ]
 
         return dataloaders

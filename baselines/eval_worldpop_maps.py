@@ -120,8 +120,8 @@ if __name__=="__main__":
     """
     # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020.tif"
     # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_UNadj.tif"
-    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_constrained.tif"
-    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_UNadj_constrained.tif"
+    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_constrained.tif"
+    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_UNadj_constrained.tif"
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa/S2Aautumn/rwa_S2Aautumn.tif"
 
     evaluate_meta_maps(map_path, template_path)

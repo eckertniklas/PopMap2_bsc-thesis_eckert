@@ -196,8 +196,8 @@ class Trainer:
         with tqdm(range(self.info["epoch"], self.args.num_epochs), leave=True) as tnr:
             tnr.set_postfix(training_loss=np.nan, validation_loss=np.nan, best_validation_loss=np.nan)
             for _ in tnr:
-                
-                # self.validate_weak()
+                # if self.args.supmode=="weaksup" and self.args.weak_validation:
+                #     self.validate_weak()
                 
                 self.train_epoch(tnr)
                 torch.cuda.empty_cache()
@@ -720,6 +720,9 @@ class Trainer:
         with torch.no_grad(): 
             self.target_test_stats = defaultdict(float)
             for testdataloader in self.dataloaders["test_target"]:
+                if testdataloader.dataset.region in ["uga"]:
+                    continue
+
 
                 # inputialize the output map
                 h, w = testdataloader.dataset.shape()

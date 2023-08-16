@@ -97,6 +97,7 @@ class POMELO_module(nn.Module):
                 nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
             )
+            self.embedding_dim = feature_dim
 
             head_input_dim += feature_dim
 
@@ -217,7 +218,7 @@ class POMELO_module(nn.Module):
             else:
                 # TODO: optimize for occupancy model
                 if self.occupancymodel:
-                    pose = self.sparse_forward(inputs["positional_encoding"], inputs["building_counts"][:,0]>0, self.embedder, out_channels=8)
+                    pose = self.sparse_forward(inputs["positional_encoding"], inputs["building_counts"][:,0]>0, self.embedder, out_channels=self.embedding_dim)
                 # pose = self.embedder(inputs["positional_encoding"])
 
             # Concatenate the pose embedding to the input data
@@ -285,7 +286,7 @@ class POMELO_module(nn.Module):
                         else:
                             headin = torch.cat([features, inputs["building_counts"]], dim=1)
 
-                        out = self.sparse_forward(headin, inputs["building_counts"][:,0]>0, self.head, out_channels=8)
+                        out = self.sparse_forward(headin, inputs["building_counts"][:,0]>0, self.head, out_channels=2)
 
 
                         # # bring everything together

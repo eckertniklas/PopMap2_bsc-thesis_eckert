@@ -197,6 +197,8 @@ class Trainer:
             tnr.set_postfix(training_loss=np.nan, validation_loss=np.nan, best_validation_loss=np.nan)
             for _ in tnr:
                 
+                # self.validate_weak()
+                
                 self.train_epoch(tnr)
                 torch.cuda.empty_cache()
 
@@ -433,7 +435,7 @@ class Trainer:
                         if output_weak is not None:
                             output_weak = detach_tensors_in_dict(output_weak)
                             del output_weak
-                        torch.cuda.empty_cache()
+                        # torch.cuda.empty_cache()
                         del sample 
                         gc.collect()
 
@@ -951,7 +953,8 @@ class Trainer:
 
             weak_datasets_val = []
             if self.args.weak_validation:
-                for reg in args.target_regions:
+                # for reg in args.target_regions:
+                for reg in list(set(args.target_regions) | set(args.target_regions_train)):
                     weak_datasets_val.append(Population_Dataset_target(reg, mode="weaksup", split="val", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
                                                                     fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
                                                                     ascfill=True, train_level=args.train_level, max_pix=self.args.max_weak_pix, **input_defs) )

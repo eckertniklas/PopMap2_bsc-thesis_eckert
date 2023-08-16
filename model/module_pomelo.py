@@ -215,7 +215,10 @@ class POMELO_module(nn.Module):
                                   dim=1)
                 pose = self.embedder(xy)
             else:
-                pose = self.embedder(inputs["positional_encoding"])
+                # TODO: optimize for occupancy model
+                if self.occupancymodel:
+                    pose = self.sparse_forward(inputs["positional_encoding"], inputs["building_counts"][:,0]>0, self.embedder, out_channels=8)
+                # pose = self.embedder(inputs["positional_encoding"])
 
             # Concatenate the pose embedding to the input data
 
@@ -275,10 +278,40 @@ class POMELO_module(nn.Module):
                 else:
                     if self.occupancymodel:
                         # TODO: switch to sparse convolutions, since self.head is an MLP, and the output is eventually sparse anyways
+                        
+                        # prepare the input to the head
                         if self.useposembedding:
-                            out = self.head(torch.cat([features, pose, inputs["building_counts"]], dim=1))
+                            headin = torch.cat([features, pose, inputs["building_counts"]], dim=1)
                         else:
-                            out = self.head(torch.cat([features, inputs["building_counts"]], dim=1))
+                            headin = torch.cat([features, inputs["building_counts"]], dim=1)
+
+                        out = self.sparse_forward(headin, inputs["building_counts"][:,0]>0, self.head, out_channels=8)
+
+
+                        # # bring everything together
+                        # batch_size, channels, height, width = headin.shape
+                        # try:
+                        #     headin_flat = headin.permute(1,0,2,3).view(channels, -1, 1)
+                        # except:
+                        #     headin_flat = headin.permute(1,0,2,3).reshape(channels, -1, 1)
+                        # mask = inputs["building_counts"][:,0]>0
+                        # mask_flat = mask.view(-1)
+                        # headin_flat_masked = headin_flat[:, mask_flat]
+
+                        # # flatten
+
+                        # # initialize the output
+                        # out_flat = torch.zeros((2, batch_size*height*width,1), device=headin.device)
+                        
+                        # # perform the forward pass
+                        # out_flat[ :, mask_flat] = self.head(headin_flat_masked)
+                        
+                        # # reshape the output
+                        # out = out_flat.view(2, batch_size, height, width).permute(1,0,2,3)
+
+
+                        # out2 = self.head(torch.cat([features, inputs["building_counts"]], dim=1))
+
                     else:
                         if self.useposembedding:
                             out = self.head(torch.cat([features, pose, inputs["building_counts"]], dim=1))
@@ -354,6 +387,33 @@ class POMELO_module(nn.Module):
                 # "decoder_features": decoder_features
                 }
 
+
+    def sparse_forward(self, inp, mask, module, out_channels=2):
+
+        # bring everything together
+        batch_size, channels, height, width = inp.shape
+        try:
+            inp_flat = inp.permute(1,0,2,3).view(channels, -1, 1)
+        except:
+            inp_flat = inp.permute(1,0,2,3).reshape(channels, -1, 1)
+
+        # flatten mask
+        mask_flat = mask.view(-1)
+        
+        # apply mask to the input
+        inp_flat_masked = inp_flat[:, mask_flat]
+
+        # initialize the output
+        out_flat = torch.zeros((out_channels, batch_size*height*width,1), device=inp.device)
+        
+        # perform the forward pass
+        out_flat[ :, mask_flat] = module(inp_flat_masked)
+        
+        # reshape the output
+        out = out_flat.view(out_channels, batch_size, height, width).permute(1,0,2,3)
+
+        return out
+    
 
     def add_padding(self, data, force=True):
         # Add padding

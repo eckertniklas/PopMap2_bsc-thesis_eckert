@@ -121,7 +121,7 @@ def process(parent_dir, output_dir):
 
                             # check if file is already compressed
                             if profile["compress"] == "lzw" and profile["dtype"] == "uint16":
-                                print("already compressed")
+                                # print("already compressed")
                                 continue
 
                             profile["compress"] = "lzw"

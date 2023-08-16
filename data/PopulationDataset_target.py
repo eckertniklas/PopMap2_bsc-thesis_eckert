@@ -55,6 +55,10 @@ class Population_Dataset_target(Dataset):
         """
         super().__init__()
 
+        print("---------------------")
+        print("Setting up dataset", region, "with mode", mode, "and split", split)
+        
+
         self.region = region
         self.S1 = S1
         self.S2 = S2
@@ -94,12 +98,6 @@ class Population_Dataset_target(Dataset):
             self.coarse_census = pd.read_csv(self.file_paths[train_level]["census"])
             # self.coarse_census = pd.read_csv(self.coarse_census_file)
             # max_pix = 2e6
-            max_pix = max_pix
-            # max_pix = 1.25e6
-            # max_pix = 1e16
-            # max_pix = 1e16
-            print("Kicking out ", (self.coarse_census["count"]>=max_pix).sum(), "samples with more than ", int(max_pix), " pixels")
-            self.coarse_census = self.coarse_census[self.coarse_census["count"]<max_pix].reset_index(drop=True)
 
             # kicking out samples that are ugly shaped and difficualt to handle using the skip_indices
             self.coarse_census = self.coarse_census[~self.coarse_census["idx"].isin(skip_indices[region])].reset_index(drop=True)
@@ -111,6 +109,7 @@ class Population_Dataset_target(Dataset):
 
             if split=="all":
                 self.coarse_census = self.coarse_census
+                print("Using", len(self.coarse_census), "samples in this dataset")
             elif split=="train":
                 # shuffle and split the data
                 self.coarse_census = self.coarse_census.sample(frac=1, random_state=1610)[:int(len(self.coarse_census)*0.8)].reset_index(drop=True)
@@ -121,6 +120,13 @@ class Population_Dataset_target(Dataset):
                 print("Using", len(self.coarse_census), "samples for weakly supervised validation")
             else:
                 raise ValueError("Split not recognized")
+
+            max_pix = max_pix
+            # max_pix = 1.25e6
+            # max_pix = 1e16
+            # max_pix = 1e16
+            print("Kicking out ", (self.coarse_census["count"]>=max_pix).sum(), "samples with more than ", int(max_pix), " pixels")
+            self.coarse_census = self.coarse_census[self.coarse_census["count"]<max_pix].reset_index(drop=True)
 
             # get the shape of the coarse regions
             with rasterio.open(self.file_paths[train_level]["boundary"], "r") as src:
@@ -159,7 +165,7 @@ class Population_Dataset_target(Dataset):
 
 
         if not os.path.exists(S1spring_file):
-            print("S1 file does not exist")
+            print("Using virtual rasters for S1")
         
             spring_dir = os.path.join(rawEE_map_root, region, "S1spring")
             summer_dir = os.path.join(rawEE_map_root, region, "S1summer")

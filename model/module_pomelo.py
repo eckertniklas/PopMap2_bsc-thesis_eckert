@@ -278,7 +278,7 @@ class POMELO_module(nn.Module):
                     out = self.head(torch.cat([features, pose, output_dict["popdensemap"], inputs["building_counts"]], dim=1))
                 else:
                     if self.occupancymodel:
-                        # TODO: switch to sparse convolutions, since self.head is an MLP, and the output is eventually sparse anyways
+                        
                         
                         # prepare the input to the head
                         if self.useposembedding:

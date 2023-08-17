@@ -218,8 +218,8 @@ class POMELO_module(nn.Module):
             else:
                 # TODO: optimize for occupancy model
                 if self.occupancymodel:
-                    pose = self.sparse_forward(inputs["positional_encoding"], inputs["building_counts"][:,0]>0, self.embedder, out_channels=self.embedding_dim)
-                # pose = self.embedder(inputs["positional_encoding"])
+                    # pose = self.sparse_forward(inputs["positional_encoding"], inputs["building_counts"][:,0]>0, self.embedder, out_channels=self.embedding_dim)
+                    pose = self.embedder(inputs["positional_encoding"])
 
             # Concatenate the pose embedding to the input data
 
@@ -286,32 +286,9 @@ class POMELO_module(nn.Module):
                         else:
                             headin = torch.cat([features, inputs["building_counts"]], dim=1)
 
-                        out = self.sparse_forward(headin, inputs["building_counts"][:,0]>0, self.head, out_channels=2)
+                        # out = self.sparse_forward(headin, inputs["building_counts"][:,0]>0, self.head, out_channels=2)
+                        out = self.head(headin)
 
-
-                        # # bring everything together
-                        # batch_size, channels, height, width = headin.shape
-                        # try:
-                        #     headin_flat = headin.permute(1,0,2,3).view(channels, -1, 1)
-                        # except:
-                        #     headin_flat = headin.permute(1,0,2,3).reshape(channels, -1, 1)
-                        # mask = inputs["building_counts"][:,0]>0
-                        # mask_flat = mask.view(-1)
-                        # headin_flat_masked = headin_flat[:, mask_flat]
-
-                        # # flatten
-
-                        # # initialize the output
-                        # out_flat = torch.zeros((2, batch_size*height*width,1), device=headin.device)
-                        
-                        # # perform the forward pass
-                        # out_flat[ :, mask_flat] = self.head(headin_flat_masked)
-                        
-                        # # reshape the output
-                        # out = out_flat.view(2, batch_size, height, width).permute(1,0,2,3)
-
-
-                        # out2 = self.head(torch.cat([features, inputs["building_counts"]], dim=1))
 
                     else:
                         if self.useposembedding:

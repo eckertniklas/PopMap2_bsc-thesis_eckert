@@ -435,7 +435,7 @@ class Trainer:
                         if output_weak is not None:
                             output_weak = detach_tensors_in_dict(output_weak)
                             del output_weak
-                        # torch.cuda.empty_cache()
+                        torch.cuda.empty_cache()
                         del sample 
                         gc.collect()
 

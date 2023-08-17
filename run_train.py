@@ -315,7 +315,9 @@ class Trainer:
                                 output_weak["intermediate"]["popvar"] = output_weak["intermediate"]["popvar"].sum(dim=0, keepdim=True)
 
                     loss_weak, loss_dict_weak = get_loss(
-                        output_weak, sample_weak, scale=output_weak["scale"], loss=args.loss, lam=args.lam, merge_aug=args.merge_aug, scale_regularization=args.scale_regularization, tag="weak")
+                        output_weak, sample_weak, scale=output_weak["scale"], empty_scale=output_weak["empty_scale"], loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
+                        scale_regularization=args.scale_regularization, scale_regularizationL2=args.scale_regularizationL2, emptyscale_regularizationL2=args.emptyscale_regularizationL2,
+                        tag="weak")
                     
                     # Detach tensors
                     loss_dict_weak = detach_tensors_in_dict(loss_dict_weak)
@@ -324,8 +326,9 @@ class Trainer:
                         boosted_loss = [el.replace("gaussian", "l1") if el in ["gaussian_nll", "log_gaussian_nll", "gaussian_aug_loss", "log_gaussian_aug_loss"] else el for el in args.loss]
                         boosted_loss = [el.replace("laplace", "l1") if el in ["laplacian_nll", "log_laplacian_nll", "laplace_aug_loss", "log_laplace_aug_loss"] else el for el in boosted_loss]
                         loss_weak_raw, loss_weak_dict_raw = get_loss(
-                            output_weak["intermediate"], sample_weak, scale=output_weak["intermediate"]["scale"], loss=boosted_loss,
-                            lam=args.lam, merge_aug=args.merge_aug, scale_regularization=args.scale_regularization, tag="train_weak_intermediate")
+                            output_weak["intermediate"], sample_weak, scale=output_weak["intermediate"]["scale"], empty_scale=output_weak["intermediate"]["empty_scale"], loss=boosted_loss,
+                            lam=args.lam, merge_aug=args.merge_aug, scale_regularization=args.scale_regularization, scale_regularizationL2=args.scale_regularizationL2, emptyscale_regularizationL2=args.emptyscale_regularizationL2,
+                            tag="train_weak_intermediate")
                         
                         loss_weak_dict_raw = detach_tensors_in_dict(loss_weak_dict_raw)
                         loss_dict_weak = {**loss_dict_weak, **loss_weak_dict_raw}
@@ -359,20 +362,24 @@ class Trainer:
                     output = self.model(sample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
                 
                     # compute loss
-                    loss, loss_dict = get_loss(output, sample, scale=output["scale"], loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
+                    loss, loss_dict = get_loss(output, sample, scale=output["scale"], empty_scale=output["empty_scale"], loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
                                             lam_adv=args.lam_adv if self.args.adversarial else 0.0,
                                             lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                             lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
                                             scale_regularization=args.scale_regularization,
+                                            scale_regularizationL2=args.scale_regularizationL2,
+                                            emptyscale_regularizationL2=args.emptyscale_regularizationL2,
                                             tag="train_main")
                     if self.boosted:
                         boosted_loss = [el.replace("gaussian", "l1") if el in ["gaussian_nll", "log_gaussian_nll", "gaussian_aug_loss", "log_gaussian_aug_loss"] else el for el in args.loss]
                         boosted_loss = [el.replace("laplace", "l1") if el in ["laplacian_nll", "log_laplacian_nll", "laplace_aug_loss", "log_laplace_aug_loss"] else el for el in boosted_loss]
-                        loss_raw, loss_dict_raw = get_loss(output["intermediate"], sample,  scale=output["intermediate"]["scale"], loss=boosted_loss, lam=args.lam, merge_aug=args.merge_aug,
+                        loss_raw, loss_dict_raw = get_loss(output["intermediate"], sample,  scale=output["intermediate"]["scale"], empty_scale=output["intermediate"]["empty_scale"], loss=boosted_loss, lam=args.lam, merge_aug=args.merge_aug,
                                             lam_adv=args.lam_adv if self.args.adversarial else 0.0,
                                             lam_coral=args.lam_coral if self.args.CORAL else 0.0,
                                             lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
                                             scale_regularization=args.scale_regularization,
+                                            scale_regularizationL2=args.scale_regularizationL2,
+                                            emptyscale_regularizationL2=args.emptyscale_regularizationL2,
                                             tag="train_intermediate")
                         
                         loss += loss_raw * self.args.lam_raw

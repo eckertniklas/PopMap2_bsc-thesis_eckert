@@ -10,9 +10,9 @@ from torch.nn.modules.loss import _Loss
 from torch import Tensor
 
 
-def get_loss(output, gt, scale=None, loss=["l1_loss"], lam=[1.0], merge_aug=False,
+def get_loss(output, gt, scale=None, empty_scale=None, loss=["l1_loss"], lam=[1.0], merge_aug=False,
              lam_adv=0.0, lam_coral=0.0, lam_mmd=0.0, tag="",
-             scale_regularization=0.0, scale_regularizationL2=0.0):
+             scale_regularization=0.0, scale_regularizationL2=0.0, emptyscale_regularizationL2=0.0):
     """
     Compute the loss for the model
     input:
@@ -107,6 +107,11 @@ def get_loss(output, gt, scale=None, loss=["l1_loss"], lam=[1.0], merge_aug=Fals
         if scale_regularizationL2 is not None:
             optimization_loss += scale_regularizationL2 * popdict["scaleL2"]
 
+    if empty_scale is not None:
+        popdict["empty_scale"] = empty_scale.abs().mean()
+        popdict["empty_scaleL2"] = empty_scale.pow(2).mean()
+        if emptyscale_regularizationL2 is not None:
+            optimization_loss += emptyscale_regularizationL2 * popdict["empty_scaleL2"]
 
     # prepare for logging
     if tag=="":

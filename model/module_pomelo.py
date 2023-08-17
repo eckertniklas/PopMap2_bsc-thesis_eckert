@@ -313,7 +313,7 @@ class POMELO_module(nn.Module):
             # activation function
             popvarmap = nn.functional.softplus(out[:,1])
             # popdensemap = nn.functional.softplus(out[:,0])
-            popdensemap = nn.functional.relu(out[:,0])
+            scale = nn.functional.relu(out[:,0])
 
             # for raw
             if "building_counts" in inputs.keys():
@@ -322,10 +322,9 @@ class POMELO_module(nn.Module):
                 # popvarmap_raw = popvarmap_raw * inputs["building_counts"][:,0]
                 # for final
                 # aux["scale"] = popdensemap.clone().cpu().detach()
-                aux["scale"] = popdensemap.clone()
-                # aux["scale"][inputs["building_counts"][:,0]==0] = 0
-
-                popdensemap = popdensemap * inputs["building_counts"][:,0]
+                aux["scale"] = scale
+                aux["empty_scale"] = scale * (1-inputs["building_counts"][:,0]) 
+                popdensemap = scale * inputs["building_counts"][:,0]
                 # popdensemap = popdensemap * (inputs["building_counts"][:,0]>0.25)
                 # popdensemap = popdensemap * (inputs["building_counts"][:,0]>0.25) * inputs["building_counts"][:,0]
                 # popvarmap = popvarmap #* inputs["building_counts"][:,0]

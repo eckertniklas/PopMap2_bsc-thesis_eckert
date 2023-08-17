@@ -11,7 +11,8 @@ from torch import Tensor
 
 
 def get_loss(output, gt, scale=None, loss=["l1_loss"], lam=[1.0], merge_aug=False,
-             lam_adv=0.0, lam_coral=0.0, lam_mmd=0.0, tag="", scale_regularization=0.0):
+             lam_adv=0.0, lam_coral=0.0, lam_mmd=0.0, tag="",
+             scale_regularization=0.0, scale_regularizationL2=0.0):
     """
     Compute the loss for the model
     input:
@@ -99,9 +100,13 @@ def get_loss(output, gt, scale=None, loss=["l1_loss"], lam=[1.0], merge_aug=Fals
 
     # occupancy scale regularization
     if scale is not None:
-        popdict = {**popdict, **{"scale": scale.abs().mean()}}
+        popdict["scale"] = scale.abs().mean()
+        popdict["scaleL2"] = scale.pow(2).mean()
         if scale_regularization>0.0:
             optimization_loss += scale_regularization * popdict["scale"]
+        if scale_regularizationL2 is not None:
+            optimization_loss += scale_regularizationL2 * popdict["scaleL2"]
+
 
     # prepare for logging
     if tag=="":

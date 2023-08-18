@@ -22,10 +22,11 @@ if os.name == "nt":  # locally
     current_dir_path = dirname(dirname((os.getcwd())))
 
 # current_dir_path = "/scratch2/metzgern/HAC/code/So2SatPOP/data"
+# So2Sat data folder
 current_dir_paths = [
     "/scratch/metzgern/HAC/data",
     "/cluster/work/igp_psr/metzgern/HAC/data",
-    "/cluster/scratch/metzgern/HAC/data/",
+    # "/cluster/scratch/metzgern/HAC/data/",
 ]
 # --info=progress2 --info=name0 --ignore-existing
 
@@ -65,7 +66,7 @@ pop_map_covariates = os.path.join(large_file_path, os.path.join("PopMapData", os
 pop_map_covariates_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.join("PopMapData", os.path.join("merged", "EE")))
 
 
-# Sat2Pop data folder
+# raw data folder
 raw_file_paths = [
         "/scratch/metzgern/HAC/data",
         "/scratch2/metzgern/HAC/data",
@@ -81,7 +82,7 @@ raw_map_root = os.path.join(raw_file_path, os.path.join("PopMapData", "raw"))
 rawEE_map_root = os.path.join(raw_map_root, "EE")
 
 
-# Sat2Pop data folder
+# google buildings data folder
 data_paths_aux = [
         "/scratch/metzgern/HAC/data",
         "/scratch2/metzgern/HAC/data",

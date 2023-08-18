@@ -69,7 +69,7 @@
                 "5.955490",
                 "46.914333",
                 "10.492294",
-                "checp2"
+                "che"
             ]
         },
         {
@@ -307,6 +307,17 @@
             "args": [
                 "/scratch2/metzgern/HAC/data/PopMapData/raw/EE/afg",
                 "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/afg"
+            ]
+        },
+        {
+            "name": "03_merge_tiffs.py, che",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/03_merge_tiffs.py",
+            "console": "integratedTerminal",
+            "args": [
+                "/scratch2/metzgern/HAC/data/PopMapData/raw/EE/che",
+                "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/che"
             ]
         },
         {

@@ -133,8 +133,6 @@ def process(parent_dir, output_dir):
                         with rasterio.open(filename, "w", **profile) as dst:
                             dst.write(a)
 
-
-
     return None
 
 def main():

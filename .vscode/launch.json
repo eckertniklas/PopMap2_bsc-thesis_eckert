@@ -1286,7 +1286,7 @@
                 // "--max_samples", "200",
                 "-e",   "100",
                 "-b", "16",
-                "-lr", "1e-3", 
+                "-lr", "1e-2", 
                 "--model", "POMELO_module",  
                 "--head", "v3",
                 // "-l", "log_l1_loss", "L1reg", 

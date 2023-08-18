@@ -164,7 +164,7 @@ datalocations = {
 }
 
 testlevels = {
-    'pricp2': ["fine", "fineTRACTCE"],
+    'pricp2': ["fine", "fineTRACTCE", "fineBLOCKCE"],
     # 'rwa': ["coarse"]
     'rwa': ["fine100", "fine200", "fine400", "fine1000", "coarse"],
     'uga': ["coarse"]

@@ -14,7 +14,10 @@ import matplotlib.pyplot as plt
 # from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep, ResBlocksSqueeze
 # from model.ownmodels import BoostUNet
 import json
-from utils.plot import plot_2dmatrix
+try:
+    from plot import plot_2dmatrix
+except:
+    from utils.plot import plot_2dmatrix
 
 def to_cuda(sample):
     sampleout = {}

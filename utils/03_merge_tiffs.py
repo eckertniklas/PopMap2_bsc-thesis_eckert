@@ -52,7 +52,7 @@ def process(parent_dir, output_dir):
                 print("File already exists, skipping")
                 continue
             # Merge files
-            if len(files_to_mosaic) < 7:
+            if len(files_to_mosaic) < 16:
                 g = gdal.Warp(output_file, files_to_mosaic, format="GTiff", options=["COMPRESS=LZW"])
                 
             else:
@@ -108,7 +108,7 @@ def process(parent_dir, output_dir):
                 continue
             print("Merging files to", output_file)
             # Merge files
-            if len(files_to_mosaic) < 7:
+            if len(files_to_mosaic) < 16:
                 g = gdal.Warp(output_file, files_to_mosaic, format="GTiff", outputType=gdal.GDT_UInt16, options=["COMPRESS=LZW,bandList=[2,3,4,8]"]) 
             else:
                 # compress the raw files first

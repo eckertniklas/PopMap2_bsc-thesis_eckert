@@ -912,8 +912,8 @@ class Trainer:
                                             transform=None,random_season=args.random_season, **params)
         datasets = {
             "train": train_dataset,
-            "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", transform=None, **params),
-            "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", transform=None, **params),
+            # "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", transform=None, **params),
+            # "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", transform=None, **params),
             "test_target": [ Population_Dataset_target(reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, **input_defs) for reg in args.target_regions ]
         }
         
@@ -927,8 +927,8 @@ class Trainer:
         # create the dataloaders
         dataloaders =  {
             "train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, sampler=custom_sampler, shuffle=shuffle, drop_last=True, pin_memory=False),
-            "val":  DataLoader(datasets["val"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False, pin_memory=True),
-            "test":  DataLoader(datasets["test"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False, pin_memory=True),
+            # "val":  DataLoader(datasets["val"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False, pin_memory=True),
+            # "test":  DataLoader(datasets["test"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False, pin_memory=True),
             "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False) for datasets["test_target"] in datasets["test_target"] ]
         }
         

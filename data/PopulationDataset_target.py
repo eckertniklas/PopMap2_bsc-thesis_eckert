@@ -127,6 +127,7 @@ class Population_Dataset_target(Dataset):
             # max_pix = 1e16
             print("Kicking out ", (self.coarse_census["count"]>=max_pix).sum(), "samples with more than ", int(max_pix), " pixels")
             self.coarse_census = self.coarse_census[self.coarse_census["count"]<max_pix].reset_index(drop=True)
+            print("Effective number of samples: ", len(self.coarse_census))
 
             # get the shape of the coarse regions
             with rasterio.open(self.file_paths[train_level]["boundary"], "r") as src:
@@ -149,6 +150,7 @@ class Population_Dataset_target(Dataset):
 
         # get the path to the data files
         covar_root = os.path.join(pop_map_covariates, region)
+        covar_root = covar_root if os.path.exists(covar_root) else covar_root.replace("scratch", "scratch2")
         # self.S1_file = os.path.join(covar_root,  os.path.join("S1", region +"_S1.tif"))
         S1spring_file = os.path.join(covar_root,  os.path.join("S1spring", region +"_S1spring.tif"))
         S1summer_file = os.path.join(covar_root,  os.path.join("S1summer", region +"_S1summer.tif"))
@@ -212,7 +214,6 @@ class Population_Dataset_target(Dataset):
             S2autumn_file = os.path.join(covar_root,  os.path.join("S2Aautumn", region +"_S2Aautumn.tif"))
             S2winter_file = os.path.join(covar_root,  os.path.join("S2Awinter", region +"_S2Awinter.tif"))
             
-            # TODO: check if file exists
             # if not exists, we use the virtual rasters of the raw files
             # if exists, we use the preprocessed files
 
@@ -267,12 +268,13 @@ class Population_Dataset_target(Dataset):
                 self.img_shape = src.shape
         
             self.pos_enc = PositionalEncoding2D(src.shape, 2)
-            # test = self.pos_enc(window=((1050,1100), (1075, 1110)))
 
         # normalize the dataset (do not use, this does not make sense for variable regions sizes like here)
         self.y_stats = load_json(os.path.join(config_path, 'dataset_stats', 'label_stats.json'))
         self.y_stats['max'] = float(self.y_stats['max'])
         self.y_stats['min'] = float(self.y_stats['min'])
+
+        print("---------------------")
 
     # delete the dataset
     def __del__(self):
@@ -398,7 +400,7 @@ class Population_Dataset_target(Dataset):
                         raise Exception("No data here!")
                     
         # get admin_mask
-        admin_mask = torch.from_numpy(self.cr_regions[w[0][0]:w[0][1], w[1][0]:w[1][1]])
+        admin_mask = torch.from_numpy(self.cr_regions[w[0][0]:w[0][1], w[1][0]:w[1][1]].astype(np.float32))
 
         # To Torch
         indata = {key:torch.from_numpy(np.asarray(val, dtype=np.float32)).type(torch.FloatTensor) for key,val in indata.items()}
@@ -442,7 +444,7 @@ class Population_Dataset_target(Dataset):
                 if torch.isnan(torch.tensor(indata["S1"])).sum() / torch.numel(torch.tensor(indata["S1"])) < 0.05 and not self.ascfill:
                     indata["S1"] = self.interpolate_nan(indata["S1"])
                 else:
-                    # generate another datapatch, but with the ascending orbit
+                    # generate another data patch, but with the ascending orbit
                     indataAsc, mask, window = self.generate_raw_data(x,y,season.item(), descending=False)
                     # indataAsc, mask, window = self.generate_raw_data(x,y, season=2, descending=False)
                     # indataAsc, _, _ = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0, admin_overlap=ad_over, descending=False)
@@ -453,6 +455,13 @@ class Population_Dataset_target(Dataset):
                         else:
                             print("S1 contains too many NaNs, skipping")
                             raise Exception("No data here!")
+                        
+            if "S2" in indata:
+                # assert indata["S1"].shape[1:] == indata["S2"].shape[1:], "S1 and S2 have different shapes"
+                if indata["S1"].shape[1:] != indata["S2"].shape[1:]:
+                    print("S1 and S2 have different shapes")
+                    raise Exception("different shapes")
+
         # To Torch
         indata = {key:torch.from_numpy(np.asarray(val, dtype=np.float32)).type(torch.FloatTensor) for key,val in indata.items()} 
         mask = torch.from_numpy(mask).type(torch.FloatTensor)

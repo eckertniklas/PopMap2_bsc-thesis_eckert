@@ -68,9 +68,6 @@ def main(args):
     # set to model to eval mode
     net.eval()
 
-    count = 0
-    running_mean = torch.zeros(6)
-
     # get predictions
     with torch.no_grad(): 
         h, w = dataloader.dataset.shape()
@@ -102,26 +99,12 @@ def main(args):
             output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
 
             # count += 1
-            # running_mean = (running_mean * (count - 1) + x_fusion.cpu().mean((2,3))) / count
-            # print(running_mean)
-
-            # write chunk to file
-            # with rasterio.open(os.path.join(region_root, "buildingsDDA2_4.tif"), 'w', **metadata) as dst:
-            #     data_chunk = output_map[xl:xl+ips, yl:yl+ips].astype(np.float32)
-            #     window = Window(yl, xl, data_chunk.shape[1], data_chunk.shape[0])
-            #     dst.write(data_chunk, 1, window=window)
-    
-
-    # plot_2dmatrix(torch.sigmoid(output_map.to(torch.float32)))
-    # plot_2dmatrix(output_map)
-    # plot_2dmatrix(output_map_count)
 
     # average predictions
     div_mask = output_map_count > 1
     output_map[div_mask] = output_map[div_mask] / output_map_count[div_mask]
 
     del output_map_count
-    # del dataloader
     del sample
 
     # remove overlap
@@ -141,9 +124,6 @@ def main(args):
     
     del dataloader
 
-    # with rasterio.open(os.path.join(region_root, "buildingsDDA2_4.tif"), 'w', **metadata) as dst:
-    #     dst.write(output_map, 1)
-
     # write files in small chunks to not run out of memory
     with rasterio.open(os.path.join(region_root, "buildingsDDA2_44C.tif"), 'w', **metadata) as dst:
         for i in tqdm(range(0, output_map.shape[0], chunk_size)):
@@ -161,8 +141,6 @@ def main(args):
 
     # no compression
     metadata.update({"compress": "none"})
-    # with rasterio.open(os.path.join(region_root, "buildingsDDA2_4_nocompression.tif"), 'w', **metadata) as dst:
-    #     dst.write(output_map, 1)
 
 
     with rasterio.open(os.path.join(region_root, "buildingsDDA2_44C_nocompression.tif"), 'w', **metadata) as dst:
@@ -192,9 +170,6 @@ def main(args):
                 
                 # write the chunk to the correct place in the output file
                 dst.write(data_chunk, 1, window=window)
-
-    # with rasterio.open(os.path.join(region_root, "buildingsDDA128_4096_nodisc_new_prob_merge.tif"), 'w', **metadata) as dst:
-    #     dst.write(output_map_prob, 1)
 
     return None
 

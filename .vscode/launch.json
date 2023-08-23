@@ -321,6 +321,17 @@
             ]
         },
         {
+            "name": "03_merge_tiffs.py, tza",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/03_merge_tiffs.py",
+            "console": "integratedTerminal",
+            "args": [
+                "/scratch2/metzgern/HAC/data/PopMapData/raw/EE/tza",
+                "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/tza"
+            ]
+        },
+        {
             "name": "04_preprocess_pri_shapefile.py",
             "type": "python",
             "request": "launch",
@@ -1096,10 +1107,10 @@
                 "-o",
                 "-s",
                 // "--max_samples", "200",
-                "--val_every_i_steps", "100",
+                // "--val_every_i_steps", "100",
                 "-e",   "100",
                 "-b", "16",
-                "-lr", "1e-4", 
+                "-lr", "1e-3", 
                 "--model", "POMELO_module", 
                 "--head", "v3",
                 // "--feature_extractor", "vgg16",
@@ -1108,9 +1119,7 @@
                 "-l", "log_l1_loss",
                 // "-la", "1.0", "1.0",
                 "-la", "1.0",
-                "--scale_regularization", "0.0",
-                // "--scale_regularizationL2", "0.1",
-                // "--lam_raw", "0.1",
+                "-esr2", "0.01", 
                 "-dw","1", 
                 "-S2",
                 "-NIR",

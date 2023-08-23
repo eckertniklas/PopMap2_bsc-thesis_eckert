@@ -17,14 +17,14 @@ import torch.nn as nn
 
 class CustomUNet(smp.Unet):
     def __init__(self, encoder_name, in_channels, classes, down=3, fsub=16, pretrained=False,
-                 dilation=1, replace7x7=True):
+                 dilation=1, replace7x7=True, activation=nn.LeakyReLU):
 
         # instanciate the base model
         # super().__init__(encoder_name, encoder_weights="imagenet",
         # super().__init__(encoder_name, encoder_weights="swsl",
         super().__init__(encoder_name, encoder_weights="imagenet" if pretrained else None,
                         in_channels=in_channels, classes=classes, decoder_channels=(64,32,16), 
-                        decoder_use_batchnorm=False, encoder_depth=3, activation=nn.ReLU)
+                        decoder_use_batchnorm=False, encoder_depth=3, activation=activation)
         
         self.decoder_channels = (256,128,64,32,16)[-down:] 
         self.latent_dim = sum(self.decoder_channels)

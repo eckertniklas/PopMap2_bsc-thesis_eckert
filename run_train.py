@@ -12,7 +12,7 @@ from torchvision.transforms import Normalize
 from torchvision import transforms
 from utils.transform import OwnCompose
 from utils.transform import RandomRotationTransform, RandomHorizontalFlip, RandomVerticalFlip, RandomHorizontalVerticalFlip, RandomBrightness, RandomGamma, HazeAdditionModule, AddGaussianNoise
-from utils.transform import Eu2Rwa
+# from utils.transform import Eu2Rwa
 from tqdm import tqdm
 
 from torchcontrib.optim import SWA
@@ -27,7 +27,7 @@ import gc
 
 # from arguments import train_parser
 from arguments.train import parser as train_parser
-from data.So2Sat import PopulationDataset_Reg
+# from data.So2Sat import PopulationDataset_Reg
 from data.PopulationDataset_target import Population_Dataset_target, Population_Dataset_collate_fn
 from utils.losses import get_loss, r2
 from utils.metrics import get_test_metrics
@@ -39,15 +39,12 @@ from utils.constants import config_path
 from utils.scheduler import CustomLRScheduler
 
 from utils.plot import plot_2dmatrix, plot_and_save, scatter_plot3
-from utils.utils import get_fnames_labs_reg, get_fnames_unlab_reg
-from utils.datasampler import LabeledUnlabeledSampler
+# from utils.utils import get_fnames_labs_reg, get_fnames_unlab_reg
+# from utils.datasampler import LabeledUnlabeledSampler
 from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1, pop_map_root, testlevels, overlap
 from utils.constants import inference_patch_size as ips
 from utils.utils import Namespace
 
-from model.cycleGAN.models import create_model
-from model.cycleGAN.util.visualizer import Visualizer
-from model.cycleGAN.util.util import tensor2im
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -61,10 +58,10 @@ class Trainer:
         self.args = args
 
         # check if we are doing domain adaptation or not
-        if args.adversarial or args.CORAL or args.MMD or self.args.CyCADA:
-            self.args.da = True
-        else:
-            self.args.da = False
+        # if args.adversarial or args.CORAL or args.MMD or self.args.CyCADA:
+        #     self.args.da = True
+        # else:
+        #     self.args.da = False
 
         if args.loss in ["gaussian_nll", "log_gaussian_nll", "laplacian_nll", "log_laplacian_nll", "gaussian_aug_loss", "log_gaussian_aug_loss", "laplacian_aug_loss", "log_laplacian_aug_loss"]:
             self.args.probabilistic = True
@@ -96,8 +93,8 @@ class Trainer:
         # set up model
         seed_all(args.seed+1)
 
-        if args.adversarial:
-            self.model.domain_classifier = self.model.get_domain_classifier(args.feature_dim, args.classifier).cuda()
+        # if args.adversarial:
+        #     self.model.domain_classifier = self.model.get_domain_classifier(args.feature_dim, args.classifier).cuda()
             
         # number of params
         args.pytorch_total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
@@ -217,7 +214,8 @@ class Trainer:
 
         # check if we are in unsupervised or supervised mode and adjust dataloader accordingly
         dataloader = self.dataloaders['train']
-        total = len(dataloader) if self.args.supmode=="unsup" else len(self.dataloaders["weak_target_dataset"])
+        # total = len(dataloader) if self.args.supmode=="unsup" else len(self.dataloaders["weak_target_dataset"])
+        total = len(dataloader)
         self.optimizer.zero_grad()
 
         with tqdm(dataloader, leave=False, total=total) as inner_tnr:
@@ -229,24 +227,23 @@ class Trainer:
                 optim_loss = 0.0
                 loss_dict_weak = {}
                 loss_dict_raw = {}
-                loss_CyCADAtarget = {}
+                
 
                 #  check if sample is weakly target supervised or source supervised 
                 if self.args.supmode=="weaksup":
                     
                     # get weakly target supervised sample
-                    try:
-                        sample_weak = next(self.dataloaders["weak_target_iter"])
-                    except StopIteration:
-                        self.dataloaders["weak_target_iter"] = iter(self.dataloaders["weak_target"])
-                        sample_weak = next(self.dataloaders["weak_target_iter"])
+                    # try:
+                    #     sample_weak = next(self.dataloaders["weak_target_iter"])
+                    # except StopIteration:
+                    #     self.dataloaders["weak_target_iter"] = iter(self.dataloaders["weak_target"])
+                    #     sample_weak = next(self.dataloaders["weak_target_iter"])
 
-                    # forward pass and loss computation 
-                    sample_weak = to_cuda_inplace(sample_weak) 
+                    # forward pass and loss computation
+                    sample_weak = to_cuda_inplace(sample) 
                     sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
                     
-                    # check if the input is to large
-                    # if sample_weak["input"].shape[2]*sample_weak["input"].shape[3] > 1400000:
+                    # check if the input is to large 
                     num_pix = sample_weak["input"].shape[0]*sample_weak["input"].shape[2]*sample_weak["input"].shape[3]
                     # limit1, limit2, limit3 = 10000000, 12500000, 15000000
                     limit1, limit2, limit3 =    4000000,  500000, 12000000
@@ -345,17 +342,17 @@ class Trainer:
 
                 # update info
                 self.info["iter"] += 1
-                self.info["sampleitr"] += self.args.batch_size//2 if self.args.da else self.args.batch_size
+                self.info["sampleitr"] += self.args.batch_size
 
                 # update alpha for the adversarial loss, an annealing (to 1.0) schedule for alpha
-                if self.args.adversarial:
-                    self.info["alpha"] = self.update_param(float(i + self.info["epoch"] * len(self.dataloaders['train'])) / self.args.num_epochs / len(self.dataloaders['train']))
+                # if self.args.adversarial:
+                #     self.info["alpha"] = self.update_param(float(i + self.info["epoch"] * len(self.dataloaders['train'])) / self.args.num_epochs / len(self.dataloaders['train']))
 
                 # if we are in supervised mode, we need to update the weak data iterator when it runs out of data
-                if self.args.supmode=="weaksup":
-                    self.info["beta"] = self.update_param(float(i + self.info["epoch"] * len(self.dataloaders['train'])) / self.args.num_epochs / len(self.dataloaders['train']))
-                    if self.dataloaders["weak_indices"][i%len(self.dataloaders["weak_indices"])] == self.dataloaders["weak_indices"][-1]:  
-                        random.shuffle(self.dataloaders["weak_indices"]); self.log_train(train_stats); break
+                # if self.args.supmode=="weaksup":
+                #     self.info["beta"] = self.update_param(float(i + self.info["epoch"] * len(self.dataloaders['train'])) / self.args.num_epochs / len(self.dataloaders['train']))
+                #     if self.dataloaders["weak_indices"][i%len(self.dataloaders["weak_indices"])] == self.dataloaders["weak_indices"][-1]:  
+                #         random.shuffle(self.dataloaders["weak_indices"]); self.log_train(train_stats); break
 
                 # logging and stuff
                 if (i+1) % self.args.val_every_i_steps == 0:
@@ -713,8 +710,8 @@ class Trainer:
                     RandomGamma(p=0.9, gamma_limit=(0.6666, 1.5)),
                     # HazeAdditionModule(p=0.5, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3))
             ]
-            if args.eu2rwa:
-                S2augs.append(Eu2Rwa(p=1.0))
+            # if args.eu2rwa:
+            #     S2augs.append(Eu2Rwa(p=1.0))
 
 
         else: 
@@ -747,50 +744,50 @@ class Trainer:
                 self.dataset_stats[mkey] = torch.tensor(val)
 
         # source domain samples
-        val_size = 0.2 
-        f_names, labels = get_fnames_labs_reg(all_patches_mixed_train_part1, force_recompute=force_recompute)
+        # val_size = 0.2 
+        # f_names, labels = get_fnames_labs_reg(all_patches_mixed_train_part1, force_recompute=force_recompute)
 
         # remove elements that contain "zurich" as a substring
-        if args.excludeZH:
-            f_namesX = []
-            labelsX = []
-            [(f_namesX.append(f),labelsX.append(l)) for f,l in zip(f_names,labels) if "zurich" not in f]
-            f_names, labels = f_namesX, labelsX
+        # if args.excludeZH:
+        #     f_namesX = []
+        #     labelsX = []
+        #     [(f_namesX.append(f),labelsX.append(l)) for f,l in zip(f_names,labels) if "zurich" not in f]
+        #     f_names, labels = f_namesX, labelsX
 
         # limit the number of samples for debugging
-        f_names, labels = f_names[:int(args.max_samples)] , labels[:int(args.max_samples)]
-        s = int(len(f_names)*val_size)
-        f_names_train, f_names_val, labels_train, labels_val = f_names[:-s], f_names[-s:], labels[:-s], labels[-s:]
-        f_names_test, labels_test = get_fnames_labs_reg(all_patches_mixed_test_part1, force_recompute=force_recompute)
+        # f_names, labels = f_names[:int(args.max_samples)] , labels[:int(args.max_samples)]
+        # s = int(len(f_names)*val_size)
+        # f_names_train, f_names_val, labels_train, labels_val = f_names[:-s], f_names[-s:], labels[:-s], labels[-s:]
+        # f_names_test, labels_test = get_fnames_labs_reg(all_patches_mixed_test_part1, force_recompute=force_recompute)
 
         # unlabled target domain samples
-        if args.da:
-            f_names_unlab = []
-            for reg in args.target_regions:
-                f_names_unlab.extend(get_fnames_unlab_reg(os.path.join(pop_map_root, os.path.join("EE", reg)), force_recompute=False))
-        else:
-            f_names_unlab = []
+        # if args.da:
+        #     f_names_unlab = []
+        #     for reg in args.target_regions:
+        #         f_names_unlab.extend(get_fnames_unlab_reg(os.path.join(pop_map_root, os.path.join("EE", reg)), force_recompute=False))
+        # else:
+        #     f_names_unlab = []
 
         # create the raw source dataset
-        train_dataset = PopulationDataset_Reg(f_names_train, labels_train, f_names_unlab=f_names_unlab, mode="train",
-                                            transform=None,random_season=args.random_season, **params)
+        # train_dataset = PopulationDataset_Reg(f_names_train, labels_train, f_names_unlab=f_names_unlab, mode="train",
+        #                                     transform=None,random_season=args.random_season, **params)
         datasets = {
-            "train": train_dataset,
+            # "train": train_dataset,
             # "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", transform=None, **params),
             # "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", transform=None, **params),
             "test_target": [ Population_Dataset_target(reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, **input_defs) for reg in args.target_regions ]
         }
         
         # create the datasampler for the source/target domain mixup
-        custom_sampler, shuffle = None, True 
-        if len(args.target_regions)>0 and len(datasets["train"].unlabeled_indices)>0:
-            custom_sampler = LabeledUnlabeledSampler( labeled_indices=datasets["train"].labeled_indices, unlabeled_indices=datasets["train"].unlabeled_indices,
-                                                       batch_size=args.batch_size  )
-            shuffle = False
+        # custom_sampler, shuffle = None, True 
+        # if len(args.target_regions)>0 and len(datasets["train"].unlabeled_indices)>0:
+        #     custom_sampler = LabeledUnlabeledSampler( labeled_indices=datasets["train"].labeled_indices, unlabeled_indices=datasets["train"].unlabeled_indices,
+        #                                                batch_size=args.batch_size  )
+        #     shuffle = False
 
         # create the dataloaders
         dataloaders =  {
-            "train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, sampler=custom_sampler, shuffle=shuffle, drop_last=True, pin_memory=False),
+            # "train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, sampler=custom_sampler, shuffle=shuffle, drop_last=True, pin_memory=False),
             # "val":  DataLoader(datasets["val"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False, pin_memory=True),
             # "test":  DataLoader(datasets["test"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False, pin_memory=True),
             "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False) for datasets["test_target"] in datasets["test_target"] ]
@@ -809,6 +806,7 @@ class Trainer:
                 
             weak_datasets = []
             for reg in args.target_regions_train:
+            for reg in zip(args.target_regions_train, args.train_level):
                 splitmode = 'train' if self.args.weak_validation else 'all'
                 weak_datasets.append( Population_Dataset_target(reg, mode="weaksup", split=splitmode, patchsize=None, overlap=None, max_samples=args.max_weak_samples,
                                                                 fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
@@ -816,14 +814,17 @@ class Trainer:
             dataloaders["weak_target_dataset"] = ConcatDataset(weak_datasets)
             
             # create own simulation of a dataloader for the weakdataset
-            weak_indices = list(range(len(dataloaders["weak_target_dataset"])))
-            random.shuffle(weak_indices)
-            dataloaders["weak_indices"] = weak_indices
-            dataloaders["weak_iter"] = itertools.cycle(weak_indices)
+            # weak_indices = list(range(len(dataloaders["weak_target_dataset"])))
+            # random.shuffle(weak_indices)
+            # dataloaders["weak_indices"] = weak_indices
+            # dataloaders["weak_iter"] = itertools.cycle(weak_indices)
 
             # create dataloader for the weakly supervised dataset
             dataloaders["weak_target"] = DataLoader(dataloaders["weak_target_dataset"], batch_size=weak_loader_batchsize, num_workers=1, shuffle=True, collate_fn=Population_Dataset_collate_fn, drop_last=True)
-            dataloaders["weak_target_iter"] = iter(dataloaders["weak_target"])
+            # dataloaders["weak_target_iter"] = iter(dataloaders["weak_target"])
+
+            # EXPERIMENTAL: TODO: REMOVE
+            dataloaders["train"] = dataloaders["weak_target"]
 
             weak_datasets_val = []
             if self.args.weak_validation:

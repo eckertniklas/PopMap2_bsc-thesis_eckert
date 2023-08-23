@@ -51,47 +51,47 @@ class UnNormalize(object):
         return tensor
     
 
-class Eu2Rwa(object):
-    def __init__(self, model_checkpoint="eu2rwa_cycleganFreeze", p=0.5):
+# class Eu2Rwa(object):
+#     def __init__(self, model_checkpoint="eu2rwa_cycleganFreeze", p=0.5):
         
-        opt = Namespace(model="test", name=model_checkpoint, input_nc=3, output_nc=3, ngf=64, netG='resnet_9blocks', norm='instance',
-                        no_dropout=True, init_type="normal", init_gain=0.02, epoch="latest", load_iter=0, isTrain=False, gpu_ids=[0],
-                        preprocess=None,  model_suffix="_A", dataset_mode="single", verbose=False,
-                        checkpoints_dir="/scratch2/metzgern/HAC/code/CycleGANAugs/pytorch-CycleGAN-and-pix2pix/checkpoints/" )
-        self.model = create_model(opt)      # create a model given opt.model and other options
-        self.model.setup(opt)               # regular setup: load and print networks; create schedulers
-        self.model.eval()   
-        self.normalize = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  
-        self.unnormalize  = transforms.Normalize( mean=[-1, -1, -1], std=[2, 2, 2] )            
-        self.p = p
+#         opt = Namespace(model="test", name=model_checkpoint, input_nc=3, output_nc=3, ngf=64, netG='resnet_9blocks', norm='instance',
+#                         no_dropout=True, init_type="normal", init_gain=0.02, epoch="latest", load_iter=0, isTrain=False, gpu_ids=[0],
+#                         preprocess=None,  model_suffix="_A", dataset_mode="single", verbose=False,
+#                         checkpoints_dir="/scratch2/metzgern/HAC/code/CycleGANAugs/pytorch-CycleGAN-and-pix2pix/checkpoints/" )
+#         self.model = create_model(opt)      # create a model given opt.model and other options
+#         self.model.setup(opt)               # regular setup: load and print networks; create schedulers
+#         self.model.eval()   
+#         self.normalize = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  
+#         self.unnormalize  = transforms.Normalize( mean=[-1, -1, -1], std=[2, 2, 2] )            
+#         self.p = p
 
-    def __call__(self, x):
-        if torch.is_tensor(x):
-            mask = None
-        else:
-            x, mask = x
+#     def __call__(self, x):
+#         if torch.is_tensor(x):
+#             mask = None
+#         else:
+#             x, mask = x
 
-        if torch.rand(1) < self.p:
-            selection = torch.rand(x.shape[0])<self.p
+#         if torch.rand(1) < self.p:
+#             selection = torch.rand(x.shape[0])<self.p
 
-            # Preprocess, according to the training protocol
-            # x = torch.clip((x[selection]-50)/4000*255, 0, 255)/255 # clip to 0-255
-            x_select = torch.clip((x[selection]-50)/4000, 0, 1) # clip to 0-255
-            x_select = self.normalize(x_select) # normalize to -1,1
+#             # Preprocess, according to the training protocol
+#             # x = torch.clip((x[selection]-50)/4000*255, 0, 255)/255 # clip to 0-255
+#             x_select = torch.clip((x[selection]-50)/4000, 0, 1) # clip to 0-255
+#             x_select = self.normalize(x_select) # normalize to -1,1
 
-            # CycleGAn expects a dictionary with the key 'A' and 'A_paths'
-            # data = {'A': x[selection], 'A_paths': None, 'B': None, 'B_paths': None}
-            # data = {'A': x_select, 'A_paths': None}
-            self.model.set_input({'A': x_select, 'A_paths': None})  # unpack data from data loader
-            self.model.test()           # run inference
+#             # CycleGAn expects a dictionary with the key 'A' and 'A_paths'
+#             # data = {'A': x[selection], 'A_paths': None, 'B': None, 'B_paths': None}
+#             # data = {'A': x_select, 'A_paths': None}
+#             self.model.set_input({'A': x_select, 'A_paths': None})  # unpack data from data loader
+#             self.model.test()           # run inference
 
-            # Postprocess  according to the training protocol
-            x_select = self.unnormalize(self.model.fake)*4000+50
+#             # Postprocess  according to the training protocol
+#             x_select = self.unnormalize(self.model.fake)*4000+50
 
-            # Replace the selected samples with the processed ones
-            x[selection] = x_select # G(real)
+#             # Replace the selected samples with the processed ones
+#             x[selection] = x_select # G(real)
 
-        return x if mask is None else (x, mask)
+#         return x if mask is None else (x, mask)
     
 
 class AddGaussianNoise(object):

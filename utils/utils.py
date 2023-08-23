@@ -62,12 +62,13 @@ def seed_all(seed):
     # Fix all random seeds
     random.seed(seed)
     np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+    torch.manual_seed(seed) # cpu
+    torch.cuda.manual_seed(seed) # gpu
+    torch.cuda.manual_seed_all(seed) # multi-gpu
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
     os.environ['PYTHONHASHSEED'] = str(seed)
+
 
 
 def new_log(folder_path, args=None):
@@ -299,7 +300,6 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
 
     # Normalizations
     sample = apply_normalize(sample, dataset_stats)
-    # sample = normalize_indata(sample, normalization)
     
     # merge inputs
     if buildinginput:
@@ -314,17 +314,8 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
             # delete the segmentation input
             del sample["building_segmentation"]
 
-
-        # sparsify the building counts
-        # sample["building_counts"][sample["building_counts"] < 0.1] = 0.0
-
         # merge the inputs
         sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS", "building_segmentation", "building_counts"] if key in sample], dim=1)
-        
-        # 
-        # if "building_segmentation" not in sample.keys(): 
-        #     # fake some more input for the validationset without building footprints
-        #     sample["input"] = torch.concatenate([sample["input"], torch.zeros_like(sample["input"][:,:2,:,:])], dim=1)
 
     else:
         sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS"] if key in sample], dim=1)

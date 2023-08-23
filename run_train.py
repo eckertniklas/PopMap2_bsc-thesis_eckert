@@ -71,18 +71,15 @@ class Trainer:
         else:
             self.args.probabilistic = False
 
-        # set up dataloaders
-        self.dataloaders = self.get_dataloaders(self, args)
-        
-        # set up model
-        seed_all(args.seed)
-
-        # define input channels based on the number of input modalities
-        # input_channels = args.Sentinel1*2  + args.NIR*1 + args.Sentinel2*3 + args.VIIRS*1
-
         # set up experiment folder
         self.experiment_folder, self.args.expN, self.args.randN = new_log(os.path.join(args.save_dir, "So2Sat"), args)
         self.args.experiment_folder = self.experiment_folder
+        
+        # seed everything
+        seed_all(args.seed)
+        
+        # set up dataloaders
+        self.dataloaders = self.get_dataloaders(self, args)
         
         # define architecture
         if args.model in model_dict:
@@ -99,38 +96,6 @@ class Trainer:
         # set up model
         seed_all(args.seed+1)
 
-        if args.CyCADA:
-            # load the pretrained cycleGAN model 
-            self.opt = Namespace(model="cycle_gan", name=args.CyCADAGANcheckpoint, input_nc=5, output_nc=5, ngf=64, ndf=64,
-                            netG=args.CyCADAnetG, netD='basic', n_layers_D=3, norm='instance', windows_size=100, direction='AtoB',
-                            no_dropout=True, init_type="normal", init_gain=0.02, epoch="latest", load_iter=0, isTrain=True, gpu_ids=[0],
-                            preprocess=None, continue_train=self.args.CyCADAcontinue, gan_mode="lsgan", pool_size=50, beta1=0.5, lambda_identity=0.5, lr=0.0002, 
-                            dataset_mode="unaligned", verbose=False, lr_policy="linear", epoch_count=1, n_epochs=args.num_epochs, n_epochs_decay=args.num_epochs,
-                            lambda_A=10.0, lambda_B=10.0, lambda_consistency_fake_B=args.lambda_consistency_fake_B, lambda_consistency_real_B=args.lambda_consistency_real_B,
-                            lambda_popB=args.lambda_popB, display_freq=400, save_latest_freq=2500, save_by_iter=False,
-                            display_id=0, no_html=True, display_port=8097, update_html_freq=1000,
-                            use_wandb=True, display_ncols=4,  wandb_project_name="CycleGAN-and-pix2pix", display_winsize=100, display_env="main", display_server="http://localhost",
-                            checkpoints_dir= args.save_dir)
-            self.CyCADAmodel = create_model(self.opt)      # create a model given opt.model and other options
-            self.CyCADAmodel.setup(self.opt)               # regular setup: load and print networks; create schedulers 
-
-            # load the pretrained population model
-            if args.model in model_dict:
-                # get the source model and load weights
-                model_kwargs = get_model_kwargs(args, args.model)
-                self.CyCADAmodel.sourcepopmodel = model_dict[args.model](**model_kwargs).cuda()
-                self.CyCADAmodel.sourcepopmodel.load_state_dict(torch.load(args.CyCADASourcecheckpoint)['model'])
-                self.CyCADAmodel.sourcepopmodel.eval()
-
-                self.visualizer = Visualizer(self.opt)   # create a visualizer that display/save images and plots
-                total_iters = 0                # the total number of training iterations
-
-                # initialize the target model
-                self.model.load_state_dict(torch.load(args.CyCADASourcecheckpoint)['model']) 
-                
-            else:
-                raise ValueError(f"Unknown model: {args.model}")
-
         if args.adversarial:
             self.model.domain_classifier = self.model.get_domain_classifier(args.feature_dim, args.classifier).cuda()
             
@@ -140,7 +105,8 @@ class Trainer:
 
         # wandb config
         wandb.init(project=args.wandb_project, dir=self.experiment_folder)
-        wandb.config.update(self.args) 
+        wandb.config.update(self.args)
+        wandb.watch(self.model, log='all')  
         
         # set up model
         seed_all(args.seed+2)
@@ -160,8 +126,6 @@ class Trainer:
             # Get the head bias parameter
             params_without_decay = [param for name, param in self.model.named_parameters() if name in ['head.bias', 'head1.bias', 'head2.bias'] and 'embedder' not in name]
 
-            # new
-
             self.optimizer = optim.Adam([
                     {'params': params_with_decay, 'weight_decay': args.weightdecay}, # Apply weight decay here
                     {'params': params_positional, 'weight_decay': args.weightdecay_pos}, # Apply weight decay here
@@ -173,9 +137,6 @@ class Trainer:
             self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
             # self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weightdecay)
 
-        if args.stochasticWA:
-            self.optimizer = SWA(self.optimizer, swa_start=2, swa_freq=1, swa_lr=0.05)
-            self.optimizer.optimizer.defaults = None
 
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
         # self.scheduler = CustomLRScheduler(self.optimizer, drop_epochs=[3, 5, 10, 15, 20, 25, 30, 40, 50, 70, 90, 110, 150, ], gamma=0.75)
@@ -339,72 +300,9 @@ class Trainer:
                 else:
                     output_weak = None
 
-                # forward pass
-                sample = to_cuda_inplace(sample)
-
-                if self.args.CyCADA:
-                    # CyCADA forward pass and loss computation
-                    sample = apply_transformations_and_normalize(sample, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
-                    data = {"A": sample["input"][sample["source"]], "B": sample["input"][~sample["source"]], "A_paths": "", "B_paths": ""}
-                    self.CyCADAmodel.set_input(data)         # unpack data from dataset and apply preprocessing
-                    self.CyCADAmodel.optimize_parameters(gt=sample["y"][sample["source"]])
-
-                    # replace all existing source domain samples with fake target domain samples
-                    sample["input"] = torch.cat([self.CyCADAmodel.fake_B_prep.detach(), self.CyCADAmodel.real_B_prep.detach()], dim=0)
-
-                else:
-                    if not self.args.GANonly and not self.args.nomain: 
-                        sample = apply_transformations_and_normalize(sample, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
-                
-
-                if not self.args.GANonly and not self.args.nomain:
-                    # forward pass for the main model
-                    output = self.model(sample, train=True, alpha=self.info["alpha"] if self.args.adversarial else 0., return_features=self.args.da)
-                
-                    # compute loss
-                    loss, loss_dict = get_loss(output, sample, scale=output["scale"], empty_scale=output["empty_scale"], loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
-                                            lam_adv=args.lam_adv if self.args.adversarial else 0.0,
-                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
-                                            lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
-                                            scale_regularization=args.scale_regularization,
-                                            scale_regularizationL2=args.scale_regularizationL2,
-                                            emptyscale_regularizationL2=args.emptyscale_regularizationL2,
-                                            tag="train_main")
-                    if self.boosted:
-                        boosted_loss = [el.replace("gaussian", "l1") if el in ["gaussian_nll", "log_gaussian_nll", "gaussian_aug_loss", "log_gaussian_aug_loss"] else el for el in args.loss]
-                        boosted_loss = [el.replace("laplace", "l1") if el in ["laplacian_nll", "log_laplacian_nll", "laplace_aug_loss", "log_laplace_aug_loss"] else el for el in boosted_loss]
-                        loss_raw, loss_dict_raw = get_loss(output["intermediate"], sample,  scale=output["intermediate"]["scale"], empty_scale=output["intermediate"]["empty_scale"], loss=boosted_loss, lam=args.lam, merge_aug=args.merge_aug,
-                                            lam_adv=args.lam_adv if self.args.adversarial else 0.0,
-                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
-                                            lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
-                                            scale_regularization=args.scale_regularization,
-                                            scale_regularizationL2=args.scale_regularizationL2,
-                                            emptyscale_regularizationL2=args.emptyscale_regularizationL2,
-                                            tag="train_intermediate")
-                        
-                        loss += loss_raw * self.args.lam_raw
-                        loss_dict_raw = detach_tensors_in_dict(loss_dict_raw)
-                        # loss_dict = {**loss_dict, **loss_dict_raw}
-                
-                    # update loss
-                    optim_loss += loss
-                
-                    # consistency losses for the target model with the outputs of the cycleGAN
-                    if self.args.CyCADA:
-
-                        # pixel supervision to the source domain model
-                        loss_CyCADAtarget["loss_targetconsistency"] = self.CyCADAmodel.criterionFakePop(output["popdensemap"][sample["source"]], self.CyCADAmodel.real_A_output["popdensemap"].detach())
-                        loss_CyCADAtarget["loss_targetconsistency_lam"] = loss_CyCADAtarget["loss_targetconsistency"] * self.args.lam_targetconsistency
-                        optim_loss += loss_CyCADAtarget["loss_targetconsistency_lam"]
-
-                        # selfsupervised loss
-                        loss_CyCADAtarget["loss_selfsupervised_consistency"] = self.CyCADAmodel.criterionFakePop(output["popdensemap"][~sample["source"]], self.CyCADAmodel.fake_A_output["popdensemap"].detach())
-                        loss_CyCADAtarget["loss_selfsupervised_consistency_lam"] = loss_CyCADAtarget["loss_selfsupervised_consistency"] * self.args.lam_selfsupervised_consistency
-                        optim_loss += loss_CyCADAtarget["loss_selfsupervised_consistency_lam"]
-                else:
-                    loss_dict = {}
-                    loss_dict_raw = {}
-                    output = None
+                loss_dict = {}
+                loss_dict_raw = {}
+                output = None
 
                 # Detach tensors
                 loss_dict = detach_tensors_in_dict(loss_dict)
@@ -420,31 +318,30 @@ class Trainer:
 
                 # detect NaN loss 
                 # backprop and stuff
-                if not self.args.GANonly:
-                    if torch.isnan(optim_loss):
-                        raise Exception("detected NaN loss..")
-                    
-                    if self.info["epoch"] > 0 or not self.args.no_opt:
-                        # backprop
-                        optim_loss.backward()
+                if torch.isnan(optim_loss):
+                    raise Exception("detected NaN loss..")
+                
+                if self.info["epoch"] > 0 or not self.args.no_opt:
+                    # backprop
+                    optim_loss.backward()
 
-                        # gradient clipping
-                        if self.args.gradient_clip > 0.:
-                            clip_grad_norm_(self.model.parameters(), self.args.gradient_clip)
-                        
-                        if (i + 1) % self.accumulation_steps == 0:
-                            self.optimizer.step()
-                            self.optimizer.zero_grad()
-                        optim_loss = optim_loss.detach()
-                        if output is not None:  
-                            output = detach_tensors_in_dict(output)
-                            del output
-                        if output_weak is not None:
-                            output_weak = detach_tensors_in_dict(output_weak)
-                            del output_weak
-                        torch.cuda.empty_cache()
-                        del sample 
-                        gc.collect()
+                    # gradient clipping
+                    if self.args.gradient_clip > 0.:
+                        clip_grad_norm_(self.model.parameters(), self.args.gradient_clip)
+                    
+                    if (i + 1) % self.accumulation_steps == 0:
+                        self.optimizer.step()
+                        self.optimizer.zero_grad()
+                    optim_loss = optim_loss.detach()
+                    if output is not None:  
+                        output = detach_tensors_in_dict(output)
+                        del output
+                    if output_weak is not None:
+                        output_weak = detach_tensors_in_dict(output_weak)
+                        del output_weak
+                    torch.cuda.empty_cache()
+                    del sample 
+                    gc.collect()
 
                 # update info
                 self.info["iter"] += 1
@@ -460,23 +357,9 @@ class Trainer:
                     if self.dataloaders["weak_indices"][i%len(self.dataloaders["weak_indices"])] == self.dataloaders["weak_indices"][-1]:  
                         random.shuffle(self.dataloaders["weak_indices"]); self.log_train(train_stats); break
 
-                if self.args.CyCADA:
-                    if self.info["sampleitr"] % self.opt.display_freq == 0:   # display images on visdom and save images to a HTML file
-                        save_result = self.info["sampleitr"] % self.opt.update_html_freq == 0
-                        self.CyCADAmodel.compute_visuals()
-                        self.visualizer.display_current_results(self.CyCADAmodel.get_current_visuals(), self.info["epoch"], save_result)
-
-                    # if self.info["sampleitr"] % self.opt.print_freq == 0:    # print training losses and save logging information to the disk
-                    #     losses = self.CyCADAmodel.get_current_losses()
-
-                    if self.info["sampleitr"] % self.opt.save_latest_freq == 0:   # cache our latest model every <save_latest_freq> iterations
-                        print('saving the latest model (epoch %d, total_iters %d)' % (self.info["epoch"], self.info["sampleitr"]))
-                        save_suffix = 'iter_%d' % self.info["sampleitr"] if self.opt.save_by_iter else 'latest'
-                        self.CyCADAmodel.save_networks(save_suffix)
-
                 # logging and stuff
                 if (i+1) % self.args.val_every_i_steps == 0:
-                    if self.args.supmode=="weaksup":
+                    if self.args.supmode=="weaksup" and self.args.weak_validation:
                         self.log_train(train_stats)
                         self.validate_weak()
                         self.model.train()
@@ -488,26 +371,8 @@ class Trainer:
                     self.model.train()
 
                 if (i + 1) % min(self.args.logstep_train, len(self.dataloaders['train'])) == 0:
-                    
-                    if self.args.CyCADA:
-                        losses_CyCADA = self.CyCADAmodel.get_current_losses()
-                        losses_CyCADA = detach_tensors_in_dict({**losses_CyCADA,**loss_CyCADAtarget})
-                        for key in losses_CyCADA:
-                            train_stats[key] += losses_CyCADA[key].cpu().item() if torch.is_tensor(losses_CyCADA[key]) else losses_CyCADA[key]
-                        train_stats["optimization_loss"] = self.CyCADAmodel.loss_cycle_A
-                    
-                    log_target_img = True
-                    if log_target_img and not self.args.GANonly:
-                        if self.args.CyCADA:
-                            wandb_image = wandb.Image(tensor2im(output["popdensemap"][sample["source"]].unsqueeze(1)-0.5))
-                            wandb.log({"fake_B_target_popdensemap": wandb_image}, step=self.info["iter"])
-                            wandb_image = wandb.Image(tensor2im(output["popdensemap"][~sample["source"]].unsqueeze(1)-0.5))
-                            wandb.log({"real_B_target_popdensemap": wandb_image}, step=self.info["iter"])
                     self.log_train(train_stats,(inner_tnr, tnr))
                     train_stats = defaultdict(float)
-        
-        if self.args.stochasticWA:
-            self.optimizer.swap_swa_sgd()
     
     def update_param(self, p, k=10):
         return 2. / (1. + np.exp(-k * p)) - 1
@@ -729,7 +594,6 @@ class Trainer:
             for testdataloader in self.dataloaders["test_target"]:
                 if testdataloader.dataset.region in ["uga"]:
                     continue
-
 
                 # inputialize the output map
                 h, w = testdataloader.dataset.shape()

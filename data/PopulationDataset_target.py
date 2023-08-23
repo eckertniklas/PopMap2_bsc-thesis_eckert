@@ -641,7 +641,7 @@ class Population_Dataset_target(Dataset):
         # raise NotImplementedError
         with rasterio.open(boundary_file, "r") as src:
             boundary = src.read(1)
-        boundary = torch.from_numpy(boundary)
+        boundary = torch.from_numpy(boundary.astype(np.float32))
 
         # read the census file
         census = pd.read_csv(census_file)
@@ -654,9 +654,11 @@ class Population_Dataset_target(Dataset):
             census_pred = -torch.ones(census["idx"].max()+1, dtype=torch.float32).cuda()
 
             # iterate over census regions and get totals
-            # for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"])), total=len(census)):
-            for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
+            # for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
             # for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"]))):
+            for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"])), total=len(census), disable=False):
+                if pd.isnull(bbox):
+                    continue
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
                 census_pred[cidx] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
                 # census["count"] = (boundary[xmin:xmax, ymin:ymax]==cidx).to(torch.float32).sum()

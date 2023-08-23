@@ -241,24 +241,8 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_f
     print("Done reprojecting")
 
     # TODO: create small subdataset for the greater region of zurich
-    # cut slices from the rasters
     xmin, xmax = 2000, 20000
     ymin, ymax = 29800, 30100
-    # reprojected_data_zurich = reprojected_data[xmin:xmax, ymin:ymax]
-    # reprojected_enumeration_data_zurich = reprojected_enumeration_data[xmin:xmax, ymin:ymax]
-
-    # # reset the index of the zurich regions
-    # reprojected_enumeration_data_zurich = reprojected_enumeration_data_zurich - reprojected_enumeration_data_zurich.min() + 1
-
-    # # write the zurich rasters to files
-    # finezurich_metadata = target_metadata.copy()
-    # finezurich_metadata.update({"compress": "lzw", "count": 1, "dtype": "float32",
-    #                         "transform": Affine(target_transform.a, target_transform.b, target_transform.c + ymin * target_transform.a,
-    #                                             target_transform.d, target_transform.e, target_transform.f + xmin * target_transform.e),
-    #                         "height": xmax-xmin, "width": ymax-ymin})
-    # with rasterio.open(os.path.join(output_dir, "boundaries_finezurich.tif"), "w", **finezurich_metadata) as dst:
-    #     dst.write(reprojected_enumeration_data_zurich, 1)
-    
     reprojected_data_zurich = np.zeros_like(reprojected_data)
     reprojected_enumeration_data_zurich = np.zeros_like(reprojected_enumeration_data)
     reprojected_data_zurich[xmin:xmax, ymin:ymax] = reprojected_data[xmin:xmax, ymin:ymax]
@@ -266,16 +250,29 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_f
 
     # save to file
     finezurich_metadata = target_metadata.copy()
-    finezurich_metadata.update({"compress": "lzw", "count": 1, "dtype": "float32",
-                            "transform": target_transform, "height": target_height, "width": target_width})
+    finezurich_metadata.update({"compress": "lzw", "count": 1, "dtype": "float32", "transform": target_transform, "height": target_height, "width": target_width})
     with rasterio.open(os.path.join(output_dir, "boundaries_finezurich.tif"), "w", **finezurich_metadata) as dst:
         dst.write(reprojected_enumeration_data_zurich, 1)
 
 
+    # TODO: create small subdataset for the greater region of zurich
+    xmin, xmax = 2000, 20000
+    ymin, ymax = 28000, 31000
+    reprojected_data_zurich2 = np.zeros_like(reprojected_data)
+    reprojected_enumeration_data_zurich2 = np.zeros_like(reprojected_enumeration_data)
+    reprojected_data_zurich2[xmin:xmax, ymin:ymax] = reprojected_data[xmin:xmax, ymin:ymax]
+    reprojected_enumeration_data_zurich2[xmin:xmax, ymin:ymax] = reprojected_enumeration_data[xmin:xmax, ymin:ymax]
+
+    # save to file
+    finezurich_metadata2 = target_metadata.copy()
+    finezurich_metadata2.update({"compress": "lzw", "count": 1, "dtype": "float32", "transform": target_transform, "height": target_height, "width": target_width})
+    with rasterio.open(os.path.join(output_dir, "boundaries_finezurich2.tif"), "w", **finezurich_metadata2) as dst:
+        dst.write(reprojected_enumeration_data_zurich2, 1)
 
     # create fine census
     fine_dict = {
         "finezurich": (reprojected_data_zurich, reprojected_enumeration_data_zurich),
+        "finezurich2": (reprojected_data_zurich2, reprojected_enumeration_data_zurich2),
         # "fine": (reprojected_data, reprojected_enumeration_data),
     }
 
@@ -305,32 +302,38 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_f
             # get the bounding box and count counts of each region
             for rowi, census_idx in tqdm(enumerate(unique_indices), total=len(unique_indices)):
                 if census_idx==0:
-                    continue
-                mask = boundaries==census_idx
-                vertical_indices = torch.where(torch.any(mask, dim=1))[0]
-                horizontal_indices = torch.where(torch.any(mask, dim=0))[0]
-                xmin, xmax = vertical_indices[[0,-1]].cpu()
-                ymin, ymax = horizontal_indices[[0,-1]].cpu()
-                xmax, ymax = xmax+1, ymax+1
-                xmin, xmax, ymin, ymax = xmin.item(), xmax.item(), ymin.item(), ymax.item()
-
-                mask_slice = mask[xmin:xmax, ymin:ymax]
-                count = mask_slice.sum().item()
-
-                # check if the region is valid
-                if count>0:
                     xmin, ymax, ymin, ymax = 0, 0, 0, 0
-                    popcount = 0
+                    popcount = -1
+                    count = 1e-12
                 else:
-                    if gpu_mode:
-                        popcount = popdensity[xmin:xmax, ymin:ymax].cuda()[mask_slice].sum().item()
+                    mask = boundaries==census_idx
+                    vertical_indices = torch.where(torch.any(mask, dim=1))[0]
+                    horizontal_indices = torch.where(torch.any(mask, dim=0))[0]
+                    xmin, xmax = vertical_indices[[0,-1]].cpu()
+                    ymin, ymax = horizontal_indices[[0,-1]].cpu()
+                    xmax, ymax = xmax+1, ymax+1
+                    xmin, xmax, ymin, ymax = xmin.item(), xmax.item(), ymin.item(), ymax.item()
+
+                    mask_slice = mask[xmin:xmax, ymin:ymax]
+                    count = mask_slice.sum().item()
+
+                    # check if the region is valid
+                    if count==0:
+                        xmin, ymax, ymin, ymax = 0, 0, 0, 0
+                        popcount = 0
                     else:
-                        popcount = popdensity[xmin:xmax, ymin:ymax][mask_slice].sum().item()
+                        if gpu_mode:
+                            popcount = popdensity[xmin:xmax, ymin:ymax].cuda()[mask_slice].sum().item()
+                        else:
+                            popcount = popdensity[xmin:xmax, ymin:ymax][mask_slice].sum().item()
 
                 all_census.loc[rowi, "idx"] = census_idx.item()
                 all_census.loc[rowi, "POP20"] = popcount
                 all_census.at[rowi, "bbox"] = [xmin, xmax, ymin, ymax]
                 all_census.loc[rowi, "count"] = count
+
+            # weed out the regions that are invalid
+            all_census = all_census[all_census["POP20"]!=-1]
 
             all_census[["idx", "POP20", "bbox", "count"]].to_csv(os.path.join(output_dir, "census_" + name + ".csv"))
 

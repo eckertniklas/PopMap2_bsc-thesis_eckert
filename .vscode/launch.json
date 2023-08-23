@@ -1372,7 +1372,7 @@
                 // "--max_samples", "200",
                 "-e",   "100",
                 "-b", "16",
-                "-lr", "1e-2", 
+                "-lr", "1e-3", 
                 "--model", "POMELO_module",  
                 "--head", "v3",
                 // "-l", "log_l1_loss", "L1reg", 
@@ -1499,7 +1499,7 @@
                 // "--weak_validation",
                 "--useposembedding",
                 // "--val_every_i_steps", "1200",
-                // "--test_every_i_steps", "100",
+                // "--test_every_i_steps", "400",
                 "--max_weak_pix", "1000000"
             ]
         },

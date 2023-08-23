@@ -131,7 +131,7 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_f
 
             xres, _, ulx, _, yres, uly = transform[0], transform[1], transform[2], transform[3], transform[4], transform[5] 
 
-        # resampling to NN and Bicubic
+        # resampling the census grid via nearest neighbour to a higher resolution grid
         with rasterio.open("tmp.tif", "r") as src:
             src_data = src.read(1)
 
@@ -271,7 +271,7 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_f
 
     # create fine census
     fine_dict = {
-        "finezurich": (reprojected_data_zurich, reprojected_enumeration_data_zurich),
+        # "finezurich": (reprojected_data_zurich, reprojected_enumeration_data_zurich),
         "finezurich2": (reprojected_data_zurich2, reprojected_enumeration_data_zurich2),
         # "fine": (reprojected_data, reprojected_enumeration_data),
     }
@@ -337,6 +337,7 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_f
 
             all_census[["idx", "POP20", "bbox", "count"]].to_csv(os.path.join(output_dir, "census_" + name + ".csv"))
 
+    del fine_dict
 
     # load shapefile
     boundaries = { 

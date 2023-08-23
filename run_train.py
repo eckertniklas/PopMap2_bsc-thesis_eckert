@@ -57,11 +57,6 @@ class Trainer:
     def __init__(self, args: argparse.Namespace):
         self.args = args
 
-        # check if we are doing domain adaptation or not
-        # if args.adversarial or args.CORAL or args.MMD or self.args.CyCADA:
-        #     self.args.da = True
-        # else:
-        #     self.args.da = False
 
         if args.loss in ["gaussian_nll", "log_gaussian_nll", "laplacian_nll", "log_laplacian_nll", "gaussian_aug_loss", "log_gaussian_aug_loss", "laplacian_aug_loss", "log_laplacian_aug_loss"]:
             self.args.probabilistic = True
@@ -92,10 +87,7 @@ class Trainer:
 
         # set up model
         seed_all(args.seed+1)
-
-        # if args.adversarial:
-        #     self.model.domain_classifier = self.model.get_domain_classifier(args.feature_dim, args.classifier).cuda()
-            
+        
         # number of params
         args.pytorch_total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         print("Model", args.model, "; #Params:", args.pytorch_total_params)
@@ -137,6 +129,7 @@ class Trainer:
 
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
         # self.scheduler = CustomLRScheduler(self.optimizer, drop_epochs=[3, 5, 10, 15, 20, 25, 30, 40, 50, 70, 90, 110, 150, ], gamma=0.75)
+        
         # set up info
         self.info = { "epoch": 0,  "iter": 0,  "sampleitr": 0}
         self.info["alpha"], self.info["beta"] = 0.0, 0.0
@@ -178,11 +171,6 @@ class Trainer:
                     #     self.validate_weak()
                     #     torch.cuda.empty_cache()
                 
-                # # target domain testing
-                # if (self.info["epoch"] + 1) % (1*self.args.val_every_n_epochs) == 0:
-                #     self.test(plot=((self.info["epoch"]+1) % 20)==0, full_eval=((self.info["epoch"]+1) % 10)==0, zh_eval=True) #ZH
-                #     torch.cuda.empty_cache()
-                
                 if (self.info["epoch"] + 1) % (1*self.args.val_every_n_epochs) == 0:
                     self.test_target(save=True)
                     torch.cuda.empty_cache()
@@ -202,7 +190,6 @@ class Trainer:
         Train for one epoch
         """
         train_stats = defaultdict(float)
-        log_count = 0
 
         # set model to train mode
         self.model.train()
@@ -213,12 +200,10 @@ class Trainer:
         train_stats["gpu_used"] = info.used / 1e9 # in GB 
 
         # check if we are in unsupervised or supervised mode and adjust dataloader accordingly
-        dataloader = self.dataloaders['train']
-        # total = len(dataloader) if self.args.supmode=="unsup" else len(self.dataloaders["weak_target_dataset"])
-        total = len(dataloader)
+        dataloader = self.dataloaders['train'] 
         self.optimizer.zero_grad()
 
-        with tqdm(dataloader, leave=False, total=total) as inner_tnr:
+        with tqdm(dataloader, leave=False, total=len(dataloader)) as inner_tnr:
             inner_tnr.set_postfix(training_loss=np.nan)
 
             # iterate over samples of one epoch
@@ -232,13 +217,6 @@ class Trainer:
                 #  check if sample is weakly target supervised or source supervised 
                 if self.args.supmode=="weaksup":
                     
-                    # get weakly target supervised sample
-                    # try:
-                    #     sample_weak = next(self.dataloaders["weak_target_iter"])
-                    # except StopIteration:
-                    #     self.dataloaders["weak_target_iter"] = iter(self.dataloaders["weak_target"])
-                    #     sample_weak = next(self.dataloaders["weak_target_iter"])
-
                     # forward pass and loss computation
                     sample_weak = to_cuda_inplace(sample) 
                     sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
@@ -272,6 +250,7 @@ class Trainer:
                             if "popvar" in output_weak["intermediate"]:
                                 output_weak["intermediate"]["popvar"] = output_weak["intermediate"]["popvar"].sum(dim=0, keepdim=True)
 
+                    # compute loss
                     loss_weak, loss_dict_weak = get_loss(
                         output_weak, sample_weak, scale=output_weak["scale"], empty_scale=output_weak["empty_scale"], loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
                         scale_regularization=args.scale_regularization, scale_regularizationL2=args.scale_regularizationL2, emptyscale_regularizationL2=args.emptyscale_regularizationL2,
@@ -343,17 +322,7 @@ class Trainer:
                 # update info
                 self.info["iter"] += 1
                 self.info["sampleitr"] += self.args.batch_size
-
-                # update alpha for the adversarial loss, an annealing (to 1.0) schedule for alpha
-                # if self.args.adversarial:
-                #     self.info["alpha"] = self.update_param(float(i + self.info["epoch"] * len(self.dataloaders['train'])) / self.args.num_epochs / len(self.dataloaders['train']))
-
-                # if we are in supervised mode, we need to update the weak data iterator when it runs out of data
-                # if self.args.supmode=="weaksup":
-                #     self.info["beta"] = self.update_param(float(i + self.info["epoch"] * len(self.dataloaders['train'])) / self.args.num_epochs / len(self.dataloaders['train']))
-                #     if self.dataloaders["weak_indices"][i%len(self.dataloaders["weak_indices"])] == self.dataloaders["weak_indices"][-1]:  
-                #         random.shuffle(self.dataloaders["weak_indices"]); self.log_train(train_stats); break
-
+                
                 # logging and stuff
                 if (i+1) % self.args.val_every_i_steps == 0:
                     if self.args.supmode=="weaksup" and self.args.weak_validation:
@@ -371,9 +340,6 @@ class Trainer:
                     self.log_train(train_stats,(inner_tnr, tnr))
                     train_stats = defaultdict(float)
     
-    def update_param(self, p, k=10):
-        return 2. / (1. + np.exp(-k * p)) - 1
-
     def log_train(self, train_stats, tqdmstuff=None):
         train_stats = {k: v / train_stats["log_count"] for k, v in train_stats.items()}
 
@@ -389,57 +355,6 @@ class Trainer:
         # upload logs to wandb
         wandb.log({**{k + '/train': v for k, v in train_stats.items()}, **self.info}, self.info["iter"])
         
-
-    def validate(self):
-        self.val_stats = defaultdict(float)
-
-        self.model.eval()
-
-        with torch.no_grad():
-            pred, gt = [], []
-            for sample in tqdm(self.dataloaders["val"], leave=False):
-
-                # forward pass
-                sample = to_cuda_inplace(sample)
-                sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
-
-                output = self.model(sample)
-                
-                # Colellect predictions and samples
-                pred.append(output["popcount"].view(-1)); gt.append(sample["y"].view(-1))
-                
-                # compute loss
-                loss, loss_dict = get_loss(output, sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug, 
-                                           lam_adv=args.lam_adv if self.args.adversarial else 0.0,
-                                           lam_coral=args.lam_coral if self.args.CORAL else 0.0,
-                                           lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
-                                           tag="val_main")
-                if self.boosted:
-                    loss_raw, loss_dict_raw = get_loss(output["intermediate"], sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
-                                           lam_adv=args.lam_adv if self.args.adversarial else 0.0,
-                                           lam_coral=args.lam_coral if self.args.CORAL else 0.0,
-                                           lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
-                                           tag="val_intermediate")
-                    loss_dict = {**loss_dict, **loss_dict_raw}
-
-                # accumulate stats
-                for key in loss_dict:
-                    self.val_stats[key] += loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key] 
-            
-                    
-            # Compute average metrics
-            self.val_stats = {k: v / len(self.dataloaders['val']) for k, v in self.val_stats.items()}
-
-            # Compute non-averagable metrics
-            self.val_stats["Population_val_main/r2"] = r2(torch.cat(pred), torch.cat(gt))
-
-            wandb.log({**{k + '/val': v for k, v in self.val_stats.items()}, **self.info}, self.info["iter"])
-            
-            # save best model
-            if self.val_stats['optimization_loss'] < self.best_optimization_loss:
-                self.best_optimization_loss = self.val_stats['optimization_loss']
-                if self.args.save_model in ['best', 'both']:
-                    self.save_model('best')
 
     def validate_weak(self):
         self.valweak_stats = defaultdict(float)
@@ -465,121 +380,6 @@ class Trainer:
 
             wandb.log({**{k + '/val': v for k, v in self.valweak_stats.items()}, **self.info}, self.info["iter"])
 
-    def test(self, plot=False, full_eval=False, zh_eval=True, save=False):
-        self.test_stats = defaultdict(float)
-
-        self.model.eval() 
-        sum_pool10 = torch.nn.AvgPool2d(10, stride=10, divisor_override=1)
-        sum_pool20 = torch.nn.AvgPool2d(20, stride=20, divisor_override=1)
-        sum_pool40 = torch.nn.AvgPool2d(40, stride=40, divisor_override=1)
-        sum_pool2 = torch.nn.AvgPool2d(2, stride=2, divisor_override=1)
-        sum_pool4 = torch.nn.AvgPool2d(4, stride=4, divisor_override=1)
-
-        if plot:
-            print("Plotting predictions...")
-
-        s = 0
-        pad = torch.ones(1, 100,100)
-
-        # Iterate though the test set and compute metrics
-        with torch.no_grad():
-            pred, gt = [], []
-            pred1, gt1 = [], []
-            pred2, gt2 = [], []
-            pred4, gt4 = [], []
-            pred10, gt10, gtSo2 = [], [], []
-            for sample in tqdm(self.dataloaders["test"], leave=False):
-
-                # forward pass
-                sample = to_cuda_inplace(sample)
-                sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
-                # sample = apply_normalize(sample, self.dataset_stats)
-
-                output = self.model(sample)
-                
-                # Colellect predictions and samples
-                if full_eval:
-                    pred.append(output["popcount"].view(-1)); gt.append(sample["y"].view(-1)) 
-                    _, loss_dict = get_loss(output, sample, loss=args.loss, merge_aug=args.merge_aug, 
-                                                lam_adv=args.lam_adv if self.args.adversarial else 0.0,
-                                                lam_coral=args.lam_coral if self.args.CORAL else 0.0,
-                                                lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
-                                               tag="test_main")
-                    if self.boosted:
-                        _, loss_dict_raw = get_loss(output["intermediate"], sample, loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
-                                            lam_adv=args.lam_adv if self.args.adversarial else 0.0,
-                                            lam_coral=args.lam_coral if self.args.CORAL else 0.0,
-                                            lam_mmd=args.lam_mmd if self.args.MMD else 0.0,
-                                            tag="test_intermediate")
-                        loss_dict = {**loss_dict, **loss_dict_raw}
-
-                        for key in loss_dict:
-                            self.test_stats[key] += loss_dict[key].detach().cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key]
-                
-                #fine_eval for Zurich
-                if zh_eval:
-                    if sample["pop_avail"].any(): 
-                        pred_zh = output["popdensemap"][sample["pop_avail"][:,0].bool()]
-                        gt_zh = sample["Pop_X"][sample["pop_avail"][:,0].bool()]
-                        PopNN_X = sample["PopNN_X"][sample["pop_avail"][:,0].bool()]
-
-                        # Collect all different aggregation scales  (1, 2, 4, 10)
-                        pred1.append(sum_pool10(pred_zh).view(-1))
-                        gt1.append(gt_zh.view(-1))
-                        pred2.append(sum_pool20(pred_zh).view(-1))
-                        gt2.append(sum_pool2(gt_zh).view(-1))
-                        pred4.append(sum_pool40(pred_zh).view(-1))
-                        gt4.append(sum_pool4(gt_zh).view(-1))
-
-                        gt10.append(sum_pool10(gt_zh).view(-1))
-                        pred10.append(output["popcount"][sample["pop_avail"][:,0].bool()].view(-1))
-                        gtSo2.append(sample["y"][sample["pop_avail"][:,0].bool()].view(-1))
-
-                        # Plot predictions for Zurich
-                        i = 0
-                        if plot:
-                            for i in range(len(gt_zh)):
-                                if s>230:
-                                    vmax = max([gt_zh[i].max(), pred_zh[i].max()*100]).cpu().item()
-                                    plot_and_save(gt_zh[i].cpu(), model_name=args.expN, title=gt_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="01_GT", folder=self.args.experiment_folder)
-                                    plot_and_save(sum_pool10(pred_zh)[i].cpu(), model_name=args.expN, title=sum_pool10(pred_zh)[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="02_pred10", folder=self.args.experiment_folder)
-                                    # plot_and_save(PopNN_X[i].cpu(), model_name=args.expN, title=(PopNN_X[i].sum()/100).cpu().item(), vmin=0, vmax=vmax, idx=s, name="03_GTNN", folder=self.args.experiment_folder)
-                                    plot_and_save(pred_zh[i].cpu()*100, model_name=args.expN, title=pred_zh[i].sum().cpu().item(), vmin=0, vmax=vmax, idx=s, name="04_pred100", folder=self.args.experiment_folder)
-
-                                    inp = sample["input"][sample["pop_avail"][:,0].bool()]
-                                    if args.Sentinel2:
-                                        plot_and_save(inp[i,:3].cpu().permute(1,2,0)*0.2+0.5, model_name=args.expN, title=self.args.expN, idx=s, name="05_S2", cmap=None, folder=self.args.experiment_folder)
-                                        if args.Sentinel1:
-                                            plot_and_save(torch.cat([inp[i,3:5].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None, folder=self.args.experiment_folder)
-                                    else:
-                                        plot_and_save(torch.cat([inp[i,:2].cpu()*0.4 + 0.3, pad]).permute(1,2,0), model_name=args.expN, title=self.args.expN, idx=s, name="06_S1", cmap=None, folder=self.args.experiment_folder)
-
-                                s += 1
-                                if s > 270:
-                                    break
-            
-            # Compute metrics for full test set
-            if full_eval:
-                # average all stats
-                self.test_stats = {k: v / len(self.dataloaders['val']) for k, v in self.test_stats.items()}
-
-                # Compute non-averagable metrics
-                self.test_stats["Population_test_main/r2"] = r2(torch.cat(pred), torch.cat(gt))
-                self.test_stats["Population_test_main/Correlation"] =  torch.corrcoef(torch.stack([torch.cat(pred),torch.cat(gt)]))[0,1]
-                # self.test_stats["Population/Correlation"] = corr(torch.cat(pred), torch.cat(gt))
-                wandb.log({**{k + '/test': v for k, v in self.test_stats.items()}, **self.info}, self.info["iter"])
-
-            #fine_eval for Zurich
-            if zh_eval:
-                self.test_stats1 = get_test_metrics(torch.cat(pred1), torch.cat(gt1), tag="100m")
-                self.test_stats2 = get_test_metrics(torch.cat(pred2), torch.cat(gt2), tag="200m")
-                self.test_stats4 = get_test_metrics(torch.cat(pred4), torch.cat(gt4), tag="400m")
-                self.test_stats10 = get_test_metrics(torch.cat(pred10), torch.cat(gt10), tag="1km")
-                self.test_statsGT = get_test_metrics(torch.cat(gt10), torch.cat(gtSo2), tag="GTCons")
-                self.test_statsZH = {**self.test_stats1, **self.test_stats2, **self.test_stats4, **self.test_stats10, **self.test_statsGT}
-            
-                wandb.log({**{k + '/testZH': v for k, v in self.test_statsZH.items()}, **self.info}, self.info["iter"])
-
     def test_target(self, save=False, full=True):
         # Test on target domain
         self.model.eval()
@@ -596,7 +396,6 @@ class Trainer:
                 h, w = testdataloader.dataset.shape()
                 output_map = torch.zeros((h, w), dtype=torch.float16)
                 output_scale_map = torch.zeros((h, w), dtype=torch.float16)
-                # census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True, level=level)
                 output_map_count = torch.zeros((h, w), dtype=torch.int8)
 
                 if self.args.probabilistic:
@@ -608,11 +407,9 @@ class Trainer:
 
                 for sample in tqdm(testdataloader, leave=False):
                     sample = to_cuda_inplace(sample)
-                    # sample = apply_normalize(sample, self.dataset_stats)
                     sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
 
                     # get the valid coordinates
-                    # xmin, xmax, ymin, ymax = [val.item() for val in sample["valid_coords"]]
                     xl,yl = [val.item() for val in sample["img_coords"]]
                     mask = sample["mask"][0].bool()
 
@@ -645,7 +442,8 @@ class Trainer:
 
                 if "scale" in output.keys():
                     output_scale_map[div_mask] = output_scale_map[div_mask] / output_map_count[div_mask]
-
+                
+                # save maps
                 if save:
                     # save the output map
                     testdataloader.dataset.save(output_map, self.experiment_folder)
@@ -675,17 +473,17 @@ class Trainer:
                         built_up = census_gt_raw>10
                         self.target_test_stats = {**self.target_test_stats,
                                                   **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos_{}_{}".format(testdataloader.dataset.region, level))}
-    
+
+                    # create scatterplot and upload to wandb
                     scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist(), log_scale=True)
                     if scatterplot is not None:
                         self.target_test_stats["Scatter/Scatter_{}_{}".format(testdataloader.dataset.region, level)] = wandb.Image(scatterplot)
-                        # scatterplot.save("last_scatter.png")
 
             wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}, **self.info}, self.info["iter"])
         
 
     @staticmethod
-    def get_dataloaders(self, args, force_recompute=False): 
+    def get_dataloaders(self, args): 
         """
         Get dataloaders for the source and target domains
         Inputs:
@@ -700,39 +498,23 @@ class Trainer:
         self.data_transform = {}
         if args.full_aug:
             self.data_transform["general"] = transforms.Compose([
-                # AddGaussianNoise(std=0.04, p=0.75), 
-                # RandomHorizontalVerticalFlip(p=0.5),
+                # AddGaussianNoise(std=0.04, p=0.75),
                 RandomVerticalFlip(p=0.5, allsame=args.supmode=="weaksup"),
                 RandomHorizontalFlip(p=0.5, allsame=args.supmode=="weaksup"),
                 RandomRotationTransform(angles=[90, 180, 270], p=0.75),
             ])
             S2augs = [  RandomBrightness(p=0.9, beta_limit=(0.666, 1.5)),
                     RandomGamma(p=0.9, gamma_limit=(0.6666, 1.5)),
-                    # HazeAdditionModule(p=0.5, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3))
             ]
-            # if args.eu2rwa:
-            #     S2augs.append(Eu2Rwa(p=1.0))
 
 
         else: 
-            self.data_transform["general"] = transforms.Compose([
-                # AddGaussianNoise(std=0.1, p=0.9),
-            ])
+            self.data_transform["general"] = transforms.Compose([  ])
             S2augs = []
-        # ])
-        # S2augs = [  RandomBrightness(p=0.9, beta_limit=(0.666, 1.5)),
-        #             RandomGamma(p=0.9, gamma_limit=(0.6666, 1.5)),
-        #             # HazeAdditionModule(p=0.5, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3))
-        # ]
-        # if args.eu2rwa:
-        #     S2augs.append(Eu2Rwa(p=1.0))
-        self.data_transform["S2"] = OwnCompose(S2augs)
 
-        self.data_transform["S1"] = transforms.Compose([
-            # RandomBrightness(p=0.95),
-            # RandomGamma(p=0.95),
-            # HazeAdditionModule(p=0.95)
-        ])
+        # collect all transformations
+        self.data_transform["S2"] = OwnCompose(S2augs)
+        self.data_transform["S1"] = transforms.Compose([ ])
         
         # load normalization stats
         self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
@@ -743,60 +525,18 @@ class Trainer:
             else:
                 self.dataset_stats[mkey] = torch.tensor(val)
 
-        # source domain samples
-        # val_size = 0.2 
-        # f_names, labels = get_fnames_labs_reg(all_patches_mixed_train_part1, force_recompute=force_recompute)
-
-        # remove elements that contain "zurich" as a substring
-        # if args.excludeZH:
-        #     f_namesX = []
-        #     labelsX = []
-        #     [(f_namesX.append(f),labelsX.append(l)) for f,l in zip(f_names,labels) if "zurich" not in f]
-        #     f_names, labels = f_namesX, labelsX
-
-        # limit the number of samples for debugging
-        # f_names, labels = f_names[:int(args.max_samples)] , labels[:int(args.max_samples)]
-        # s = int(len(f_names)*val_size)
-        # f_names_train, f_names_val, labels_train, labels_val = f_names[:-s], f_names[-s:], labels[:-s], labels[-s:]
-        # f_names_test, labels_test = get_fnames_labs_reg(all_patches_mixed_test_part1, force_recompute=force_recompute)
-
-        # unlabled target domain samples
-        # if args.da:
-        #     f_names_unlab = []
-        #     for reg in args.target_regions:
-        #         f_names_unlab.extend(get_fnames_unlab_reg(os.path.join(pop_map_root, os.path.join("EE", reg)), force_recompute=False))
-        # else:
-        #     f_names_unlab = []
-
-        # create the raw source dataset
-        # train_dataset = PopulationDataset_Reg(f_names_train, labels_train, f_names_unlab=f_names_unlab, mode="train",
-        #                                     transform=None,random_season=args.random_season, **params)
         datasets = {
-            # "train": train_dataset,
-            # "val": PopulationDataset_Reg(f_names_val, labels_val, mode="val", transform=None, **params),
-            # "test": PopulationDataset_Reg(f_names_test, labels_test, mode="test", transform=None, **params),
             "test_target": [ Population_Dataset_target(reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, **input_defs) for reg in args.target_regions ]
         }
-        
-        # create the datasampler for the source/target domain mixup
-        # custom_sampler, shuffle = None, True 
-        # if len(args.target_regions)>0 and len(datasets["train"].unlabeled_indices)>0:
-        #     custom_sampler = LabeledUnlabeledSampler( labeled_indices=datasets["train"].labeled_indices, unlabeled_indices=datasets["train"].unlabeled_indices,
-        #                                                batch_size=args.batch_size  )
-        #     shuffle = False
 
         # create the dataloaders
         dataloaders =  {
-            # "train": DataLoader(datasets["train"], batch_size=args.batch_size, num_workers=args.num_workers, sampler=custom_sampler, shuffle=shuffle, drop_last=True, pin_memory=False),
-            # "val":  DataLoader(datasets["val"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False, pin_memory=True),
-            # "test":  DataLoader(datasets["test"], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False, drop_last=False, pin_memory=True),
             "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False) for datasets["test_target"] in datasets["test_target"] ]
         }
         
         # add weakly supervised samples of the target domain to the trainind_dataset
+        # create the weakly supervised dataset stack them into a single dataset and dataloader
         if args.supmode=="weaksup":
-            # create the weakly supervised dataset stack them into a single dataset and dataloader
-
             if args.gradientaccumulation:
                 weak_loader_batchsize = 1
                 self.accumulation_steps = args.weak_batch_size
@@ -805,35 +545,23 @@ class Trainer:
                 self.accumulation_steps = 1
                 
             weak_datasets = []
-            for reg in args.target_regions_train:
-            for reg in zip(args.target_regions_train, args.train_level):
+            # for reg in args.target_regions_train:
+            for reg, lvl in zip(args.target_regions_train, args.train_level):
                 splitmode = 'train' if self.args.weak_validation else 'all'
                 weak_datasets.append( Population_Dataset_target(reg, mode="weaksup", split=splitmode, patchsize=None, overlap=None, max_samples=args.max_weak_samples,
                                                                 fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
-                                                                ascfill=True, train_level=args.train_level, max_pix=self.args.max_weak_pix, ascAug=args.ascAug, **input_defs)  )
+                                                                ascfill=True, train_level=lvl, max_pix=self.args.max_weak_pix, ascAug=args.ascAug, **input_defs)  )
             dataloaders["weak_target_dataset"] = ConcatDataset(weak_datasets)
+            dataloaders["train"] = DataLoader(dataloaders["weak_target_dataset"], batch_size=weak_loader_batchsize, num_workers=1, shuffle=True, collate_fn=Population_Dataset_collate_fn, drop_last=True)
             
-            # create own simulation of a dataloader for the weakdataset
-            # weak_indices = list(range(len(dataloaders["weak_target_dataset"])))
-            # random.shuffle(weak_indices)
-            # dataloaders["weak_indices"] = weak_indices
-            # dataloaders["weak_iter"] = itertools.cycle(weak_indices)
-
-            # create dataloader for the weakly supervised dataset
-            dataloaders["weak_target"] = DataLoader(dataloaders["weak_target_dataset"], batch_size=weak_loader_batchsize, num_workers=1, shuffle=True, collate_fn=Population_Dataset_collate_fn, drop_last=True)
-            # dataloaders["weak_target_iter"] = iter(dataloaders["weak_target"])
-
-            # EXPERIMENTAL: TODO: REMOVE
-            dataloaders["train"] = dataloaders["weak_target"]
-
             weak_datasets_val = []
             if self.args.weak_validation:
-                # for reg in args.target_regions:
-                for reg in list(set(args.target_regions) | set(args.target_regions_train)):
+                # for reg in list(set(args.target_regions) | set(args.target_regions_train)):
+                for reg, lvl in zip(args.target_regions_train, args.train_level):
                     weak_datasets_val.append(Population_Dataset_target(reg, mode="weaksup", split="val", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
                                                                     fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
-                                                                    ascfill=True, train_level=args.train_level, max_pix=self.args.max_weak_pix, **input_defs) )
-                dataloaders["weak_target_val"] = [ DataLoader(weak_datasets_val[i], batch_size=self.args.weak_val_batch_size, num_workers=1, shuffle=False, collate_fn=Population_Dataset_collate_fn, drop_last=True) for i in range(len(args.target_regions)) ]
+                                                                    ascfill=True, train_level=lvl, max_pix=self.args.max_weak_pix, **input_defs) )
+                dataloaders["weak_target_val"] = [ DataLoader(weak_datasets_val[i], batch_size=self.args.weak_val_batch_size, num_workers=1, shuffle=False, collate_fn=Population_Dataset_collate_fn, drop_last=True) for i in range(len(args.target_regions_train)) ]
 
         return dataloaders
    

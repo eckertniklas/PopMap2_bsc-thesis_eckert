@@ -29,7 +29,7 @@ class POMELO_module(nn.Module):
     '''
     def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", down=5,
                 occupancymodel=False, pretrained=False, dilation=1, replace7x7=True,
-                parent=None, experiment_folder=None, useposembedding=False, head="v1"):
+                parent=None, experiment_folder=None, useposembedding=False, head="v1", grouped=False):
         super(POMELO_module, self).__init__()
         """
         Args:
@@ -173,7 +173,8 @@ class POMELO_module(nn.Module):
                 self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
         else:
             self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 
-                                        down=self.down, dilation=dilation, replace7x7=replace7x7, pretrained=pretrained)
+                                        down=self.down, dilation=dilation, replace7x7=replace7x7, pretrained=pretrained,
+                                        grouped=grouped)
             
         # lift the bias of the head to avoid the risk of dying ReLU
         self.head[-1].bias.data = 0.75 * torch.ones(2)
@@ -304,9 +305,6 @@ class POMELO_module(nn.Module):
 
         # popdensemap_raw = nn.functional.relu(out_raw[:,0])
         # popdensemap = nn.functional.relu(out[:,0])
-
-        # popdensemap = (popdensemap*1.8 + popdensemap_raw*0.2) / 2
-        # popdensemap = (popdensemap + popdensemap_raw) / 2
 
         if self.occupancymodel:
 

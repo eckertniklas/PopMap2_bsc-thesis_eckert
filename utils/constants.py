@@ -68,8 +68,8 @@ pop_map_covariates_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.j
 
 # raw data folder
 raw_file_paths = [
-        "/scratch/metzgern/HAC/data",
         "/scratch2/metzgern/HAC/data",
+        "/scratch/metzgern/HAC/data",
         "/cluster/work/igp_psr/metzgern/HAC/data",
         "/cluster/scratch/metzgern"
 ]

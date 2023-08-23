@@ -10,14 +10,12 @@ import segmentation_models_pytorch as smp
 
 from utils.plot import plot_2dmatrix
 
-
 import torch.nn as nn
-
 
 
 class CustomUNet(smp.Unet):
     def __init__(self, encoder_name, in_channels, classes, down=3, fsub=16, pretrained=False,
-                 dilation=1, replace7x7=True, activation=nn.LeakyReLU):
+                 dilation=1, replace7x7=True, activation=nn.LeakyReLU, grouped=False):
 
         # instanciate the base model
         # super().__init__(encoder_name, encoder_weights="imagenet",
@@ -54,7 +52,9 @@ class CustomUNet(smp.Unet):
             conv1w = self.encoder.conv1.weight # old kernel
             self.encoder.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, stride=2, padding=1, bias=False, dilation=1)
             self.encoder.conv1.weight = nn.Parameter(conv1w[:,:,2:-2,2:-2])
+            kernel_size, padding = 3, 1
         else:
+            kernel_size, padding = 7, 3
             if encoder_name.startswith("resnet"):
                 conv1w = self.encoder.conv1.weight # old kernel
 
@@ -68,6 +68,14 @@ class CustomUNet(smp.Unet):
                 if dilation > 1:
                     self.encoder.features[0] = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False, dilation=1)
                     self.encoder.features[0].weight = nn.Parameter(conv1w)
+
+        if grouped:
+            conv1w = self.encoder.conv1.weight # old kernel
+            self.encoder.conv1 = CustomGroupedConvolution(sentinel_2_channels=4, sentinel_1_channels=2, out_channels=64,
+                                                          kernel_size=kernel_size, padding=padding, bias=False, stride=2)
+            self.encoder.conv1.s2_conv.weight = nn.Parameter(conv1w[:64//2, :4, :, :])
+            self.encoder.conv1.s1_conv.weight = nn.Parameter(conv1w[64//2:, 4:, :, :])
+
 
 
         # adapt size of the center block for vgg
@@ -132,7 +140,8 @@ class CustomUNet(smp.Unet):
             print("segmentation_head:", segmentation_sum)
             print("Total # of effective Parameters:", stages_param_count+decoder_sum+segmentation_sum)
         return stages_param_count+decoder_sum+segmentation_sum
-            
+
+
     def forward(self, x, return_features=True, encoder_no_grad=False):
         """
         pass `x` trough model`s encoder, decoder and heads
@@ -182,3 +191,36 @@ class CustomUNet(smp.Unet):
             return masks, labels
 
         return masks, decoder_features
+    
+
+
+class CustomGroupedConvolution(nn.Module):
+    def __init__(self, sentinel_2_channels, sentinel_1_channels, out_channels,
+                 kernel_size=3, padding=1, bias=False, stride=2):
+        super(CustomGroupedConvolution, self).__init__()
+
+        # assert that the number of channels is divisible by 2
+        assert out_channels % 2 == 0, "The number of output channels should be divisible by 2"
+        
+        # Sentinel-2 Convolution
+        self.s2_conv = nn.Conv2d(sentinel_2_channels, out_channels//2, kernel_size=kernel_size,
+                                 padding=padding, bias=bias, stride=stride)
+        
+        # Sentinel-1 Convolution
+        self.s1_conv = nn.Conv2d(sentinel_1_channels, out_channels//2, kernel_size=kernel_size,
+                                 padding=padding, bias=bias, stride=stride)
+
+    def forward(self, x):
+        # Splitting the input based on the channels
+        s2_data = x[:, :4, :, :]  # Taking the first 4 channels for Sentinel-2
+        s1_data = x[:, 4:, :, :]  # Taking the next 2 channels for Sentinel-1
+        
+        # Grouped Convolutions
+        s2_out = self.s2_conv(s2_data)
+        s1_out = self.s1_conv(s1_data)
+        
+        # Concatenate along the channel dimension
+        out = torch.cat((s2_out, s1_out), dim=1)
+        
+        return out
+    

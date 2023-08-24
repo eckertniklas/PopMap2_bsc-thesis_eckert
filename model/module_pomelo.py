@@ -374,12 +374,22 @@ class POMELO_module(nn.Module):
                 # "intermediate": {"popcount": popcount_raw, "popdensemap": popdensemap_raw, "popvar": popvar_raw,
                 # "popvarmap": popvarmap_raw, "domain": None, "decoder_features": None}, 
                 **aux,
-                # "features": features,
-                # "decoder_features": decoder_features
                 }
 
 
-    def sparse_forward(self, inp, mask, module, out_channels=2):
+    def sparse_forward(self, inp: torch.Tensor, mask: torch.Tensor,
+                       module: callable, out_channels=2) -> torch.Tensor:
+        """
+        Description:
+            - Perform a forward pass with a module on a sparse input
+        Input:
+            - inp (torch.Tensor): input data
+            - mask (torch.Tensor): mask of the input data
+            - module (torch.nn.Module): module to apply
+            - out_channels (int): number of output channels
+        Output:
+            - out (torch.Tensor): output data
+        """
 
         # bring everything together
         batch_size, channels, height, width = inp.shape
@@ -406,7 +416,16 @@ class POMELO_module(nn.Module):
         return out
     
 
-    def add_padding(self, data, force=True):
+    def add_padding(self, data: torch.Tensor, force=True) -> torch.Tensor:
+        """
+        Description:
+            - Add padding to the input data
+        Input:
+            - data (torch.Tensor): input data
+            - force (bool): whether to force the padding
+        Output:
+            - data (torch.Tensor): padded data
+        """
         # Add padding
         px1,px2,py1,py2 = None, None, None, None
         if force:
@@ -426,7 +445,16 @@ class POMELO_module(nn.Module):
 
         return data, (px1,px2,py1,py2)
     
-    def revert_padding(self, data, padding):
+    def revert_padding(self, data: torch.tensor, padding: tuple) -> torch.Tensor:
+        """
+        Description:
+            - Revert the padding of the input data
+        Input:
+            - data (torch.Tensor): input data
+            - padding (tuple): padding parameters
+        Output:
+            - data (torch.Tensor): padded data
+        """
         px1,px2,py1,py2 = padding
         if px1 is not None or px2 is not None:
             data = data[:,:,px1:-px2,:]

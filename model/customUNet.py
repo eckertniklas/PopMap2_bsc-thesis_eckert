@@ -79,10 +79,10 @@ class CustomUNet(smp.Unet):
             
 
             # replace other convolutions as well
-            # self.encoder.layer1[0].conv1 = self.replace_with_groups(self.encoder.layer1[0].conv1) # old kernel
-            # self.encoder.layer1[0].conv2 = self.replace_with_groups(self.encoder.layer1[0].conv2) # old kernel
-            # self.encoder.layer1[1].conv1 = self.replace_with_groups(self.encoder.layer1[1].conv1) # old kernel
-            # self.encoder.layer1[1].conv2 = self.replace_with_groups(self.encoder.layer1[1].conv2) # old kernel
+            self.encoder.layer1[0].conv1 = self.replace_with_groups(self.encoder.layer1[0].conv1) # old kernel
+            self.encoder.layer1[0].conv2 = self.replace_with_groups(self.encoder.layer1[0].conv2) # old kernel
+            self.encoder.layer1[1].conv1 = self.replace_with_groups(self.encoder.layer1[1].conv1) # old kernel
+            self.encoder.layer1[1].conv2 = self.replace_with_groups(self.encoder.layer1[1].conv2) # old kernel
 
 
             # replace each convoutional module in self.encoder.layer1 with a grouped convolution

@@ -69,4 +69,5 @@ def get_model_kwargs(args, model_name):
         kwargs['experiment_folder'] = args.experiment_folder
         kwargs['useposembedding'] = args.useposembedding
         kwargs['head'] = args.head
+        kwargs['grouped'] = args.grouped
     return kwargs

@@ -45,7 +45,8 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_d
 
     # read
     if not isfile(source_popBi_file) or force:
-        df = pd.read_csv(csv_filename)[["E_KOORD", "N_KOORD", "B17BTOT"]]
+        # df = pd.read_csv(csv_filename)[["E_KOORD", "N_KOORD", "B17BTOT"]]
+        df = pd.read_csv(csv_filename, sep=";")[["E_KOORD", "N_KOORD", "B20BTOT"]] 
 
         E_min = df["E_KOORD"].min()
         N_min = df["N_KOORD"].max()-1
@@ -56,7 +57,8 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_d
         df["E_IMG"] = (df["E_KOORD"] - E_min) // cx
         df["N_IMG"] = -(df["N_KOORD"] - N_min) // cy
 
-        pop_raster[df["N_IMG"].tolist(), df["E_IMG"].to_list()] = df["B17BTOT"]
+        # pop_raster[df["N_IMG"].tolist(), df["E_IMG"].to_list()] = df["B17BTOT"]
+        pop_raster[df["N_IMG"].tolist(), df["E_IMG"].to_list()] = df["B20BTOT"]
         # plot_2dmatrix(pop_raster, vmax=50)
 
         meta = {"driver": "GTiff", "count": 1, "dtype": "float32", "width":w, "height":h, "crs": CRS.from_epsg(2056),
@@ -80,7 +82,8 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_d
                 'transform': rasterio.Affine(xres//ps, 0.0, ulx, 0.0, yres//ps, uly),
                 # 'transform': transform,
                 'width': width*ps,
-                'height': height*ps})
+                'height': height*ps,
+                "compress": "lzw"})
         
             with rasterio.open(source_popNN_file, 'w', **kwargs) as dst:
                 reproject(
@@ -114,13 +117,8 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_d
         src_transform = src.transform
         src_meta = src.meta.copy()
         reverse_transform = ~src_transform
-        popmap_upBi = src.read(1)
-        # popmap_upNN = scipy.ndimage.zoom(popmap, 10, order=0)
-        # popmap_upBi = scipy.ndimage.zoom(popmap, 10, order=1)
-        # popmap_up2 = scipy.ndimage.zoom(scipy.ndimage.zoom(popmap, 10, order=2), 0.1, order=2).sum()
-        # popmap_up1 = scipy.ndimage.zoom(scipy.ndimage.zoom(popmap, 10, order=1), 0.1, order=1).sum()
-        # popmap_up0 = scipy.ndimage.zoom(scipy.ndimage.zoom(popmap, 10, order=0), 0.1, order=0).sum()
-        
+        popmap_upBi = src.read(1) 
+
     class_folders = glob.glob(join(template_dir, "*"))
 
     for class_path in class_folders:
@@ -187,15 +185,17 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_d
 
 
 def process():
-    source_folder = "/scratch/metzgern/HAC/data/BFS_CH/2017"
-    source_filename = "STATPOP2017.csv"
+    # source_folder = "/scratch2/metzgern/HAC/data/BFS_CH/2017"
+    source_folder = "/scratch2/metzgern/HAC/data/BFS_CH/2020"
+    # source_filename = "STATPOP2017.csv"
+    source_filename = "STATPOP2020.csv"
     source_meta_poprasterNN = "PopRasterNN.tif"
     source_meta_poprasterBi = "PopRasterBi.tif"
     template_dir = "/scratch/metzgern/HAC/data/So2Sat_POP_Part1/test/00380_22606_zurich/viirs"
     target_dir = "/scratch/metzgern/HAC/data/So2Sat_POP_Part1/test/00380_22606_zurich/Pop"
     target_dirNN = "/scratch/metzgern/HAC/data/So2Sat_POP_Part1/test/00380_22606_zurich/PopNN"
     target_dirBi = "/scratch/metzgern/HAC/data/So2Sat_POP_Part1/test/00380_22606_zurich/PopBi"
-    makedirs(target_dir, exist_ok=True) 
+    makedirs(target_dir, exist_ok=True)
     makedirs(target_dirNN, exist_ok=True) 
     makedirs(target_dirBi, exist_ok=True) 
 

@@ -8,13 +8,10 @@ import numpy as np
 parser = configargparse.ArgumentParser()
 parser.add_argument('-c', '--config', is_config_file=True, help='Path to the config file', type=str)
 
-parser.add_argument('-o', '--no-osm', help='If set, Training Skript wont use OSM Data', default=False,
-                    action='store_true')
-parser.add_argument('-s', '--satmode', help='Using Satellite Data only', default=False,
-                    action='store_true')
-parser.add_argument('-r', '--resume', type=str, help='if argument is given, skript will continue training '
-                                                            'given model\
-                                                            ; argument should be name of the model to be trained')
+parser.add_argument('-o', '--no-osm', help='If set, Training Skript wont use OSM Data', default=False,  action='store_true')
+parser.add_argument('-s', '--satmode', help='Using Satellite Data only', default=False,  action='store_true')
+parser.add_argument('-r', '--resume', type=str, help='if argument is given, skript will continue training given model\  ; argument should be name of the model to be trained')
+parser.add_argument('-re', '--resume_extractor', type=str, help=' ')
 
 # parser.add_argument("-d", "--dataset", type=str, default="So2Sat", help="the source domain") 
 parser.add_argument("-treg", "--target_regions", nargs='+', default=["pri2017"], help="the target domains")
@@ -29,6 +26,7 @@ parser.add_argument('-wvb', '--weak_val_batch_size', help='', type=int, default=
 parser.add_argument('-f', '--feature_dim', help='', type=int, default=32)
 parser.add_argument('-pret', '--pretrained', help='', action='store_true')
 parser.add_argument("-m", "--model", help='', type=str, default="JacobsUNet")
+parser.add_argument("-gr", "--grouped", help='', action='store_true')
 parser.add_argument('-par', '--parent', type=str, help=' ', default=None)
 parser.add_argument("-omo", "--occupancymodel", help='', action='store_true')
 parser.add_argument("-binp", "--buildinginput", help='', action='store_true')
@@ -104,14 +102,14 @@ parser.add_argument("-wp", "--wandb_project", help='', type=str, default="POMELO
 parser.add_argument('-lt', '--logstep_train', help='', type=int, default=25)
 parser.add_argument('-val', '--val_every_n_epochs', help='', type=int, default=1)
 parser.add_argument('-wv', '--weak_validation', help='', action='store_true')
-parser.add_argument('-testi', '--test_every_i_steps', help='', type=int, default=2000)
-parser.add_argument('-vi', '--val_every_i_steps', help='', type=int, default=2000)
+parser.add_argument('-testi', '--test_every_i_steps', help='', type=int, default=500000)
+parser.add_argument('-vi', '--val_every_i_steps', help='', type=int, default=500000)
 parser.add_argument("--seed", help='', type=int, default=1610)
 parser.add_argument('--save-model', default='both', choices=['last', 'best', 'no', 'both'])
 parser.add_argument('-ms', '--max_samples', help='', type=int, default=1e15)
 parser.add_argument('-mws', '--max_weak_samples', help='', type=int, default=None)
 parser.add_argument('-mwp', '--max_weak_pix', help='', type=int, default=10000000)
-parser.add_argument('-tlevel', '--train_level', default='fine', type=str,)
+parser.add_argument('-tlevel', '--train_level', nargs='+', default=["fine"] )
 parser.add_argument("--in_memory", action='store_true', help='')
 parser.add_argument("--merge_aug", type=int, default=2, help='Number of Admin regions to merge, Defaults 1 with equivalent to no augmentations, so better not use this. Must be a power of 2 and a divisor of the batchsize.')
 parser.add_argument("-wma", "--weak_merge_aug", action='store_true', help='')

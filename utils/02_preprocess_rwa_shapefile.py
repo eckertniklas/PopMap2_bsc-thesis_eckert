@@ -48,6 +48,7 @@ def process(hd_regions_path, wp_regions_path,
     # wp_joined = pd.concat([wp_regions, all_census], axis=1, join="inner")
     wp_joined2 = wp_regions.merge(all_census, on='adm_id', how='inner')
     
+    # iterate over the hd_regions and wp_regions and find the intersection
     iou_calc = np.zeros((len(hd_regions), len(wp_joined2)))
     for i,hd_row in tqdm(hd_regions.iterrows(), total=len(hd_regions)):
         hd_geometry = hd_row["geometry"]

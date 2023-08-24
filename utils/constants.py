@@ -68,8 +68,8 @@ pop_map_covariates_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.j
 
 # raw data folder
 raw_file_paths = [
-        "/scratch/metzgern/HAC/data",
         "/scratch2/metzgern/HAC/data",
+        "/scratch/metzgern/HAC/data",
         "/cluster/work/igp_psr/metzgern/HAC/data",
         "/cluster/scratch/metzgern"
 ]
@@ -123,10 +123,10 @@ datalocations = {
         }
     },
     'rwa': {
-        'fine': {
-            'boundary': "boundaries_coarse.tif",
-            'census': "census_coarse.csv",
-        },
+        # 'fine': {
+        #     'boundary': "boundaries_coarse.tif",
+        #     'census': "census_coarse.csv",
+        # },
         'fine100': {
             'boundary': "boundaries_kigali100.tif",
             'census': "census_kigali100.csv",
@@ -161,6 +161,32 @@ datalocations = {
             'boundary': "boundaries.tif",
             'census': "census.csv",
         },
+    },
+    "che": {
+        'coarse4': {
+            'boundary': "boundaries_coarse4.tif",
+            'census': "census_coarse4.csv",
+        },
+        'coarse3': {
+            'boundary': "boundaries_coarse3.tif",
+            'census': "census_coarse3.csv",
+        },
+        'coarse1': {
+            'boundary': "boundaries_coarse1.tif",
+            'census': "census_coarse1.csv",
+        },
+        'finezurich': {
+            'boundary': "boundaries_finezurich.tif",
+            'census': "census_finezurich.csv",
+        },
+        'fine': {
+            'boundary': "boundaries_fine.tif",
+            'census': "census_fine.csv",
+        },
+        'coarse': {
+            'boundary': "boundaries_coarse4.tif",
+            'census': "census_coarse4.csv",
+        }
     }
 }
 
@@ -168,14 +194,16 @@ testlevels = {
     'pricp2': ["fine", "fineTRACTCE", "fineBLOCKCE"],
     # 'rwa': ["coarse"]
     'rwa': ["fine100", "fine200", "fine400", "fine1000", "coarse"],
-    'uga': ["coarse"]
+    'uga': ["coarse"],
+    'che': ["finezurich", "coarse4"]
 }
 
 # inicies to skip while training
 skip_indices = {
     "pricp2": [],
     "rwa": [],
-    "uga": [1323]
+    "uga": [1323],
+    "che": []
 }
 
 

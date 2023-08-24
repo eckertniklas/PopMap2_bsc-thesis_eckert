@@ -325,9 +325,9 @@ class POMELO_module(nn.Module):
                 aux["empty_scale"] = scale * (1-inputs["building_counts"][:,0])
 
                 # subsample the empty scale
-                xindices = torch.ones(scale.shape[1]).multinomial(num_samples=min(30,scale.shape[1]), replacement=False).sort()[0]
-                yindices = torch.ones(scale.shape[2]).multinomial(num_samples=min(30,scale.shape[2]), replacement=False).sort()[0]
-                aux["empty_scale"] = aux["empty_scale"][:,xindices][:,:,yindices] 
+                # xindices = torch.ones(scale.shape[1]).multinomial(num_samples=min(30,scale.shape[1]), replacement=False).sort()[0]
+                # yindices = torch.ones(scale.shape[2]).multinomial(num_samples=min(30,scale.shape[2]), replacement=False).sort()[0]
+                # aux["empty_scale"] = aux["empty_scale"][:,xindices][:,:,yindices] 
 
 
                 popdensemap = scale * inputs["building_counts"][:,0]

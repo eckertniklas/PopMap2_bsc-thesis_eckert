@@ -167,7 +167,7 @@ class Population_Dataset_target(Dataset):
 
 
         if not os.path.exists(S1spring_file):
-            print("Using virtual rasters for S1")
+            print(S1spring_file, "Does not exist, using virtual rasters for S1")
             # rawEE_map_root = rawEE_map_root
             # rawEE_map_root = rawEE_map_root if os.path.exists(os.path.join(rawEE_map_root,region)) else rawEE_map_root.replace("scratch", "scratch2")
         
@@ -220,7 +220,7 @@ class Population_Dataset_target(Dataset):
             # if exists, we use the preprocessed files
 
             if not os.path.exists(S2spring_file):
-                print("Using virtual rasters for S2")
+                print(S2spring_file, "Does not exist, using virtual rasters for S2")
                 
                 spring_dir = os.path.join(rawEE_map_root, region, "S2Aspring")
                 summer_dir = os.path.join(rawEE_map_root, region, "S2Asummer")

@@ -87,6 +87,7 @@ data_paths_aux = [
         "/scratch/metzgern/HAC/data",
         "/scratch2/metzgern/HAC/data",
         "/cluster/work/igp_psr/metzgern/HAC/data",
+        # "/cluster/scratch/metzgern"
         # /cluster/work/igp_psr/metzgern/HAC/data/PopMapData/raw/GoogleBuildings
 ]
 for name in data_paths_aux:

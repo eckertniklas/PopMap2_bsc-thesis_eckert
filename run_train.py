@@ -121,7 +121,10 @@ class Trainer:
                     {'params': params_without_decay, 'weight_decay': 0.0}, # No weight decay
                 ]
                 , lr=args.learning_rate)
-            # self.optimizer = optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
+            
+            if args.resume_extractor is not None:
+                self.optimizer = optim.Adam([ {'params': self.model.unetmodel.parameters(), 'weight_decay': args.weightdecay}]  , lr=args.learning_rate)
+                
         elif args.optimizer == "SGD":
             self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
             # self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weightdecay)
@@ -139,6 +142,8 @@ class Trainer:
         # in case of checkpoint resume
         if args.resume is not None:
             self.resume(path=args.resume)
+        if args.resume_extractor is not None:
+            self.resume(path=args.resume_extractor, load_optimizer=False)
 
     def train(self):
         """
@@ -597,7 +602,7 @@ class Trainer:
             }, os.path.join(self.experiment_folder, f'{prefix}_embedder.pth'))
 
 
-    def resume(self, path):
+    def resume(self, path, load_optimizer=True):
         """
         Input:
             path: path to the checkpoint
@@ -608,7 +613,8 @@ class Trainer:
         # load checkpoint
         checkpoint = torch.load(path)
         self.model.load_state_dict(checkpoint['model'])
-        self.optimizer.load_state_dict(checkpoint['optimizer'])
+        if load_optimizer:
+            self.optimizer.load_state_dict(checkpoint['optimizer'])
         self.scheduler.load_state_dict(checkpoint['scheduler'])
         self.info["epoch"] = checkpoint['epoch']
         self.info["iter"] = checkpoint['iter']

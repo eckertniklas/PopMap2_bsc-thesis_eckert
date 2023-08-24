@@ -78,6 +78,13 @@ class CustomUNet(smp.Unet):
             self.encoder.conv1.s1_conv.weight = nn.Parameter(conv1w[64//2:, 4:, :, :])
             
 
+            # replace other convolutions as well
+            # self.encoder.layer1[0].conv1 = self.replace_with_groups(self.encoder.layer1[0].conv1) # old kernel
+            # self.encoder.layer1[0].conv2 = self.replace_with_groups(self.encoder.layer1[0].conv2) # old kernel
+            # self.encoder.layer1[1].conv1 = self.replace_with_groups(self.encoder.layer1[1].conv1) # old kernel
+            # self.encoder.layer1[1].conv2 = self.replace_with_groups(self.encoder.layer1[1].conv2) # old kernel
+
+
             # replace each convoutional module in self.encoder.layer1 with a grouped convolution
             # for i, (name,module) in enumerate(self.encoder.layer1.named_modules()):
             #     if isinstance(module, nn.Conv2d):
@@ -109,6 +116,7 @@ class CustomUNet(smp.Unet):
         # print number of parameters that are actually used
         self.num_effective_params(down=down, verbose=True)
 
+
     def remove_batchnorm(self, model):
         """
         remove batchnorm layers from model
@@ -118,6 +126,17 @@ class CustomUNet(smp.Unet):
                 setattr(model, name, nn.Identity())
             else:
                 self.remove_batchnorm(module)
+
+
+    def replace_with_groups(self, module):
+        convXw = module.weight # old kernel
+        module = CustomGroupedConvolution(sentinel_2_channels=convXw.shape[1]//2, sentinel_1_channels=convXw.shape[1]//2,
+                                                            out_channels=convXw.shape[0],
+                                                            kernel_size=3, padding=1, bias=False, stride=1)
+        module.s2_conv.weight = nn.Parameter(convXw[:convXw.shape[0]//2, :convXw.shape[1]//2, :, :])
+        module.s1_conv.weight = nn.Parameter(convXw[convXw.shape[0]//2:, convXw.shape[1]//2:, :, :])
+        return module
+
 
     def modify_dilation(self, net, dilation=2):
         for name, module in net.named_modules():
@@ -129,6 +148,7 @@ class CustomUNet(smp.Unet):
                 padding_needed = (kernel_size - 1)
                 module.padding = (padding_needed, padding_needed)
         pass
+
 
     def num_effective_params(self, down=5, verbose=False):
         """
@@ -204,7 +224,6 @@ class CustomUNet(smp.Unet):
         return masks, decoder_features
     
 
-
 class CustomGroupedConvolution(nn.Module):
     def __init__(self, sentinel_2_channels, sentinel_1_channels, out_channels,
                  kernel_size=3, padding=1, bias=False, stride=2):
@@ -212,6 +231,7 @@ class CustomGroupedConvolution(nn.Module):
 
         # assert that the number of channels is divisible by 2
         assert out_channels % 2 == 0, "The number of output channels should be divisible by 2"
+        self.s2c = sentinel_2_channels
         
         # Sentinel-2 Convolution
         self.s2_conv = nn.Conv2d(sentinel_2_channels, out_channels//2, kernel_size=kernel_size,
@@ -223,8 +243,8 @@ class CustomGroupedConvolution(nn.Module):
 
     def forward(self, x):
         # Splitting the input based on the channels
-        s2_data = x[:, :4, :, :]  # Taking the first 4 channels for Sentinel-2
-        s1_data = x[:, 4:, :, :]  # Taking the next 2 channels for Sentinel-1
+        s2_data = x[:, :self.s2c, :, :]  # Taking the first :x channels for Sentinel-2
+        s1_data = x[:, self.s2c:, :, :]  # Taking the next x: channels for Sentinel-1
         
         # Grouped Convolutions
         s2_out = self.s2_conv(s2_data)

@@ -280,7 +280,6 @@ class POMELO_module(nn.Module):
                 else:
                     if self.occupancymodel:
                         
-                        
                         # prepare the input to the head
                         if self.useposembedding:
                             headin = torch.cat([features, pose, inputs["building_counts"]], dim=1)
@@ -321,7 +320,16 @@ class POMELO_module(nn.Module):
                 # for final
                 # aux["scale"] = popdensemap.clone().cpu().detach()
                 aux["scale"] = scale
-                aux["empty_scale"] = scale * (1-inputs["building_counts"][:,0]) 
+
+                # sparse sampling of the empty scale
+                aux["empty_scale"] = scale * (1-inputs["building_counts"][:,0])
+
+                # subsample the empty scale
+                xindices = torch.ones(scale.shape[1]).multinomial(num_samples=min(30,scale.shape[1]), replacement=False).sort()[0]
+                yindices = torch.ones(scale.shape[2]).multinomial(num_samples=min(30,scale.shape[2]), replacement=False).sort()[0]
+                aux["empty_scale"] = aux["empty_scale"][:,xindices][:,:,yindices] 
+
+
                 popdensemap = scale * inputs["building_counts"][:,0]
                 # popdensemap = popdensemap * (inputs["building_counts"][:,0]>0.25)
                 # popdensemap = popdensemap * (inputs["building_counts"][:,0]>0.25) * inputs["building_counts"][:,0]

@@ -241,7 +241,8 @@ class Trainer:
                                 print("Input to large for encoder and unet")
                                 continue
 
-                    output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
+                    output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False,
+                                             encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, sparse=False)
 
                     # merge augmented samples
                     if self.args.weak_merge_aug:

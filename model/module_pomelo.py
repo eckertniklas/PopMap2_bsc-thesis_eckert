@@ -187,13 +187,23 @@ class POMELO_module(nn.Module):
             print("Embedder: ",sum(p.numel() for p in self.embedder.parameters() if p.requires_grad)) 
         print("Head: ",sum(p.numel() for p in self.head.parameters() if p.requires_grad))
 
-    def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True, encoder_no_grad=False, unet_no_grad=False):
+    def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True,
+                encoder_no_grad=False, unet_no_grad=False, sparse=False):
         """
         Forward pass of the model
         Assumptions:
             - inputs["input"] is the input image (Concatenation of Sentinel-1 and/or Sentinel-2)
             - inputs["input"].shape = [batch_size, input_channels, height, width]
         """
+
+        if sparse:
+            # create sparsity mask
+            sub = 30
+            sparsity_mask = inputs["building_counts"][:,0]>0
+            xindices = torch.ones(sparsity_mask.shape[1]).multinomial(num_samples=min(sub,sparsity_mask.shape[1]), replacement=False).sort()[0]
+            yindices = torch.ones(sparsity_mask.shape[2]).multinomial(num_samples=min(sub,sparsity_mask.shape[2]), replacement=False).sort()[0]
+            sparsity_mask[:, xindices.unsqueeze(1), yindices] = 1
+
         aux = {}
 
         # forward the parent model without gradient if exists
@@ -201,10 +211,8 @@ class POMELO_module(nn.Module):
             # Forward the parent model
             with torch.no_grad():
                 output_dict = self.parent(inputs, padding=False, return_features=False, unet_no_grad=unet_no_grad)
-            # Concatenate the parent features with the input
-            parent_features = output_dict["features"]
-            inputdata = torch.cat([ output_dict["features"], inputs["input"]], dim=1) #old
-            # inputdata = torch.cat([ output_dict["popdensemap"].unsqueeze(1), inputs["input"]], dim=1)
+            # Concatenate the parent features with the input 
+            inputdata = torch.cat([ output_dict["features"], inputs["input"]], dim=1) #old 
         else:
             inputdata = inputs["input"]
 
@@ -217,13 +225,15 @@ class POMELO_module(nn.Module):
                                   dim=1)
                 pose = self.embedder(xy)
             else:
-                # TODO: optimize for occupancy model
+                # optimized for occupancy model
                 if self.occupancymodel:
                     # pose = self.sparse_forward(inputs["positional_encoding"], inputs["building_counts"][:,0]>0, self.embedder, out_channels=self.embedding_dim)
-                    pose = self.embedder(inputs["positional_encoding"])
+                    if sparse:
+                        pose = self.sparse_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
+                    else:
+                        pose = self.embedder(inputs["positional_encoding"])
 
             # Concatenate the pose embedding to the input data
-
             if self.head_name in ["v2", "v4"]:
                 inputdata = inputdata
             elif self.head_name in ["v3"]:
@@ -269,9 +279,6 @@ class POMELO_module(nn.Module):
             aux["features"] = features
             aux["decoder_features"] = decoder_features
 
-            # Forward the head
-            # out_raw = self.head(features)
-
             if self.head_name in ["v2"]:
                 out = self.head(torch.cat([features, pose], dim=1))
             elif self.head_name in ["v3", "v4"]:
@@ -286,9 +293,10 @@ class POMELO_module(nn.Module):
                         else:
                             headin = torch.cat([features, inputs["building_counts"]], dim=1)
 
-                        # out = self.sparse_forward(headin, inputs["building_counts"][:,0]>0, self.head, out_channels=2)
-                        out = self.head(headin)
-
+                        if sparse:
+                            out = self.sparse_forward(headin, sparsity_mask, self.head, out_channels=2)
+                        else:
+                            out = self.head(headin)
 
                     else:
                         if self.useposembedding:
@@ -389,7 +397,7 @@ class POMELO_module(nn.Module):
         # initialize the output
         out_flat = torch.zeros((out_channels, batch_size*height*width,1), device=inp.device)
         
-        # perform the forward pass
+        # perform the forward pass with the module
         out_flat[ :, mask_flat] = module(inp_flat_masked)
         
         # reshape the output

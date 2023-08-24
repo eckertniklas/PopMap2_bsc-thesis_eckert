@@ -71,13 +71,24 @@ class CustomUNet(smp.Unet):
 
         if grouped:
             conv1w = self.encoder.conv1.weight # old kernel
-            self.encoder.conv1 = CustomGroupedConvolution(sentinel_2_channels=4, sentinel_1_channels=2, out_channels=64,
+            self.encoder.conv1 = CustomGroupedConvolution(sentinel_2_channels=4, sentinel_1_channels=2,
+                                                          out_channels=64,
                                                           kernel_size=kernel_size, padding=padding, bias=False, stride=2)
             self.encoder.conv1.s2_conv.weight = nn.Parameter(conv1w[:64//2, :4, :, :])
             self.encoder.conv1.s1_conv.weight = nn.Parameter(conv1w[64//2:, 4:, :, :])
+            
 
+            # replace each convoutional module in self.encoder.layer1 with a grouped convolution
+            # for i, (name,module) in enumerate(self.encoder.layer1.named_modules()):
+            #     if isinstance(module, nn.Conv2d):
+            #         convXw = module.weight # old kernel
+            #         module = CustomGroupedConvolution(sentinel_2_channels=convXw.shape[1]//2, sentinel_1_channels=convXw.shape[1]//2,
+            #                                                           out_channels=convXw.shape[0],
+            #                                                           kernel_size=3, padding=1, bias=False, stride=1)
+            #         module.s2_conv.weight = nn.Parameter(convXw[:convXw.shape[0]//2, :convXw.shape[1]//2, :, :])
+            #         module.s1_conv.weight = nn.Parameter(convXw[convXw.shape[0]//2:, convXw.shape[1]//2:, :, :])
 
-
+            
         # adapt size of the center block for vgg
         if encoder_name.startswith("vgg"):
             self.decoder.center = smp.decoders.unet.decoder.CenterBlock(

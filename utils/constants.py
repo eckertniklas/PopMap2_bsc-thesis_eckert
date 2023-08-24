@@ -64,7 +64,7 @@ pop_map_root = os.path.join(large_file_path, os.path.join("PopMapData", "process
 pop_map_root_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.join("PopMapData", "processed"))
 pop_map_covariates = os.path.join(large_file_path, os.path.join("PopMapData", os.path.join("merged", "EE")))
 pop_map_covariates_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.join("PopMapData", os.path.join("merged", "EE")))
-
+print("pop_map_root", pop_map_root)
 
 # raw data folder
 raw_file_paths = [
@@ -80,6 +80,7 @@ if raw_file_path is None:
     raise Exception("No data folder found")
 raw_map_root = os.path.join(raw_file_path, os.path.join("PopMapData", "raw"))
 rawEE_map_root = os.path.join(raw_map_root, "EE")
+print("rawEE_map_root", rawEE_map_root)
 
 
 # google buildings data folder
@@ -96,7 +97,7 @@ for name in data_paths_aux:
 if large_file_path is None:
     raise Exception("No data folder found")
 pop_gbuildings_path = os.path.join(data_path_aux, os.path.join("PopMapData", os.path.join("raw", "GoogleBuildings")))
-
+print("pop_gbuildings_path", pop_gbuildings_path)
 
 
 # Definitions of where to find the census data and the boundaries of the target areas

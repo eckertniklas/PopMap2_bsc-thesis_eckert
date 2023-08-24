@@ -1402,7 +1402,7 @@
                 "--num_workers", "6", 
                 "--seed", "1612",
                 "-gc", "0.01",
-                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1772_902/last_model.pth",
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1773_355/last_model.pth",
                 "--supmode", "weaksup",
                 "--lam_weak", "100",
                 // "--supmode", "unsup",

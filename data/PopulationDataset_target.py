@@ -598,22 +598,7 @@ class Population_Dataset_target(Dataset):
 
 
         return indata, mask, window
-    
-
-    # def read_gdal_file(self, file, bands, window=None):
-    #     """
-    #     Reads a gdal file and returns the data
-    #     inputs:
-    #         :param file: the gdal file
-    #         :param bands: the bands to read, 1-based indexing like in gdal (e.g. (3,2,1) for RGB)
-    #         :param window: the window to read
-    #     outputs:
-    #         :return: the data
-    #     """
-    #     with rasterio.open(file.GetDescription(), 'r') as raster_vrt:
-    #         bands_out = raster_vrt.read(bands, window=window).astype(np.float32) 
-    #     return bands_out
-    
+        
 
     def convert_popmap_to_census(self, pred, gpu_mode=False, level="fine"):
         """
@@ -711,13 +696,13 @@ class Population_Dataset_target(Dataset):
         outputs:
             :return: adjusted map
         """
-        boundary_file = self.file_paths["coarse"]["boundary"]
-        census_file = self.file_paths["coarse"]["census"]
+        
+        boundary_file = self.file_paths[self.train_level]["boundary"]
+        census_file = self.file_paths[self.train_level]["census"]
 
-        # raise NotImplementedError
         with rasterio.open(boundary_file, "r") as src:
             boundary = src.read(1)
-        boundary = torch.from_numpy(boundary)
+        boundary = torch.from_numpy(boundary.astype(np.float32))
 
         # read the census file
         census = pd.read_csv(census_file)
@@ -726,6 +711,8 @@ class Population_Dataset_target(Dataset):
         for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
             xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
             pred_census_count = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
+            if pred_census_count==0:
+                continue
             adj_scale = census["POP20"][i] / pred_census_count
             pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] *= adj_scale
 

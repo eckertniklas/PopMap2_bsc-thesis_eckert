@@ -181,6 +181,10 @@ datalocations = {
             'boundary': "boundaries_finezurich.tif",
             'census': "census_finezurich.csv",
         },
+        'finezurich2': {
+            'boundary': "boundaries_finezurich2.tif",
+            'census': "census_finezurich2.csv",
+        },
         'fine': {
             'boundary': "boundaries_fine.tif",
             'census': "census_fine.csv",

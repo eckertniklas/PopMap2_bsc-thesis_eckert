@@ -53,7 +53,7 @@ large_file_paths = [
         "/scratch2/metzgern/HAC/data",
         "/scratch/metzgern/HAC/data",
         "/cluster/work/igp_psr/metzgern/HAC/data",
-        
+        "/cluster/scratch/metzgern"
 ]
 for name in large_file_paths:
     if os.path.isdir(name):

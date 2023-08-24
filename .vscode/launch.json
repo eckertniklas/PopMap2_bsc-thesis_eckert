@@ -485,10 +485,17 @@
             "console": "integratedTerminal",
         },
         {
-            "name": "eval_worldpop_maps.py",
+            "name": "eval_worldpop_maps.py, RWA",
             "type": "python",
             "request": "launch",
             "module": "baselines.rwa.eval_worldpop_maps",
+            "console": "integratedTerminal",
+        },
+        {
+            "name": "eval_worldpop_maps.py, CHE",
+            "type": "python",
+            "request": "launch",
+            "module": "baselines.che.eval_worldpop_maps",
             "console": "integratedTerminal",
         },
         {

@@ -99,7 +99,7 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
 
     
     # define GT dataset
-    dataset = Population_Dataset_target("rwa")
+    dataset = Population_Dataset_target("rwa", train_level="coarse")
 
     # adjust map with the coarse census
     hr_pop_map_adj = dataset.adjust_map_to_census(hr_pop_map.clone())
@@ -165,7 +165,8 @@ if __name__=="__main__":
     # sample
     # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1599_252/rwa_predictions.tif"
     # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1610_250/rwa_predictions.tif"
-    map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1650_520/rwa_predictions_v1.tif"
+    # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1650_520/rwa_predictions_v1.tif"
+    map_path = "/scratch2/metzgern/Downloads/experiment_198_824/rwa_predictions.tif"
     # map_path = "/scratch2/metzgern/Downloads/experiment_155_459/rwa_predictions.tif"
     # map_path = "/scratch2/metzgern/Downloads/experiment_155_459/rwa_predictions.tif"
     # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1542_618/rwa_predictions.tif"

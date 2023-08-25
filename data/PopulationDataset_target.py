@@ -621,12 +621,9 @@ class Population_Dataset_target(Dataset):
         # read the census file
         census = pd.read_csv(census_file)
 
-        if gpu_mode:
-            # pred = pred.to(torch.float32).cuda()
+        if gpu_mode: 
             pred = pred.cuda()
-            boundary = boundary.cuda()
-            # census_pred = torch.zeros(len(census), dtype=torch.float32).cuda()
-            # census_pred = -torch.ones(census["idx"].max()+1, dtype=torch.float32).cuda()
+            boundary = boundary.cuda() 
 
             # initialize more efficient version
             census_pred_i = -torch.ones(len(census), dtype=torch.float32).cuda()
@@ -638,25 +635,26 @@ class Population_Dataset_target(Dataset):
             for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"])), total=len(census), disable=False):
                 if pd.isnull(bbox):
                     continue
+
+                # append the predicted census and the true census
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
                 census_pred_i[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
                 census_i[i] = census["POP20"][i]
 
-                # census_pred[cidx] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
-                # census["count"] = (boundary[xmin:xmax, ymin:ymax]==cidx).to(torch.float32).sum()
- 
-
         else:
+
             pred = pred.to(torch.float32)
-            census_pred = torch.zeros(len(census), dtype=torch.float32)
+
+            census_pred_i = -torch.ones(len(census), dtype=torch.float32).cuda()
+            census_i = -torch.ones(len(census), dtype=torch.float32).cuda()
 
             # iterate over census regions and get totals
             for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
-                xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
-                # xmin, xmax, ymin, ymax = tuple(map(int, tuple(map(int, bbox.strip('()').strip('[]').split(','))).split(',')))
-                census_pred[cidx] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].sum()
-                # census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].sum()
-        
+                xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(','))) 
+                # census_pred[cidx] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].sum()
+                census_pred_i[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
+                census_i[i] = census["POP20"][i]
+
         # valid_census = census_pred>-1
         # census_pred = census_pred[valid_census] 
         # census = census[valid_census]
@@ -698,7 +696,7 @@ class Population_Dataset_target(Dataset):
         torch.cuda.empty_cache()
 
         assert census_pred_i.shape[0] == len(census_i), "census_pred and census have different lengths"
-        return census_pred_i, torch.tensor(census_i)
+        return census_pred_i, census_i
     
     def adjust_map_to_census(self, pred, gpu_mode=True):
         """

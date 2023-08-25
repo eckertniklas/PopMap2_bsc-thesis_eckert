@@ -1270,6 +1270,7 @@
                 "-lr", "1e-4", 
                 "--model", "POMELO_module",  
                 "--head", "v3",
+                "--grouped",
                 // "-l", "log_l1_loss", "L1reg", 
                 "-l", "log_l1_loss",
                 // "-la", "1.0", "0.01",

@@ -626,7 +626,7 @@ class Population_Dataset_target(Dataset):
             pred = pred.cuda()
             boundary = boundary.cuda()
             # census_pred = torch.zeros(len(census), dtype=torch.float32).cuda()
-            census_pred = -torch.ones(census["idx"].max()+1, dtype=torch.float32).cuda()
+            # census_pred = -torch.ones(census["idx"].max()+1, dtype=torch.float32).cuda()
 
             # initialize more efficient version
             census_pred_i = -torch.ones(len(census), dtype=torch.float32).cuda()
@@ -665,12 +665,6 @@ class Population_Dataset_target(Dataset):
         census_pred_i = census_pred_i[valid_census_i]
         census_i = census_i[valid_census_i]
 
-        # scatterplot of census_pred_i and census_i
-        # import matplotlib.pyplot as plt
-        # plt.scatter(census_pred_i.cpu().numpy(), census_i.cpu().numpy())
-        # plt.show()
-
-
         # # produce density map
         # densities = torch.zeros_like(pred)
         # pred_densities_census = census_pred.cpu() / census["count"]
@@ -703,8 +697,8 @@ class Population_Dataset_target(Dataset):
         del boundary, pred
         torch.cuda.empty_cache()
 
-        assert census_pred.shape[0] == len(census), "census_pred and census have different lengths"
-        return census_pred, torch.tensor(census["POP20"])
+        assert census_pred_i.shape[0] == len(census_i), "census_pred and census have different lengths"
+        return census_pred_i, torch.tensor(census_i)
     
     def adjust_map_to_census(self, pred, gpu_mode=True):
         """

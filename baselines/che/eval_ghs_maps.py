@@ -106,7 +106,7 @@ def evaluate_meta_maps(map_path, template_path):
     dataset = Population_Dataset_target("che", train_level="coarse4")
 
     # levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
-    levels = ["finezurich", "coarse"]
+    levels = ["finezurich", "finezurich2", "coarse"]
     # levels = ["coarse"]
 
     for level in levels:

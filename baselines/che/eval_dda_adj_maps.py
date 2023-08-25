@@ -129,7 +129,7 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
     # define levels
     # levels = ["fine", "fineTRACTCE", "fineBLOCKCE", "coarse"]
     # levels = ["coarse"]
-    levels = ["finezurich", "coarse"]
+    levels = ["finezurich", "finezurich2", "coarse"]
 
     for level in levels:
         print("Evaluating level: ", level)

@@ -133,7 +133,7 @@ if __name__=="__main__":
     """
     Evaluates the Worldpop-maps on the test set of Rwanda
     """
-    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/POMELOv1Maps/rwa_predicted_target_img_adjusted.tiff"
+    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/POMELOv1Maps/che/rwa_predicted_target_img_adjusted.tiff"
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa/S2Aautumn/rwa_S2Aautumn.tif"
 
     evaluate_meta_maps(map_path, template_path)

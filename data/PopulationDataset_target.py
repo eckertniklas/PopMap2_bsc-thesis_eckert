@@ -167,9 +167,7 @@ class Population_Dataset_target(Dataset):
 
 
         if not os.path.exists(S1spring_file):
-            print(S1spring_file, "Does not exist, using virtual rasters for S1")
-            # rawEE_map_root = rawEE_map_root
-            # rawEE_map_root = rawEE_map_root if os.path.exists(os.path.join(rawEE_map_root,region)) else rawEE_map_root.replace("scratch", "scratch2")
+            print(S1spring_file, "Does not exist, using virtual rasters for S1") 
         
             spring_dir = os.path.join(rawEE_map_root, region, "S1spring")
             summer_dir = os.path.join(rawEE_map_root, region, "S1summer")
@@ -217,8 +215,7 @@ class Population_Dataset_target(Dataset):
             S2winter_file = os.path.join(covar_root,  os.path.join("S2Awinter", region +"_S2Awinter.tif"))
             
             # if not exists, we use the virtual rasters of the raw files
-            # if exists, we use the preprocessed files
-
+            # if exists, we use the preprocessed files 
             if not os.path.exists(S2spring_file):
                 print(S2spring_file, "Does not exist, using virtual rasters for S2")
                 
@@ -254,7 +251,6 @@ class Population_Dataset_target(Dataset):
             # load sentinel buildings
             self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA2_44C.tif")
             self.gbuildings_segmentation_file = ''
-            # self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA128_4096_nodisc.tif")
             self.sbuildings = True
             self.gbuildings = False
         else:
@@ -361,8 +357,7 @@ class Population_Dataset_target(Dataset):
         # get the indices of the patch
         census_sample = self.coarse_census.loc[index]
         
-        # get the coordinates of the patch
-        # xmin, xmax, ymin, ymax = tuple(map(int, census_sample["bbox"].strip('()').split(',')))
+        # get the coordinates of the patch 
         xmin, xmax, ymin, ymax = tuple(map(int, census_sample["bbox"].strip('()').strip('[]').split(',')))
 
         # get the season for the S2 data
@@ -600,6 +595,11 @@ class Population_Dataset_target(Dataset):
         return indata, mask, window
         
 
+
+
+
+
+
     def convert_popmap_to_census(self, pred, gpu_mode=False, level="fine"):
         """
         Converts the predicted population to the census data
@@ -628,6 +628,10 @@ class Population_Dataset_target(Dataset):
             # census_pred = torch.zeros(len(census), dtype=torch.float32).cuda()
             census_pred = -torch.ones(census["idx"].max()+1, dtype=torch.float32).cuda()
 
+            # initialize more efficient version
+            census_pred_i = -torch.ones(len(census), dtype=torch.float32).cuda()
+            census_i = -torch.ones(len(census), dtype=torch.float32).cuda()
+
             # iterate over census regions and get totals
             # for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
             # for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"]))):
@@ -635,8 +639,12 @@ class Population_Dataset_target(Dataset):
                 if pd.isnull(bbox):
                     continue
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
-                census_pred[cidx] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
+                census_pred_i[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
+                census_i[i] = census["POP20"][i]
+
+                # census_pred[cidx] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
                 # census["count"] = (boundary[xmin:xmax, ymin:ymax]==cidx).to(torch.float32).sum()
+ 
 
         else:
             pred = pred.to(torch.float32)
@@ -649,9 +657,19 @@ class Population_Dataset_target(Dataset):
                 census_pred[cidx] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].sum()
                 # census_pred[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].sum()
         
-        valid_census = census_pred>-1
-        census_pred = census_pred[valid_census]
+        # valid_census = census_pred>-1
+        # census_pred = census_pred[valid_census] 
         # census = census[valid_census]
+
+        valid_census_i = census_pred_i>-1
+        census_pred_i = census_pred_i[valid_census_i]
+        census_i = census_i[valid_census_i]
+
+        # scatterplot of census_pred_i and census_i
+        # import matplotlib.pyplot as plt
+        # plt.scatter(census_pred_i.cpu().numpy(), census_i.cpu().numpy())
+        # plt.show()
+
 
         # # produce density map
         # densities = torch.zeros_like(pred)
@@ -681,10 +699,11 @@ class Population_Dataset_target(Dataset):
         #     xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
         #     totals_gt[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = totals_gt_census[i]
 
-
+        
         del boundary, pred
         torch.cuda.empty_cache()
 
+        assert census_pred.shape[0] == len(census), "census_pred and census have different lengths"
         return census_pred, torch.tensor(census["POP20"])
     
     def adjust_map_to_census(self, pred, gpu_mode=True):

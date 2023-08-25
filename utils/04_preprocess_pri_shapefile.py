@@ -76,17 +76,9 @@ def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mod
         gdb.at[i,"bbox"] = (xmin, xmax, ymin, ymax)
         gdb.loc[i,"count"] = count.cpu().item()
 
-        # test
-        # p = 1
-        # plot_2dmatrix(burned[xmin-p:xmax+p, ymin-p:ymax+p])
-
     # write censusdata
     gdb[["idx", "POP20", "bbox", "count"]].to_csv(this_censusfile)
 
-    # len(np.unique(gdb["COUNTYFP20"])) #78
-    # len(np.unique(gdb["BLOCKCE20"])) #363
-    # len(np.unique(gdb["TRACTCE20"])) #952
-    # len(np.unique(gdb["GEOID20"])) #41987
 
     levels = ["COUNTYFP20", "BLOCKCE20", "TRACTCE20"]
        
@@ -97,7 +89,6 @@ def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mod
 
         this_outputfile = output_tif_file.replace("boundaries", "boundaries_" + level)
         this_censusfile = output_census_file.replace("census", "census_" + level)
-
 
         with rasterio.open(this_outputfile, 'w+', **metadata) as out:
             out_arr = out.read(1)

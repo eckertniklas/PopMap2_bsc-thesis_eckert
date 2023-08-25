@@ -67,7 +67,7 @@ def evaluate_meta_maps(map_path, template_path):
     parent_dir = "/".join(map_path.split("/")[:-1])
 
     # high_resolution map 
-    hr_map_path = map_path.replace(".tif", "_hr.tif")
+    hr_map_path = map_path.replace(".tiff", "_hr.tiff")
 
     # load map
     with rasterio.open(map_path) as src:
@@ -94,20 +94,34 @@ def evaluate_meta_maps(map_path, template_path):
     hr_pop_map[hr_pop_map < 0] = 0
 
     
-    # define GT dataset
+    # define GT dataset 
     dataset = Population_Dataset_target("che", train_level="coarse4")
 
+    # adjust map with the coarse census
+    hr_pop_map_adj = dataset.adjust_map_to_census(hr_pop_map.clone())
+
+    levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
     levels = ["finezurich", "finezurich2", "coarse"]
-    # levels = ["finezurich", "finezurich2", "coarse"]
+    # levels = ["coarse"]
 
     for level in levels:
         print("Evaluating level: ", level)
+        print("-------------------------------")
+        print("Direct metrics:")
         census_pred, census_gt = dataset.convert_popmap_to_census(hr_pop_map, gpu_mode=True, level=level)
         test_metrics_meta = get_test_metrics(census_pred, census_gt.float().cuda() )
         print(test_metrics_meta)
 
         scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
-        scatterplot.save(os.path.join(parent_dir, "last_scatter_{}.png".format(level)))
+        scatterplot.save(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
+        print("-------------------------------")
+        print("Adjusted metrics:")
+        census_pred_adj, census_gt = dataset.convert_popmap_to_census(hr_pop_map_adj, gpu_mode=True, level=level)
+        test_metrics_meta_adj = get_test_metrics(census_pred_adj, census_gt.float().cuda() )
+        print(test_metrics_meta_adj)
+
+        scatterplot_adj = scatter_plot3(census_pred_adj.tolist(), census_gt.tolist())
+        scatterplot_adj.save(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
 
         print("---------------------------------")
 
@@ -120,10 +134,7 @@ if __name__=="__main__":
     """
     Evaluates the Worldpop-maps on the test set of Rwanda
     """
-    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020.tif"
-    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_UNadj.tif"
-    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_constrained.tif"
-    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_UNadj_constrained.tif"
+    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/POMELOv1Maps/che/che_predicted_target_img.tiff"
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/che/S2Aautumn/che_S2Aautumn.tif"
 
     evaluate_meta_maps(map_path, template_path)

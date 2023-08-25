@@ -80,8 +80,8 @@ def evaluate_meta_maps(map_path, template_path):
     if not os.path.exists(hr_map_path) or force_recompute:
         x_stretch, y_stretch = reproject_maps(map_path, template_path, hr_map_path)
     else:
-        x_stretch = 9.276624194838645
-        y_stretch = 9.276624197895416
+        x_stretch = 3.092208077593419
+        y_stretch = 3.092208077593419
 
     # Load the high resolution map
     with rasterio.open(hr_map_path) as src:
@@ -91,14 +91,13 @@ def evaluate_meta_maps(map_path, template_path):
 
     # replace nan values with 0
     hr_pop_map[hr_pop_map != hr_pop_map] = 0
-    hr_pop_map[hr_pop_map < 0] = 0
 
     
     # define GT dataset
-    dataset = Population_Dataset_target("che", train_level="coarse4")
-
+    dataset = Population_Dataset_target("che", train_level="coarse4") 
+ 
     levels = ["finezurich", "finezurich2", "coarse"]
-    # levels = ["finezurich", "finezurich2", "coarse"]
+    # levels = ["coarse"]
 
     for level in levels:
         print("Evaluating level: ", level)
@@ -118,12 +117,9 @@ def evaluate_meta_maps(map_path, template_path):
 
 if __name__=="__main__":
     """
-    Evaluates the Worldpop-maps on the test set of Rwanda
+    Evaluates the meta-maps on the test set of Rwanda
     """
-    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020.tif"
-    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_UNadj.tif"
-    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_constrained.tif"
-    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_UNadj_constrained.tif"
+    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/MetaMaps/CHE/che_general_2020.tif"
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/che/S2Aautumn/che_S2Aautumn.tif"
 
     evaluate_meta_maps(map_path, template_path)

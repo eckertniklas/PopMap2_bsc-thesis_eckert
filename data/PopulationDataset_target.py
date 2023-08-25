@@ -58,7 +58,7 @@ class Population_Dataset_target(Dataset):
         print("---------------------")
         print("Setting up dataset", region, "with mode", mode, "and split", split)
         
-
+        # set the parameters of the dataset 
         self.region = region
         self.S1 = S1
         self.S2 = S2
@@ -77,8 +77,7 @@ class Population_Dataset_target(Dataset):
         self.train_level = train_level
 
 
-        # get the path to the data
-        # region_root = os.path.join(pop_map_root_large, region)
+        # get the path to the data files
         region_root = os.path.join(pop_map_root, region)
 
         # load the boundary and census data
@@ -88,11 +87,6 @@ class Population_Dataset_target(Dataset):
             self.file_paths[level] = {}
             for data_type in ["boundary", "census"]:
                 self.file_paths[level][data_type] = os.path.join(region_root, datalocations[region][level][data_type])
-
-            # self.boundary_file = os.path.join(region_root, datalocations[region]["fine"]["boundary"])
-            # self.census_file = os.path.join(region_root, datalocations[region]["fine"]["census"])
-            # self.coarse_boundary_file = os.path.join(region_root, datalocations[region]["coarse"]["boundary"])
-            # self.coarse_census_file = os.path.join(region_root, datalocations[region]["coarse"]["census"])
             
         # weaksup data specific preparation
         if self.mode == "weaksup":
@@ -121,17 +115,22 @@ class Population_Dataset_target(Dataset):
             else:
                 raise ValueError("Split not recognized")
 
-            # kicking out samples with too many pixels
-            print("Kicking out ", (self.coarse_census["count"]>=max_pix).sum(), "samples with more than ", int(max_pix), " pixels")
+            # kicking out samples with too many pixels in the administrative region
+            print("Kicking out ", (self.coarse_census["count"]>=max_pix).sum(), "samples with more than ", int(max_pix), " pixels in the administrative region")
             self.coarse_census = self.coarse_census[self.coarse_census["count"]<max_pix].reset_index(drop=True)
+
+            # Print the number of samples exceeding the max pixels of the bounding box (12000000) and kick them out
+            MAX_PIXELS_BOX = 12000000
+            self.coarse_census["bbox_count"] = self.coarse_census["bbox"].apply(self.calculate_pixel_count)
+            num_samples_exceeding_max = (self.coarse_census["bbox_count"] >= MAX_PIXELS_BOX).sum()
+            print(f"Kicking out {num_samples_exceeding_max} samples with more than {MAX_PIXELS_BOX} pixels in the bounding box")
+            self.coarse_census = self.coarse_census[self.coarse_census["bbox_count"] < MAX_PIXELS_BOX].reset_index(drop=True)
 
             # print the number of samples
             print("Effective number of samples: ", len(self.coarse_census))
 
             # get the shape of the coarse regions
-            #TODO: read this online to save memory
             with rasterio.open(self.file_paths[train_level]["boundary"], "r") as src:
-                # self.cr_regions = src.read(1)
                 self.cr_shape = src.shape
 
 
@@ -257,8 +256,7 @@ class Population_Dataset_target(Dataset):
             self.sbuildings_segmentation_file = ''
             self.gbuildings_segmentation_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_segmentation.tif")
             self.gbuildings_counts_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_counts.tif")
-            self.gbuildings = True
-        # self.gbuildings = False
+            self.gbuildings = True 
 
         self.positional_encoding = True
         if self.positional_encoding:
@@ -324,6 +322,29 @@ class Population_Dataset_target(Dataset):
         #     )
 
         return main_indices
+
+
+    def parse_bbox(self, bbox_str):
+        """
+        Parse a bounding box string and return the coordinates as integers.
+        Input:
+            bbox_str: the bounding box string
+        Output:
+            the coordinates of the bounding box as integers
+        """
+        bbox_values = bbox_str.strip('()[]').split(',')
+        return [int(val) for val in bbox_values]
+
+    def calculate_pixel_count(self,bbox_str):
+        """
+        Calculate the number of pixels inside the bounding box.
+        Input:
+            bbox_str: the bounding box string
+        Output:
+            the number of pixels inside the bounding box
+            """
+        x1, y1, x2, y2 = self.parse_bbox(bbox_str)
+        return (y1 - x1) * (y2 - x2)
 
 
     def metadata(self):

@@ -79,7 +79,7 @@ def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mod
     # write censusdata
     gdb[["idx", "POP20", "bbox", "count"]].to_csv(this_censusfile)
 
-
+    # set levels
     levels = ["COUNTYFP20", "BLOCKCE20", "TRACTCE20"]
        
     for level in levels:

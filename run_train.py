@@ -102,8 +102,11 @@ class Trainer:
 
         # set up optimizer and scheduler
         if args.optimizer == "Adam":
+            # heads = ['head.bias', 'head1.bias', 'head2.bias']
+            head_name = ['head.6.bias']
             # Get all parameters except the head bias
-            params_with_decay = [param for name, param in self.model.named_parameters() if name not in ['head.bias', 'head1.bias', 'head2.bias'] and 'embedder' not in name]
+            # params_with_decay = [param for name, param in self.model.named_parameters() if name not in ['head.bias', 'head1.bias', 'head2.bias'] and 'embedder' not in name]
+            params_with_decay = [param for name, param in self.model.named_parameters() if name not in head_name and 'embedder' not in name]
 
             # check if the model has an embedder
             if hasattr(self.model, 'embedder'):
@@ -112,8 +115,9 @@ class Trainer:
             else:
                 params_positional = []
 
-            # Get the head bias parameter
-            params_without_decay = [param for name, param in self.model.named_parameters() if name in ['head.bias', 'head1.bias', 'head2.bias'] and 'embedder' not in name]
+            # Get the head bias parameter, only bias, if available
+            # params_without_decay = [param for name, param in self.model.named_parameters() if name in ['head.bias', 'head1.bias', 'head2.bias'] and 'embedder' not in name]
+            params_without_decay = [param for name, param in self.model.named_parameters() if name in head_name and 'embedder' not in name]
 
             self.optimizer = optim.Adam([
                     {'params': params_with_decay, 'weight_decay': args.weightdecay}, # Apply weight decay here
@@ -155,6 +159,9 @@ class Trainer:
                 # if self.args.supmode=="weaksup" and self.args.weak_validation:
                 #     self.validate_weak()
                 
+                # self.test_target(save=True)
+
+
                 self.train_epoch(tnr)
                 torch.cuda.empty_cache()
 
@@ -242,7 +249,7 @@ class Trainer:
                                 continue
 
                     output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False,
-                                             encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, sparse=False)
+                                             encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, sparse=True)
 
                     # merge augmented samples
                     if self.args.weak_merge_aug:

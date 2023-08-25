@@ -227,7 +227,6 @@ class POMELO_module(nn.Module):
             else:
                 # optimized for occupancy model
                 if self.occupancymodel:
-                    # pose = self.sparse_forward(inputs["positional_encoding"], inputs["building_counts"][:,0]>0, self.embedder, out_channels=self.embedding_dim)
                     if sparse:
                         pose = self.sparse_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
                     else:

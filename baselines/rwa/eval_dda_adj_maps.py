@@ -99,7 +99,7 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
 
     
     # define GT dataset
-    dataset = Population_Dataset_target("rwa")
+    dataset = Population_Dataset_target("rwa", train_level="coarse")
 
     # adjust map with the coarse census
     hr_pop_map_adj = dataset.adjust_map_to_census(hr_pop_map.clone()/255)
@@ -132,6 +132,8 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
         print("Direct metrics:")
         census_pred, census_gt = dataset.convert_popmap_to_census(hr_pop_map, gpu_mode=True, level=level)
         test_metrics_meta = get_test_metrics(census_pred, census_gt.float().cuda() )
+        empirical_global_bias = census_pred.sum() / census_gt.sum()
+        print("Empirical global bias: ", empirical_global_bias)
         print(test_metrics_meta)
 
         scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())

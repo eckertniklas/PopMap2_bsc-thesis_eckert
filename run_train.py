@@ -103,7 +103,8 @@ class Trainer:
         # set up optimizer and scheduler
         if args.optimizer == "Adam":
             # heads = ['head.bias', 'head1.bias', 'head2.bias']
-            head_name = ['head.6.bias']
+            # head_name = ['head.6.bias']
+            head_name = ['head.6.weight','head.6.bias']
             # Get all parameters except the head bias
             # params_with_decay = [param for name, param in self.model.named_parameters() if name not in ['head.bias', 'head1.bias', 'head2.bias'] and 'embedder' not in name]
             params_with_decay = [param for name, param in self.model.named_parameters() if name not in head_name and 'embedder' not in name]

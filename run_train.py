@@ -97,16 +97,16 @@ class Trainer:
         wandb.config.update(self.args)
         wandb.watch(self.model, log='all')  
         
-        # set up model
+        # seed after initialization
         seed_all(args.seed+2)
 
         # set up optimizer and scheduler
         if args.optimizer == "Adam":
-            # heads = ['head.bias', 'head1.bias', 'head2.bias']
-            # head_name = ['head.6.bias']
+            
+            
             head_name = ['head.6.weight','head.6.bias']
+
             # Get all parameters except the head bias
-            # params_with_decay = [param for name, param in self.model.named_parameters() if name not in ['head.bias', 'head1.bias', 'head2.bias'] and 'embedder' not in name]
             params_with_decay = [param for name, param in self.model.named_parameters() if name not in head_name and 'embedder' not in name]
 
             # check if the model has an embedder
@@ -117,9 +117,15 @@ class Trainer:
                 params_positional = []
 
             # Get the head bias parameter, only bias, if available
-            # params_without_decay = [param for name, param in self.model.named_parameters() if name in ['head.bias', 'head1.bias', 'head2.bias'] and 'embedder' not in name]
             params_without_decay = [param for name, param in self.model.named_parameters() if name in head_name and 'embedder' not in name]
 
+            # self.optimizer = optim.Adam([
+            #         {'params': params_with_decay, 'weight_decay': args.weightdecay, "lr": args.learning_rate}, # Apply weight decay here
+            #         {'params': params_positional, 'weight_decay': args.weightdecay_pos, "lr": args.learning_rate}, # Apply weight decay here
+            #         {'params': params_without_decay, 'weight_decay': 0.0, "lr": args.learning_rate/10}, # No weight decay
+            #     ]
+            #     , lr=args.learning_rate)
+            
             self.optimizer = optim.Adam([
                     {'params': params_with_decay, 'weight_decay': args.weightdecay}, # Apply weight decay here
                     {'params': params_positional, 'weight_decay': args.weightdecay_pos}, # Apply weight decay here
@@ -516,11 +522,10 @@ class Trainer:
                 RandomHorizontalFlip(p=0.5, allsame=args.supmode=="weaksup"),
                 RandomRotationTransform(angles=[90, 180, 270], p=0.75),
             ])
-            S2augs = [  RandomBrightness(p=0.9, beta_limit=(0.666, 1.5)),
-                    RandomGamma(p=0.9, gamma_limit=(0.6666, 1.5)),
+            S2augs = [
+                RandomBrightness(p=0.9, beta_limit=(0.666, 1.5)),
+                RandomGamma(p=0.9, gamma_limit=(0.6666, 1.5)),
             ]
-
-
         else: 
             self.data_transform["general"] = transforms.Compose([  ])
             S2augs = []
@@ -539,12 +544,14 @@ class Trainer:
                 self.dataset_stats[mkey] = torch.tensor(val)
 
         datasets = {
-            "test_target": [ Population_Dataset_target(reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, **input_defs) for reg in args.target_regions ]
+            "test_target": [ Population_Dataset_target( reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, **input_defs) \
+                                for reg in args.target_regions ]
         }
 
         # create the dataloaders
         dataloaders =  {
-            "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False) for datasets["test_target"] in datasets["test_target"] ]
+            "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False) \
+                                for datasets["test_target"] in datasets["test_target"] ]
         }
         
         # add weakly supervised samples of the target domain to the trainind_dataset

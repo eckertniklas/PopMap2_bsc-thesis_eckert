@@ -78,22 +78,17 @@ class CustomUNet(smp.Unet):
             self.encoder.conv1.s1_conv.weight = nn.Parameter(conv1w[64//2:, 4:, :, :])
             
 
-            # replace other convolutions as well
+            # replace other convolutions at the second level as well
             self.encoder.layer1[0].conv1 = self.replace_with_groups(self.encoder.layer1[0].conv1) # old kernel
             self.encoder.layer1[0].conv2 = self.replace_with_groups(self.encoder.layer1[0].conv2) # old kernel
             self.encoder.layer1[1].conv1 = self.replace_with_groups(self.encoder.layer1[1].conv1) # old kernel
             self.encoder.layer1[1].conv2 = self.replace_with_groups(self.encoder.layer1[1].conv2) # old kernel
 
+            self.encoder.layer2[0].conv1 = self.replace_with_groups(self.encoder.layer2[0].conv1, stride=2) # old kernel
+            self.encoder.layer2[0].conv2 = self.replace_with_groups(self.encoder.layer2[0].conv2) # old kernel
+            self.encoder.layer2[1].conv1 = self.replace_with_groups(self.encoder.layer2[1].conv1) # old kernel
+            self.encoder.layer2[1].conv2 = self.replace_with_groups(self.encoder.layer2[1].conv2) # old kernel
 
-            # replace each convoutional module in self.encoder.layer1 with a grouped convolution
-            # for i, (name,module) in enumerate(self.encoder.layer1.named_modules()):
-            #     if isinstance(module, nn.Conv2d):
-            #         convXw = module.weight # old kernel
-            #         module = CustomGroupedConvolution(sentinel_2_channels=convXw.shape[1]//2, sentinel_1_channels=convXw.shape[1]//2,
-            #                                                           out_channels=convXw.shape[0],
-            #                                                           kernel_size=3, padding=1, bias=False, stride=1)
-            #         module.s2_conv.weight = nn.Parameter(convXw[:convXw.shape[0]//2, :convXw.shape[1]//2, :, :])
-            #         module.s1_conv.weight = nn.Parameter(convXw[convXw.shape[0]//2:, convXw.shape[1]//2:, :, :])
 
             
         # adapt size of the center block for vgg
@@ -128,11 +123,11 @@ class CustomUNet(smp.Unet):
                 self.remove_batchnorm(module)
 
 
-    def replace_with_groups(self, module):
+    def replace_with_groups(self, module, kernel_size=3, padding=1, stride=1):
         convXw = module.weight # old kernel
         module = CustomGroupedConvolution(sentinel_2_channels=convXw.shape[1]//2, sentinel_1_channels=convXw.shape[1]//2,
                                                             out_channels=convXw.shape[0],
-                                                            kernel_size=3, padding=1, bias=False, stride=1)
+                                                            kernel_size=kernel_size, padding=padding, bias=False, stride=stride)
         module.s2_conv.weight = nn.Parameter(convXw[:convXw.shape[0]//2, :convXw.shape[1]//2, :, :])
         module.s1_conv.weight = nn.Parameter(convXw[convXw.shape[0]//2:, convXw.shape[1]//2:, :, :])
         return module

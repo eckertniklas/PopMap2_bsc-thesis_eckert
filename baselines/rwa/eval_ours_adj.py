@@ -121,12 +121,16 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
     if not os.path.exists(hr_map_path_reproj):
         _, _ = reproject_maps(map_path, wpop_raster_template, hr_map_path_reproj, sumpool=True)
         print("Reprojected map to worldpop raster saved to: ", hr_map_path_reproj)
+    else:
+        print("Reprojected map to worldpop raster already exists")
 
     # reproject to the worldpop map
     hr_map_path_adj_reproj = map_path.replace(".tif", "_hr_adj_reproj.tif")
     if not os.path.exists(hr_map_path_adj_reproj):
         _, _ = reproject_maps(hr_map_path_adj, wpop_raster_template, hr_map_path_adj_reproj, sumpool=True)
         print("Reprojected adjusted map to worldpop raster saved to: ", hr_map_path_adj_reproj)
+    else:
+        print("Reprojected adjusted map to worldpop raster already exists")
 
     # define levels
     levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
@@ -166,7 +170,7 @@ if __name__=="__main__":
     # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1599_252/rwa_predictions.tif"
     # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1610_250/rwa_predictions.tif"
     # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1650_520/rwa_predictions_v1.tif"
-    map_path = "/scratch2/metzgern/Downloads/experiment_198_824/rwa_predictions.tif"
+    map_path = "/scratch2/metzgern/Downloads/experiment_288_266/eval_outputs/rwa_predictions.tif"
     # map_path = "/scratch2/metzgern/Downloads/experiment_155_459/rwa_predictions.tif"
     # map_path = "/scratch2/metzgern/Downloads/experiment_155_459/rwa_predictions.tif"
     # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1542_618/rwa_predictions.tif"

@@ -13,7 +13,7 @@ img_cols = 100  # patch width
 
 # inference patch size
 inference_patch_size = 1024
-overlap = 32
+overlap = 128
 
 osm_features = 56  # number of osm based features
 num_classes = 1  # one for regression

@@ -215,7 +215,7 @@ class POMELO_module(nn.Module):
         if sparse:
             # create sparsity mask
             sub = 60
-            sparsity_mask = inputs["building_counts"][:,0]>0
+            sparsity_mask = (inputs["building_counts"][:,0]>0) * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))
             xindices = torch.ones(sparsity_mask.shape[1]).multinomial(num_samples=min(sub,sparsity_mask.shape[1]), replacement=False).sort()[0]
             yindices = torch.ones(sparsity_mask.shape[2]).multinomial(num_samples=min(sub,sparsity_mask.shape[2]), replacement=False).sort()[0]
             sparsity_mask[:, xindices.unsqueeze(1), yindices] = 1

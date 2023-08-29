@@ -199,13 +199,15 @@ class Trainer:
                 for level in testlevels[testdataloader.dataset.region]:
                     # convert map to census
                     census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map_adj, gpu_mode=True, level=level, details_to=os.path.join(self.experiment_folder, "{}_{}_adj".format(testdataloader.dataset.region, level)))
-                    self.target_test_stats = {**self.target_test_stats,
-                                                **get_test_metrics(census_pred, census_gt.float().cuda(), tag="AdjCensus_{}_{}".format(testdataloader.dataset.region, level))}
+                    test_stats_adj = get_test_metrics(census_pred, census_gt.float().cuda(), tag="AdjCensus_{}_{}".format(testdataloader.dataset.region, level))
                     built_up = census_gt>10
-                    self.target_test_stats = {**self.target_test_stats,
-                                                **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="AdjCensusPos_{}_{}".format(testdataloader.dataset.region, level))}
+                    test_stats_adj = {**test_stats_adj,
+                                      **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="AdjCensusPos_{}_{}".format(testdataloader.dataset.region, level))}
                     
-                    print(self.target_test_stats)
+                    print(test_stats_adj)
+                    self.target_test_stats = {**self.target_test_stats,
+                                              **test_stats_adj}
+
                     scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist(), log_scale=True)
                     if scatterplot is not None:
                         self.target_test_stats["Scatter/Scatter_{}_{}_adj".format(testdataloader.dataset.region, level)] = wandb.Image(scatterplot)
@@ -238,8 +240,9 @@ class Trainer:
 
         # create the raw source dataset
         datasets = {
-            "test_target": [ Population_Dataset_target(reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, fourseasons=self.args.fourseasons,**input_defs)
-                                for reg in args.target_regions ]
+            "test_target": [ Population_Dataset_target(reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings,
+                                                       fourseasons=self.args.fourseasons, train_level=lvl, **input_defs)
+                                for reg,lvl in zip(args.target_regions, args.train_level) ]
         }
         
         # create the dataloaders

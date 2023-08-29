@@ -56,6 +56,7 @@ parser.add_argument('-l', '--loss', nargs='+', default=["l1_loss"], help="list c
 parser.add_argument('-sreg', '--scale_regularization', default=0.0, type=float, help="")
 parser.add_argument('-sreg2', '--scale_regularizationL2', default=0.0, type=float, help="")
 parser.add_argument('-esr2', '--emptyscale_regularizationL2', default=0.0, type=float, help="")
+parser.add_argument('-eeps', '--empty_eps', default=0.0, type=float, help="")
 parser.add_argument('-la', '--lam', nargs='+', type=float, default=[1.0], help="list composed of loss weightings")
 parser.add_argument("-lw", "--lam_weak", help='', type=float, default=1.0)
 parser.add_argument("-adv", "--adversarial", action='store_true', help="")

@@ -241,7 +241,8 @@ class Trainer:
                     
                     # forward pass and loss computation
                     sample_weak = to_cuda_inplace(sample) 
-                    sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
+                    sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput,
+                                                                      segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
                     
                     # check if the input is to large 
                     num_pix = sample_weak["input"].shape[0]*sample_weak["input"].shape[2]*sample_weak["input"].shape[3]
@@ -259,7 +260,10 @@ class Trainer:
                                 continue
 
                     output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False,
-                                             encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, sparse=True)
+                                            encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad,
+                                            # sparse=self.args.empty_eps>0.0
+                                            sparse=True
+                                            )
 
                     # merge augmented samples
                     if self.args.weak_merge_aug:
@@ -389,7 +393,8 @@ class Trainer:
                 pred, gt = [], []
                 for i,sample in enumerate(tqdm(valdataloader, leave=False)):
                     sample = to_cuda_inplace(sample)
-                    sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
+                    sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput,
+                                                                 segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
 
                     output = self.model(sample, padding=False)
 
@@ -430,7 +435,8 @@ class Trainer:
 
                 for sample in tqdm(testdataloader, leave=False):
                     sample = to_cuda_inplace(sample)
-                    sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
+                    sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput,
+                                                                 segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
 
                     # get the valid coordinates
                     xl,yl = [val.item() for val in sample["img_coords"]]
@@ -584,7 +590,8 @@ class Trainer:
                     weak_datasets_val.append(Population_Dataset_target(reg, mode="weaksup", split="val", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
                                                                     fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
                                                                     ascfill=True, train_level=lvl, max_pix=self.args.max_weak_pix, **input_defs) )
-                dataloaders["weak_target_val"] = [ DataLoader(weak_datasets_val[i], batch_size=self.args.weak_val_batch_size, num_workers=1, shuffle=False, collate_fn=Population_Dataset_collate_fn, drop_last=True) for i in range(len(args.target_regions_train)) ]
+                dataloaders["weak_target_val"] = [ DataLoader(weak_datasets_val[i], batch_size=self.args.weak_val_batch_size, num_workers=1, shuffle=False, collate_fn=Population_Dataset_collate_fn, drop_last=True)
+                                                  for i in range(len(args.target_regions_train)) ]
 
         return dataloaders
    

@@ -27,6 +27,7 @@ parser.add_argument("-posemb", "--useposembedding", help='', action='store_true'
 parser.add_argument("-dil", "--dilation", help='', type=int, default=1)
 parser.add_argument('-par', '--parent', type=str, help=' ', default=None)
 parser.add_argument("-gr", "--grouped", help='', action='store_true')
+parser.add_argument('-tlevel', '--train_level', nargs='+', default=["fine"] )
 
 #Training
 parser.add_argument("-clasif", "--classifier", default="v8", help="")

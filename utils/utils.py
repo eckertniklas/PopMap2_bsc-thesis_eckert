@@ -138,7 +138,7 @@ def apply_normalize(indata, dataset_stats):
     return indata
 
 
-def apply_transformations_and_normalize(sample, transform, dataset_stats, buildinginput=False, segmentationinput=False):
+def apply_transformations_and_normalize(sample, transform, dataset_stats, buildinginput=False, segmentationinput=False, empty_eps=0.0):
     """
     :param sample: image to be transformed
     :param transform: transform to be applied to the image
@@ -159,6 +159,9 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
 
     # Normalizations
     sample = apply_normalize(sample, dataset_stats)
+
+    if empty_eps>0.0:
+        sample["building_counts"] = sample["building_counts"] + empty_eps
     
     # merge inputs
     if buildinginput:

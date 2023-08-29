@@ -171,6 +171,7 @@ class Trainer:
                 
                 # convert populationmap to census
                 for level in testlevels[testdataloader.dataset.region]:
+                    # convert map to census
                     census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True, level=level, details_to=os.path.join(self.experiment_folder, "{}_{}".format(testdataloader.dataset.region, level)))
                     self.target_test_stats = {**self.target_test_stats,
                                               **get_test_metrics(census_pred, census_gt.float().cuda(), tag="MainCensus_{}_{}".format(testdataloader.dataset.region, level))}
@@ -191,7 +192,26 @@ class Trainer:
                     scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist(), log_scale=True)
                     if scatterplot is not None:
                         self.target_test_stats["Scatter/Scatter_{}_{}".format(testdataloader.dataset.region, level)] = wandb.Image(scatterplot)
+                
+                # adjust map (disaggregate) and recalculate everything
+                output_map_adj = testdataloader.dataset.adjust_map_to_census(output_map)
 
+                for level in testlevels[testdataloader.dataset.region]:
+                    # convert map to census
+                    census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map_adj, gpu_mode=True, level=level, details_to=os.path.join(self.experiment_folder, "{}_{}_adj".format(testdataloader.dataset.region, level)))
+                    self.target_test_stats = {**self.target_test_stats,
+                                                **get_test_metrics(census_pred, census_gt.float().cuda(), tag="AdjCensus_{}_{}".format(testdataloader.dataset.region, level))}
+                    built_up = census_gt>10
+                    self.target_test_stats = {**self.target_test_stats,
+                                                **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="AdjCensusPos_{}_{}".format(testdataloader.dataset.region, level))}
+                    
+                    print(self.target_test_stats)
+                    scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist(), log_scale=True)
+                    if scatterplot is not None:
+                        self.target_test_stats["Scatter/Scatter_{}_{}_adj".format(testdataloader.dataset.region, level)] = wandb.Image(scatterplot)
+                    
+            
+            # save the target test stats
             wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}, **self.info}, self.info["iter"])
 
 
@@ -204,7 +224,7 @@ class Trainer:
             force_recompute: if True, recompute the dataloader's and look out for new files even if the file list already exist
         Outputs:
             dataloaders: dictionary of dataloaders
-                """
+        """
 
         input_defs = {'S1': args.Sentinel1, 'S2': args.Sentinel2, 'VIIRS': args.VIIRS, 'NIR': args.NIR}
 

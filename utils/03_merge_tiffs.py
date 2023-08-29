@@ -103,6 +103,7 @@ def process(parent_dir, output_dir):
         if ty in ["S2Aspring", "S2Asummer", "S2Aautumn", "S2Awinter"]:
         # if ty in ["S2Aspring", "S2Asummer", "S2Aautumn"]:
             # Skip if file already exists
+            # continue
             if isfile(output_file):
                 print("File already exists, skipping")
                 continue

@@ -154,6 +154,12 @@ datalocations = {
             'census': "census_coarse.csv",
         } 
     },
+    "rwa2022": {
+        "coarse": {
+            "boundary": "boundaries_coarse.tif",
+            "census": "census_coarse.csv",
+        },
+    },
     "uga": {
         'coarse': {
             'boundary': "boundaries.tif",
@@ -200,6 +206,7 @@ testlevels = {
     'pricp2': ["fine", "fineTRACTCE", "fineBLOCKCE"],
     # 'rwa': ["coarse"]
     'rwa': ["fine100", "fine200", "fine400", "fine1000", "coarse"],
+    'rwa2022': ["coarse"],
     'uga': ["coarse"],
     'che': ["finezurich", "finezurich", "coarse4"]
 }
@@ -208,6 +215,7 @@ testlevels = {
 skip_indices = {
     "pricp2": [],
     "rwa": [],
+    "rwa2022": [],
     "uga": [1323],
     "che": []
 }

@@ -101,10 +101,11 @@ class AddGaussianNoise(object):
         std (float): standard deviation of the noise distribution. Default value is 1.
         p (float): probability of the noise beeing applied. Default value is 1.0.
     """
-    def __init__(self, mean=0., std=1., p=1.0):
+    def __init__(self, mean=0., std=1., p=1.0, kernel=3):
         self.std = std
         self.mean = mean
         self.p = p
+        self.k = kernel
         
     def __call__(self, x):
         if torch.is_tensor(x):

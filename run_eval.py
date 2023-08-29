@@ -48,14 +48,9 @@ class Trainer:
     def __init__(self, args: argparse.Namespace):
         self.args = args
 
-
-        # if args.loss in ["gaussian_nll", "log_gaussian_nll", "laplacian_nll", "log_laplacian_nll", "gaussian_aug_loss", "log_gaussian_aug_loss", "laplacian_aug_loss", "log_laplacian_aug_loss"]:
-        #     self.args.probabilistic = True
-        # else:
         self.args.probabilistic = False
 
         # set up experiment folder
-        # self.experiment_folder, self.args.expN, self.args.randN = new_log(os.path.join(args.save_dir, "So2Sat"), args) 
         self.args.experiment_folder = os.path.join("/",os.path.join(*args.resume.split("/")[:-1]), "eval_outputs")
         self.experiment_folder = self.args.experiment_folder
 
@@ -96,102 +91,6 @@ class Trainer:
         if args.resume is not None:
             self.resume(path=args.resume)
 
-    # def test_target(self, save=False, full=True):
-    #     # Test on target domain
-    #     self.model.eval()
-    #     self.test_stats = defaultdict(float)
-
-    #     with torch.no_grad(): 
-    #         self.target_test_stats = defaultdict(float)
-    #         for testdataloader in self.dataloaders["test_target"]:
-
-    #             # inputialize the output map
-    #             h, w = testdataloader.dataset.shape()
-    #             output_map = torch.zeros((h, w))
-    #             output_map_var = torch.zeros((h, w))
-    #             output_map_count = torch.zeros((h, w))
-    #             output_map_raw = torch.zeros((h, w))
-    #             output_map_var_raw = torch.zeros((h, w))
-
-    #             for sample in tqdm(testdataloader, leave=False):
-    #                 sample = to_cuda_inplace(sample)
-    #                 sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats)
-
-    #                 # get the valid coordinates
-    #                 # xmin, xmax, ymin, ymax = [val.item() for val in sample["valid_coords"]]
-    #                 xl,yl = [val.item() for val in sample["img_coords"]]
-    #                 mask = sample["mask"][0].bool()
-
-    #                 # get the output with a forward pass
-    #                 # output = self.model(sample, padding=False)
-    #                 # if mask.sum()<(921600-1):
-    #                 #     print("sus...")
-    #                 # output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu()
-    #                 # output_map_var[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popvarmap"][0][mask].cpu()
-    #                 # output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
-
-    #                 # get the output with a forward pass
-    #                 output = self.model(sample, padding=False)
-    #                 output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu()
-    #                 if self.args.probabilistic:
-    #                     output_map_var[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popvarmap"][0][mask].cpu()
-    #                 if self.boosted and full:
-    #                     output_map_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popdensemap"][0][mask].cpu()
-    #                     if self.args.probabilistic:
-    #                         output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popvarmap"][0][mask].cpu()
-    #                 output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
-
-    #             # average over the number of times each pixel was visited
-    #             # output_map[output_map_count>0] = output_map[output_map_count>0] / output_map_count[output_map_count>0]
-    #             # output_map_var[output_map_count>0] = output_map_var[output_map_count>0] / output_map_count[output_map_count>0]
-    #             # average over the number of times each pixel was visited
-    #             output_map[output_map_count>0] = output_map[output_map_count>0] / output_map_count[output_map_count>0]
-    #             if self.args.probabilistic:
-    #                 output_map_var[output_map_count>0] = output_map_var[output_map_count>0] / output_map_count[output_map_count>0]
-    #             if self.boosted:
-    #                 output_map_raw[output_map_count>0] = output_map_raw[output_map_count>0] / output_map_count[output_map_count>0]
-    #                 if self.args.probabilistic: 
-    #                     output_map_var_raw[output_map_count>0] = output_map_var_raw[output_map_count>0] / output_map_count[output_map_count>0]
-
-
-    #             if save:
-    #                 # save the output map
-    #                 testdataloader.dataset.save(output_map, self.experiment_folder)
-    #                 if self.args.probabilistic:
-    #                     testdataloader.dataset.save(output_map_var, self.experiment_folder, tag="VAR_{}".format(testdataloader.dataset.region))
-    #                 if self.boosted and full:
-    #                     testdataloader.dataset.save(output_map_raw, self.experiment_folder, tag="RAW_{}".format(testdataloader.dataset.region))
-    #                     if self.args.probabilistic:
-    #                         testdataloader.dataset.save(output_map_var_raw, self.experiment_folder, tag="VAR_RAW_{}".format(testdataloader.dataset.region))
-                
-    #             # convert populationmap to census
-
-    #             # convert populationmap to census
-    #             for level in testlevels[testdataloader.dataset.region]:
-    #                 census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True, level=level)
-    #                 self.target_test_stats = {**self.target_test_stats,
-    #                                           **get_test_metrics(census_pred, census_gt.float().cuda(), tag="MainCensus_{}_{}".format(testdataloader.dataset.region, level))}
-    #                 built_up = census_gt>10
-    #                 self.target_test_stats = {**self.target_test_stats,
-    #                                           **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="MainCensusPos_{}_{}".format(testdataloader.dataset.region, level))}
-                    
-    #                 if self.boosted:
-    #                     census_pred_raw, census_gt_raw = testdataloader.dataset.convert_popmap_to_census(output_map_raw, gpu_mode=True, level=level)
-    #                     self.target_test_stats = {**self.target_test_stats,
-    #                                               **get_test_metrics(census_pred_raw, census_gt_raw.float().cuda(), tag="CensusRaw_{}_{}".format(testdataloader.dataset.region, level))}
-    #                     built_up = census_gt_raw>10
-    #                     self.target_test_stats = {**self.target_test_stats,
-    #                                               **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos_{}_{}".format(testdataloader.dataset.region, level))}
-    
-    #                 scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
-    #                 if scatterplot is not None:
-    #                     self.target_test_stats["Scatter/Scatter_{}".format(testdataloader.dataset.region)] = wandb.Image(scatterplot)
-    #                     # scatterplot.save("last_scatter.png")
-
-    #             print("Domain:", testdataloader.dataset.region)
-    #             print(self.target_test_stats)
-    #         wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}})
-        
 
     def test_target(self, save=False, full=True):
         # Test on target domain
@@ -272,7 +171,7 @@ class Trainer:
                 
                 # convert populationmap to census
                 for level in testlevels[testdataloader.dataset.region]:
-                    census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True, level=level)
+                    census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True, level=level, details_to=os.path.join(self.experiment_folder, "{}_{}".format(testdataloader.dataset.region, level)))
                     self.target_test_stats = {**self.target_test_stats,
                                               **get_test_metrics(census_pred, census_gt.float().cuda(), tag="MainCensus_{}_{}".format(testdataloader.dataset.region, level))}
                     built_up = census_gt>10
@@ -288,6 +187,7 @@ class Trainer:
                                                   **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos_{}_{}".format(testdataloader.dataset.region, level))}
 
                     # create scatterplot and upload to wandb
+                    print(self.target_test_stats)
                     scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist(), log_scale=True)
                     if scatterplot is not None:
                         self.target_test_stats["Scatter/Scatter_{}_{}".format(testdataloader.dataset.region, level)] = wandb.Image(scatterplot)

@@ -9,6 +9,7 @@ import segmentation_models_pytorch as smp
 from model.DANN import DomainClassifier, DomainClassifier1x1, DomainClassifier_v3, DomainClassifier_v4, DomainClassifier_v5, DomainClassifier_v6, ReverseLayerF
 from model.customUNet import CustomUNet
 from torch.nn.functional import upsample_nearest, interpolate
+import ast
 
 from model.DDA_model.utils.networks import load_checkpoint
 
@@ -19,6 +20,7 @@ from utils.plot import plot_2dmatrix, plot_and_save
 import os
 from utils.utils import Namespace
 
+from utils.utils import read_params
 
 class POMELO_module(nn.Module):
     '''
@@ -51,6 +53,9 @@ class POMELO_module(nn.Module):
         self.feature_extractor = feature_extractor
         self.head_name = head
         head_input_dim = 0
+        this_input_dim = input_channels
+        head_input_dim = head_input_dim
+
         
         # Padding Params
         self.p = 14
@@ -71,23 +76,31 @@ class POMELO_module(nn.Module):
             with open(parent_file, "w") as f:
                 f.write(parent)
         
+
         if parent is not None or os.path.exists(parent_file):
             # recursive loading of the boosting model
-            self.parent = POMELO_module(input_channels, feature_dim, feature_extractor, down, occupancymodel=occupancymodel,
-                                        useposembedding=useposembedding, experiment_folder=parent, replace7x7=replace7x7, head=head)
+
+            # load csv to dict
+            argsdict = read_params(os.path.join(parent, "args.csv"))
+
+            print("-"*50)
+            print("Loading parent model from: ", parent)
+            self.parent = POMELO_module(input_channels, int(argsdict["feature_dim"]), argsdict["feature_extractor"], int(argsdict["down"]), occupancymodel=ast.literal_eval(argsdict["occupancymodel"]),
+                                        useposembedding=ast.literal_eval(argsdict["useposembedding"]), experiment_folder=parent, replace7x7=ast.literal_eval(argsdict["replace7x7"]), head=str(argsdict["head"]),
+                                        grouped=ast.literal_eval(argsdict["grouped"]))
             self.parent.unetmodel.load_state_dict(torch.load(os.path.join(parent, "last_unetmodel.pth"))["model"])
             self.parent.head.load_state_dict(torch.load(os.path.join(parent, "last_head.pth"))["model"])
 
-            if self.useposembedding:
+            if ast.literal_eval(argsdict["useposembedding"]):
                 self.parent.embedder.load_state_dict(torch.load(os.path.join(parent, "last_embedder.pth"))["model"])
+
+            head_input_dim += 1
         else:
             # create the parent file
             self.parent = None
 
         # this_input_dim = input_channels if self.parent is None else input_channels + 1
         # this_input_dim = input_channels if self.parent is None else input_channels + feature_dim #old
-        head_input_dim = head_input_dim if self.parent is None else head_input_dim + feature_dim
-        this_input_dim = input_channels
 
 
         if useposembedding:
@@ -132,7 +145,7 @@ class POMELO_module(nn.Module):
         elif head=="v4":
             #footprint at the front and middle input
             h = 64
-            head_input_dim += feature_dim + 1
+            head_input_dim += 1 + 1
             self.head = nn.Sequential(
                 nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
@@ -154,9 +167,6 @@ class POMELO_module(nn.Module):
                 nn.Conv2d(h, 2, kernel_size=1, padding=0)
             )
             this_input_dim -= 1 # no building footprint
-
-
-
 
         # Build the main model
         if feature_extractor=="DDA":
@@ -183,9 +193,13 @@ class POMELO_module(nn.Module):
         self.params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
 
         # print size of the embedder and head network
+        self.num_params = 0
         if hasattr(self, "embedder"):
             print("Embedder: ",sum(p.numel() for p in self.embedder.parameters() if p.requires_grad)) 
+            self.num_params += sum(p.numel() for p in self.embedder.parameters() if p.requires_grad)
         print("Head: ",sum(p.numel() for p in self.head.parameters() if p.requires_grad))
+        self.num_params += sum(p.numel() for p in self.head.parameters() if p.requires_grad)
+        self.num_params += self.unetmodel.num_params
 
     def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True,
                 encoder_no_grad=False, unet_no_grad=False, sparse=False):
@@ -196,9 +210,11 @@ class POMELO_module(nn.Module):
             - inputs["input"].shape = [batch_size, input_channels, height, width]
         """
 
+        inputdata = inputs["input"]
+
         if sparse:
             # create sparsity mask
-            sub = 30
+            sub = 60
             sparsity_mask = inputs["building_counts"][:,0]>0
             xindices = torch.ones(sparsity_mask.shape[1]).multinomial(num_samples=min(sub,sparsity_mask.shape[1]), replacement=False).sort()[0]
             yindices = torch.ones(sparsity_mask.shape[2]).multinomial(num_samples=min(sub,sparsity_mask.shape[2]), replacement=False).sort()[0]
@@ -207,30 +223,25 @@ class POMELO_module(nn.Module):
         aux = {}
 
         # forward the parent model without gradient if exists
+        middlefeatures = []
         if self.parent is not None:
             # Forward the parent model
             with torch.no_grad():
-                output_dict = self.parent(inputs, padding=False, return_features=False, unet_no_grad=unet_no_grad)
-            # Concatenate the parent features with the input 
-            inputdata = torch.cat([ output_dict["features"], inputs["input"]], dim=1) #old 
-        else:
-            inputdata = inputs["input"]
+                output_dict = self.parent(inputs, padding=False, return_features=False, unet_no_grad=unet_no_grad, sparse=sparse)
+
+            # Concatenate the parent features with middle features of the current model
+            middlefeatures.append(output_dict["scale"].unsqueeze(1))
+            
 
         # Embed the pose information
         if self.useposembedding:
-            if isinstance(self.embedder[0], Siren1x1):
-                # only use the first sine and cosine frequency
-                xy = torch.cat([  inputs["positional_encoding"][:,0].unsqueeze(0),
-                                  inputs["positional_encoding"][:,inputs["positional_encoding"].shape[1]//2].unsqueeze(0) ],
-                                  dim=1)
-                pose = self.embedder(xy)
-            else:
-                # optimized for occupancy model
-                if self.occupancymodel:
-                    if sparse:
-                        pose = self.sparse_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
-                    else:
-                        pose = self.embedder(inputs["positional_encoding"])
+        
+            # optimized for occupancy model
+            if self.occupancymodel:
+                if sparse:
+                    pose = self.sparse_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
+                else:
+                    pose = self.embedder(inputs["positional_encoding"])
 
             # Concatenate the pose embedding to the input data
             if self.head_name in ["v2", "v4"]:
@@ -274,6 +285,7 @@ class POMELO_module(nn.Module):
 
             # revert padding
             features = self.revert_padding(features, (px1,px2,py1,py2))
+            middlefeatures.append(features)
 
             aux["features"] = features
             aux["decoder_features"] = decoder_features
@@ -281,27 +293,32 @@ class POMELO_module(nn.Module):
             if self.head_name in ["v2"]:
                 out = self.head(torch.cat([features, pose], dim=1))
             elif self.head_name in ["v3", "v4"]:
-                if self.parent is not None:
-                    out = self.head(torch.cat([features, pose, output_dict["popdensemap"], inputs["building_counts"]], dim=1))
-                else:
-                    if self.occupancymodel:
-                        
-                        # prepare the input to the head
-                        if self.useposembedding:
-                            headin = torch.cat([features, pose, inputs["building_counts"]], dim=1)
-                        else:
-                            headin = torch.cat([features, inputs["building_counts"]], dim=1)
+                if self.occupancymodel:
+                    
+                    # middlefeatures.append(features)
+                    middlefeatures.append(inputs["building_counts"])
+                    
+                    # prepare the input to the head
+                    if self.useposembedding: 
+                        middlefeatures.append(pose)
 
-                        if sparse:
-                            out = self.sparse_forward(headin, sparsity_mask, self.head, out_channels=2)
-                        else:
-                            out = self.head(headin)
-
+                    headin = torch.cat(middlefeatures, dim=1)
+                    
+                    # perform sparse sampling and memory efficient forward pass
+                    if sparse:
+                        out = self.sparse_forward(headin, sparsity_mask, self.head, out_channels=2)
                     else:
-                        if self.useposembedding:
-                            out = self.head(torch.cat([features, pose, inputs["building_counts"]], dim=1))
-                        else:
-                            out = self.head(torch.cat([features, inputs["building_counts"]], dim=1))
+                        out = self.head(headin)
+
+                else:
+                    middlefeatures.append(inputs["building_counts"])
+                    if self.useposembedding:
+                        middlefeatures.append(pose)
+                        # out = self.head(torch.cat([features, pose, inputs["building_counts"]], dim=1))
+                    # else:
+                        # out = self.head(torch.cat([features, inputs["building_counts"]], dim=1))
+                    headin = torch.cat(middlefeatures, dim=1)
+                    out = self.head(headin)
             else:
                 out = self.head(features)
 

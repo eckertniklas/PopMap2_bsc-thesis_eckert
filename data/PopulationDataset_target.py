@@ -612,16 +612,10 @@ class Population_Dataset_target(Dataset):
             else:
                 indata["positional_encoding"] = self.pos_enc(window=window)
 
-
         return indata, mask, window
-        
 
 
-
-
-
-
-    def convert_popmap_to_census(self, pred, gpu_mode=False, level="fine"):
+    def convert_popmap_to_census(self, pred, gpu_mode=False, level="fine", details_to=None):
         """
         Converts the predicted population to the census data
         inputs:
@@ -653,7 +647,7 @@ class Population_Dataset_target(Dataset):
             # iterate over census regions and get totals
             # for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
             # for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"]))):
-            for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"])), total=len(census), disable=False):
+            for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"])), total=len(census), disable=False, leave=False):
                 if pd.isnull(bbox):
                     continue
 
@@ -676,42 +670,71 @@ class Population_Dataset_target(Dataset):
                 census_pred_i[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
                 census_i[i] = census["POP20"][i]
 
-        # valid_census = census_pred>-1
-        # census_pred = census_pred[valid_census] 
-        # census = census[valid_census]
-
         valid_census_i = census_pred_i>-1
         census_pred_i = census_pred_i[valid_census_i]
         census_i = census_i[valid_census_i]
 
-        # # produce density map
-        # densities = torch.zeros_like(pred)
-        # pred_densities_census = census_pred.cpu() / census["count"]
-        # for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
-        #     xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
-        #     densities[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = pred_densities_census[i]
+        if details_to is not None:
 
-        # # total map
-        # totals = torch.zeros_like(pred, dtype=torch.float32)
-        # totals_pred_census = census_pred.cpu().to(torch.float32)
-        # for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
-        #     xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
-        #     totals[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = totals_pred_census[i]
+            # create directory if not exists
+            if not os.path.exists(details_to):
+                os.makedirs(details_to)
 
-        # # produce density map for the ground truth
-        # densities_gt = torch.zeros_like(pred)
-        # gt_densities_census = torch.tensor(census["POP20"]) / census["count"]
-        # for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
-        #     xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
-        #     densities_gt[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = gt_densities_census[i]
+            # produce density map
+            densities = torch.zeros_like(pred)
+            pred_densities_census = census_pred_i.cpu() / census["count"]
+            for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
+                xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
+                densities[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = pred_densities_census[i]
 
-        # # total map
-        # totals_gt = torch.zeros_like(pred, dtype=torch.float32)
-        # totals_gt_census = torch.tensor(census["POP20"]).to(torch.float32)
-        # for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
-        #     xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
-        #     totals_gt[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = totals_gt_census[i]
+            # total map
+            totals = torch.zeros_like(pred, dtype=torch.float32)
+            totals_pred_census = census_pred_i.cpu().to(torch.float32)
+            for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
+                xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
+                totals[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = totals_pred_census[i]
 
+            # produce density map for the ground truth
+            densities_gt = torch.zeros_like(pred)
+            gt_densities_census = torch.tensor(census["POP20"]) / census["count"]
+            for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
+                xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
+                densities_gt[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = gt_densities_census[i]
+
+            # total map
+            totals_gt = torch.zeros_like(pred, dtype=torch.float32)
+            totals_gt_census = torch.tensor(census["POP20"]).to(torch.float32)
+            for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
+                xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
+                totals_gt[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = totals_gt_census[i]
+
+            # residual map
+            residuals = torch.zeros_like(pred, dtype=torch.float32) 
+            residuals_census = census_pred_i.cpu().to(torch.float32) - torch.tensor(census["POP20"]).to(torch.float32)
+            for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
+                xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
+                residuals[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = residuals_census[i]
+
+            #relaltive residuals
+            residuals_rel = torch.zeros_like(pred, dtype=torch.float32) 
+            pop20 = torch.tensor(census["POP20"]).to(torch.float32)
+            pix_count = torch.tensor(census["count"]).to(torch.float32)
+            census_pred = census_pred_i.cpu().to(torch.float32)
+            # residuals_rel_census = (census_pred - pop20) / pop20
+            residuals_rel_census = (census_pred - pop20) / pix_count
+            residuals_rel_census[torch.isinf(residuals_rel_census) | torch.isnan(residuals_rel_census)] = 0
+
+            for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
+                xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
+                residuals_rel[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = residuals_rel_census[i]
+
+            # save the maps
+            self.save(densities, details_to, "_densities")
+            self.save(totals, details_to, "_totals")
+            self.save(densities_gt, details_to, "_densities_gt")
+            self.save(totals_gt, details_to, "_totals_gt")
+            self.save(residuals, details_to, "_residuals")
+            self.save(residuals_rel, details_to, "_residuals_rel")
         
         del boundary, pred
         torch.cuda.empty_cache()

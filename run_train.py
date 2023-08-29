@@ -90,7 +90,10 @@ class Trainer:
         
         # number of params
         args.pytorch_total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        print("Model", args.model, "; #Params:", args.pytorch_total_params)
+        # print("Model", args.model, "; #Params:", args.pytorch_total_params)
+        args.num_effective_param = self.model.num_params
+        print("Model", args.model, "; #Effective Params:", args.num_effective_param)
+
 
         # wandb config
         wandb.init(project=args.wandb_project, dir=self.experiment_folder)

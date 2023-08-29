@@ -70,13 +70,13 @@ class CustomUNet(smp.Unet):
                     self.encoder.features[0].weight = nn.Parameter(conv1w)
 
         if grouped:
+            # replace first layer with grouped convolutions to avoid early interaction
             conv1w = self.encoder.conv1.weight # old kernel
             self.encoder.conv1 = CustomGroupedConvolution(sentinel_2_channels=4, sentinel_1_channels=2,
                                                           out_channels=64,
                                                           kernel_size=kernel_size, padding=padding, bias=False, stride=2)
             self.encoder.conv1.s2_conv.weight = nn.Parameter(conv1w[:64//2, :4, :, :])
             self.encoder.conv1.s1_conv.weight = nn.Parameter(conv1w[64//2:, 4:, :, :])
-            
 
             # replace other convolutions at the second level as well
             self.encoder.layer1[0].conv1 = self.replace_with_groups(self.encoder.layer1[0].conv1) # old kernel
@@ -88,8 +88,6 @@ class CustomUNet(smp.Unet):
             self.encoder.layer2[0].conv2 = self.replace_with_groups(self.encoder.layer2[0].conv2) # old kernel
             self.encoder.layer2[1].conv1 = self.replace_with_groups(self.encoder.layer2[1].conv1) # old kernel
             self.encoder.layer2[1].conv2 = self.replace_with_groups(self.encoder.layer2[1].conv2) # old kernel
-
-
             
         # adapt size of the center block for vgg
         if encoder_name.startswith("vgg"):
@@ -102,14 +100,13 @@ class CustomUNet(smp.Unet):
  
         self.remove_batchnorm(self)
 
-
         # initialize
         print("self.encoder.out_channels", self.encoder.out_channels)
         self.name = "u-{}".format(encoder_name)
         self.initialize()
 
         # print number of parameters that are actually used
-        self.num_effective_params(down=down, verbose=True)
+        self.num_params = self.num_effective_params(down=down, verbose=True)
 
 
     def remove_batchnorm(self, model):
@@ -137,12 +134,9 @@ class CustomUNet(smp.Unet):
         for name, module in net.named_modules():
             if isinstance(module, nn.Conv2d):
                 module.dilation = (dilation, dilation)
-                # if you want to reinitialize the weights as well
-                # nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='relu')
                 kernel_size = module.kernel_size[0] if isinstance(module.kernel_size, tuple) else module.kernel_size
                 padding_needed = (kernel_size - 1)
                 module.padding = (padding_needed, padding_needed)
-        pass
 
 
     def num_effective_params(self, down=5, verbose=False):

@@ -89,6 +89,22 @@
             ] 
         },
         {
+            "name": "01_download_gee_country.py, RWA2022",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/01_download_gee_country.py",
+            "console": "integratedTerminal",
+            "args": [
+                "28.782241559728206",
+                "-2.9039507660291455",
+                "30.96165440152508",
+                "-0.9948970488002317",
+                "rwa2022",
+                // "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/GEEraster/RWA",
+                // "P_2020"
+            ] 
+        },
+        {
             "name": "01_download_gee_country.py, BDI",
             "type": "python",
             "request": "launch",
@@ -264,6 +280,20 @@
                 "--target_col", "P_2020",
                 "--template_file", "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa/S2Aspring/rwa_S2Aspring.tif",
             ]
+        },{
+            "name": "02_preprocess_rwa2022_shapefile.py, RWA2022",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/02_preprocess_rwa2022_shapefile.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--hd_regions_path", "/scratch2/metzgern/HAC/data/PopMapData/raw/HumDataOCHA/RWA/rwa_adm3_2006_NISR_WGS1984_20181002.shp", 
+                "--census_data_path", "/scratch2/metzgern/HAC/data/PopMapData/raw/GovernmentCensus/RWA/rwa_admpop_adm3_2022.csv",
+                "--output_path", "/scratch2/metzgern/HAC/data/PopMapData/processed/rwa2022/",
+                "--dataset_name", "rwa",
+                "--target_col", "TOTAL22",
+                "--template_file", "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa/S2Aspring/rwa_S2Aspring.tif",
+            ]
         },
         {
             "name": "03_merge_tiffs.py, pri",
@@ -285,6 +315,17 @@
             "args": [
                 "/scratch2/metzgern/HAC/data/PopMapData/raw/EE/rwa",
                 "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa"
+            ]
+        },
+        {
+            "name": "03_merge_tiffs.py, rwa2022",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/03_merge_tiffs.py",
+            "console": "integratedTerminal",
+            "args": [
+                "/scratch2/metzgern/HAC/data/PopMapData/raw/EE/rwa2022",
+                "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa2022"
             ]
         },
         {
@@ -424,6 +465,16 @@
             "console": "integratedTerminal",
             "args": [
                 "--region", "rwa"
+            ]
+        },
+        {
+            "name": "07_create_buildings.py, RWA2022",
+            "type": "python",
+            "request": "launch",
+            "module": "utils.07_create_buildings",
+            "console": "integratedTerminal",
+            "args": [
+                "--region", "rwa2022"
             ]
         },
         {
@@ -591,15 +642,15 @@
                 "-lr", "1e-4", 
                 "--model", "POMELO_module", 
                 "--head", "v3", 
-                "--grouped",
+                // "--grouped",
                 "-l", "log_l1_loss",
                 // "-la", "1.0", "1.0",
                 "-la", "1.0",
                 "-esr2", "0.1", 
-                "-dw","3", 
+                "-dw","2", 
                 "-S2",
                 "-NIR",
-                "-S1",
+                // "-S1",
                 "-f",
                 // "16",
                 "8",
@@ -628,7 +679,8 @@
                 // "--test_every_i_steps", "50",
                 // "--val_every_n_epochs", "100",
                 // "--weak_batch_size", "4",
-                "--weak_batch_size", "1",
+                "--weak_batch_size", "2",
+                "--weak_merge_aug",
                 "--occupancymodel",
                 "--buildinginput",
                 // "--segmentationinput",
@@ -639,7 +691,76 @@
                 "--train_level", "coarse",
                 // "-r77",
                 "--pretrained",
-                "--gradientaccumulation",
+                // "--gradientaccumulation",
+            ]
+        },
+        {
+            "name": "train, Stage 1, rwa2022 -> 2020",
+            "type": "python",
+            "request": "launch",
+            "program": "run_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "-o",
+                "-s",
+                // "--max_samples", "200",
+                "-e",   "100",
+                "-b", "16",
+                "-lr", "1e-4", 
+                "--model", "POMELO_module", 
+                "--head", "v3", 
+                // "--grouped",
+                // "-l", "log_l1_loss",
+                "-l", "l1_loss",
+                // "-la", "1.0", "1.0",
+                "-la", "1.0",
+                // "-esr2", "0.1", 
+                "-dw","2", 
+                "-S2",
+                "-NIR",
+                // "-S1",
+                "-f",
+                // "16",
+                "8",
+                // "--dilation", "2",
+                "-rse",
+                "-treg", "rwa2022", "rwa",
+                //"-treg", "pricp2",
+                "-tregtrain", "rwa2022",
+                "-exZH",
+                "-val", "1",
+                "--lr_step", "5",
+                // "--lr_gamma", "0.825",
+                "--lr_gamma", "0.75",
+                "--full_aug",
+                // "--ascAug",
+                "--num_workers", "6", 
+                "--seed", "1612",
+                "-gc", "0.01",
+                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1577_622/last_model.pth",
+                "--supmode", "weaksup",
+                "--lam_weak", "100", 
+                "--nomain",
+                // "--weak_merge_aug",
+                // "--max_weak_samples", "2",
+                "--val_every_n_epochs", "1",
+                // "--test_every_i_steps", "50",
+                // "--val_every_n_epochs", "100",
+                // "--weak_batch_size", "4",
+                "--weak_batch_size", "1",
+                // "--weak_merge_aug",
+                "--occupancymodel",
+                "--buildinginput",
+                // "--segmentationinput",
+                "--useposembedding",
+                "--weightdecay_pos", "0.0",
+                "--weightdecay", "0.0",
+                "--sentinelbuildings",
+                "--train_level", "coarse",
+                // "-r77",
+                "--pretrained",
+                // "--gradientaccumulation",
             ]
         },
         {
@@ -857,12 +978,10 @@
                 "-b", "16",
                 "-lr", "1e-3", 
                 "--model", "POMELO_module",  
-                "--head", "v3",
-                // "-l", "log_l1_loss", "L1reg", 
+                "--head", "v3", 
                 "-l", "log_l1_loss",
-                "--scale_regularization", "0.0",
-                // "--scale_regularizationL2", "1.0",
-                // "-la", "1.0", "0.01",
+                "--scale_regularization", "0.0", 
+                "-esr2", "0.1", 
                 "-la", "1.0",
                 "-dw","1",
                 "-S2",
@@ -887,7 +1006,8 @@
                 "-gc", "0.01",
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1110_933/last_model.pth",
                 // "--parent", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1522_224/",
-                "--parent", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1566_92",
+                // "--parent", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1566_92",
+                "--parent", "/scratch2/metzgern/Downloads/experiment_288_266/",
                 "--supmode", "weaksup",
                 "--lam_weak", "100",
                 // "--supmode", "unsup",
@@ -905,9 +1025,8 @@
                 "--weightdecay_pos", "0.0",
                 "--useposembedding",
                 "--sentinelbuildings",
-                "-r77",
                 "--pretrained",
-                "--gradientaccumulation",
+                "--train_level", "coarse",
             ]
         },
         {

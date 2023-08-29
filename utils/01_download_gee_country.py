@@ -29,14 +29,24 @@ ee_crs = ee.Projection('EPSG:4326')
 # Sen2winter_finish_date = '2020-03-01'
 
 # Sentinel 2 Config
-Sen2spring_start_date = '2020-03-01'
-Sen2spring_finish_date = '2020-06-01'
-Sen2summer_start_date = '2020-06-01'
-Sen2summer_finish_date = '2020-09-01'
-Sen2autumn_start_date = '2020-09-01'
-Sen2autumn_finish_date = '2020-12-01'
-Sen2winter_start_date = '2020-12-01'
-Sen2winter_finish_date = '2021-03-01'
+# Sen2spring_start_date = '2020-03-01'
+# Sen2spring_finish_date = '2020-06-01'
+# Sen2summer_start_date = '2020-06-01'
+# Sen2summer_finish_date = '2020-09-01'
+# Sen2autumn_start_date = '2020-09-01'
+# Sen2autumn_finish_date = '2020-12-01'
+# Sen2winter_start_date = '2020-12-01'
+# Sen2winter_finish_date = '2021-03-01'
+
+# Sentinel 2 Config
+Sen2spring_start_date = '2022-03-01'
+Sen2spring_finish_date = '2022-06-01'
+Sen2summer_start_date = '2022-06-01'
+Sen2summer_finish_date = '2022-09-01'
+Sen2autumn_start_date = '2022-09-01'
+Sen2autumn_finish_date = '2022-12-01'
+Sen2winter_start_date = '2022-12-01'
+Sen2winter_finish_date = '2023-03-01'
 
 # AOI = ee.Geometry.Point(-122.269, 45.701)
 # START_DATE = '2020-06-01'

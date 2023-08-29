@@ -38,7 +38,7 @@ def main(args):
     ips = 2048
     
     input_defs = {'S1': True, 'S2': True, 'VIIRS': False, 'NIR': True}
-    dataset = Population_Dataset_target(args.region, patchsize=ips, overlap=overlap, fourseasons=False,
+    dataset = Population_Dataset_target(args.region, patchsize=ips, overlap=overlap, fourseasons=True,
                                         sentinelbuildings=False, ascfill=True, **input_defs)
     dataloader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=False, drop_last=False)
 

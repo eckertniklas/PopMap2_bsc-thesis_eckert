@@ -279,6 +279,7 @@ class Trainer:
                     loss_weak, loss_dict_weak = get_loss(
                         output_weak, sample_weak, scale=output_weak["scale"], empty_scale=output_weak["empty_scale"], loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
                         scale_regularization=args.scale_regularization, scale_regularizationL2=args.scale_regularizationL2, emptyscale_regularizationL2=args.emptyscale_regularizationL2,
+                        output_regularization=args.output_regularization,
                         tag="weak")
                     
                     # Detach tensors
@@ -290,6 +291,7 @@ class Trainer:
                         loss_weak_raw, loss_weak_dict_raw = get_loss(
                             output_weak["intermediate"], sample_weak, scale=output_weak["intermediate"]["scale"], empty_scale=output_weak["intermediate"]["empty_scale"], loss=boosted_loss,
                             lam=args.lam, merge_aug=args.merge_aug, scale_regularization=args.scale_regularization, scale_regularizationL2=args.scale_regularizationL2, emptyscale_regularizationL2=args.emptyscale_regularizationL2,
+                            output_regularization=args.output_regularization,
                             tag="train_weak_intermediate")
                         
                         loss_weak_dict_raw = detach_tensors_in_dict(loss_weak_dict_raw)

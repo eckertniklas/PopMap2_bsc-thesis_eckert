@@ -114,25 +114,25 @@ def load_json(file):
 
 
 def apply_normalize(indata, dataset_stats):
+    """
+    :param indata: input data
+    :param dataset_stats: dataset statistics for normalization
+    :return: normalized data
+    """
 
     # S2
     if "S2" in indata:
-        if indata["S2"].shape[1] == 4:
-            # indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2springNIR"]['p2'][:,None,None], self.dataset_stats["sen2springNIR"]['p2'][:,None,None], indata["S2"])
+        if indata["S2"].shape[1] == 4: 
             indata["S2"] = ((indata["S2"].permute((0,2,3,1)) - dataset_stats["sen2springNIR"]['mean'].cuda() ) / dataset_stats["sen2springNIR"]['std'].cuda()).permute((0,3,1,2))
-        else: 
-            # indata["S2"] = torch.where(indata["S2"] > self.dataset_stats["sen2spring"]['p2'][:,None,None], self.dataset_stats["sen2spring"]['p2'][:,None,None], indata["S2"])
-            # indata["S2"] = ((indata["S2"].permute((1,2,0)) - dataset_stats["sen2spring"]['mean'] ) / dataset_stats["sen2spring"]['std']).permute((2,0,1))
+        else:  
             indata["S2"] = ((indata["S2"].permute((0,2,3,1)) - dataset_stats["sen2spring"]['mean'].cuda() ) / dataset_stats["sen2spring"]['std'].cuda()).permute((0,3,1,2))
 
     # S1
-    if "S1" in indata:
-        # indata["S1"] = torch.where(indata["S1"] > self.dataset_stats["sen1"]['p2'][:,None,None], self.dataset_stats["sen1"]['p2'][:,None,None], indata["S1"])
+    if "S1" in indata: 
         indata["S1"] = ((indata["S1"].permute((0,2,3,1)) - dataset_stats["sen1"]['mean'].cuda() ) / dataset_stats["sen1"]['std'].cuda()).permute((0,3,1,2))
 
     # VIIRS
-    if "VIIRS" in indata:
-        # indata["VIIRS"] = torch.where(indata["VIIRS"] > self.dataset_stats["viirs"]['p2'][:,None,None], self.dataset_stats["viirs"]['p2'][:,None,None], indata["VIIRS"])
+    if "VIIRS" in indata: 
         indata["VIIRS"] = ((indata["VIIRS"].permute((0,3,1,2)) - dataset_stats["viirs"]['mean'].cuda() ) / dataset_stats["viirs"]['std'].cuda()).permute((0,3,1,2))
 
     return indata
@@ -226,14 +226,27 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
 
 
 class NumberList:
-    def __init__(self):
+    """
+    Class to store a list of numbers and return the last n numbers
+    """
+    def __init__(self, window=200):
         self.numbers = []
+        self.window = window
 
     def add(self, nums):
+        """
+        Add a list of numbers to the list
+        :param nums: list of numbers or other types of objects
+        :return: None
+        """
         for num in nums:
-            if len(self.numbers) >= 50:
+            if len(self.numbers) >= self.window:
                 self.numbers.pop(0)
             self.numbers.append(num)
 
     def get(self):
+        """
+        Return the last n numbers
+        :return: list of numbers
+        """
         return self.numbers

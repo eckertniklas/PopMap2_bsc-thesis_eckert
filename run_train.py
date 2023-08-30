@@ -548,16 +548,13 @@ class Trainer:
             else:
                 self.dataset_stats[mkey] = torch.tensor(val)
 
+        # get the target regions for testing
         datasets = {
             "test_target": [ Population_Dataset_target( reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, **input_defs) \
-                                for reg in args.target_regions ]
-        }
-
-        # create the dataloaders
+                                for reg in args.target_regions ] }
         dataloaders =  {
             "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False) \
-                                for datasets["test_target"] in datasets["test_target"] ]
-        }
+                                for datasets["test_target"] in datasets["test_target"] ]  }
         
         # add weakly supervised samples of the target domain to the trainind_dataset
         # create the weakly supervised dataset stack them into a single dataset and dataloader
@@ -580,8 +577,7 @@ class Trainer:
             dataloaders["train"] = DataLoader(dataloaders["weak_target_dataset"], batch_size=weak_loader_batchsize, num_workers=1, shuffle=True, collate_fn=Population_Dataset_collate_fn, drop_last=True)
             
             weak_datasets_val = []
-            if self.args.weak_validation:
-                # for reg in list(set(args.target_regions) | set(args.target_regions_train)):
+            if self.args.weak_validation: 
                 for reg, lvl in zip(args.target_regions_train, args.train_level):
                     weak_datasets_val.append(Population_Dataset_target(reg, mode="weaksup", split="val", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
                                                                     fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 

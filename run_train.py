@@ -158,6 +158,9 @@ class Trainer:
         """
         Main training loop
         """
+        self.pred_buffer = NumberList()
+        self.target_buffer = NumberList()
+
         with tqdm(range(self.info["epoch"], self.args.num_epochs), leave=True) as tnr:
             tnr.set_postfix(training_loss=np.nan, validation_loss=np.nan, best_validation_loss=np.nan)
             for _ in tnr:
@@ -207,8 +210,6 @@ class Trainer:
         Train for one epoch
         """
         train_stats = defaultdict(float)
-        self.pred_buffer = NumberList()
-        self.target_buffer = NumberList()
 
         # set model to train mode
         self.model.train()

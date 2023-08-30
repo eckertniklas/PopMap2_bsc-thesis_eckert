@@ -248,9 +248,7 @@ class POMELO_module(nn.Module):
                         pose = F.interpolate(downsampled_pose, size=(inputs["positional_encoding"].shape[2], inputs["positional_encoding"].shape[3]), mode='bilinear', align_corners=False)
                     else:
                         pose = self.sparse_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
-                        # pose = self.embedder(inputs["positional_encoding"])
 
-                    # pose2 = self.sparse_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
                 else:
                     pose = self.embedder(inputs["positional_encoding"])
 

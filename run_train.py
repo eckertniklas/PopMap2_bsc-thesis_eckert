@@ -7,22 +7,17 @@ import numpy as np
 import torch
 from torch import is_tensor, optim
 from torch.nn.utils import clip_grad_norm_
-from torch.utils.data import DataLoader, ChainDataset, ConcatDataset
+from torch.utils.data import DataLoader, ConcatDataset
 from torchvision.transforms import Normalize
 from torchvision import transforms
 from utils.transform import OwnCompose
 from utils.transform import RandomRotationTransform, RandomHorizontalFlip, RandomVerticalFlip, RandomHorizontalVerticalFlip, RandomBrightness, RandomGamma, HazeAdditionModule, AddGaussianNoise
 # from utils.transform import Eu2Rwa
 from tqdm import tqdm
+ 
 
-from torchcontrib.optim import SWA
-
-import itertools
-import random
-from sklearn import model_selection
 import wandb
-
-import pickle
+ 
 import gc
 
 # from arguments import train_parser
@@ -43,7 +38,7 @@ from utils.plot import plot_2dmatrix, plot_and_save, scatter_plot3
 # from utils.datasampler import LabeledUnlabeledSampler
 from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1, pop_map_root, testlevels, overlap
 from utils.constants import inference_patch_size as ips
-from utils.utils import Namespace
+from utils.utils import Namespace, NumberList
 
 
 torch.autograd.set_detect_anomaly(True)
@@ -212,6 +207,8 @@ class Trainer:
         Train for one epoch
         """
         train_stats = defaultdict(float)
+        self.pred_buffer = NumberList()
+        self.target_buffer = NumberList()
 
         # set model to train mode
         self.model.train()
@@ -304,8 +301,7 @@ class Trainer:
                     output_weak = None
 
                 loss_dict = {}
-                loss_dict_raw = {}
-                output = None
+                loss_dict_raw = {} 
 
                 # Detach tensors
                 loss_dict = detach_tensors_in_dict(loss_dict)
@@ -319,13 +315,16 @@ class Trainer:
                     train_stats[key] += loss_dict_raw[key].cpu().item() if torch.is_tensor(loss_dict_raw[key]) else loss_dict_raw[key]
                 train_stats["log_count"] += 1
 
+                # collect buffer
+                self.pred_buffer.add(output_weak["popcount"].cpu().detach())
+                self.target_buffer.add(sample_weak["y"].cpu().detach())
+                                
                 # detect NaN loss 
-                # backprop and stuff
                 if torch.isnan(optim_loss):
                     raise Exception("detected NaN loss..")
                 
+                # backprop
                 if self.info["epoch"] > 0 or not self.args.no_opt:
-                    # backprop
                     optim_loss.backward()
 
                     # gradient clipping
@@ -336,9 +335,6 @@ class Trainer:
                         self.optimizer.step()
                         self.optimizer.zero_grad()
                     optim_loss = optim_loss.detach()
-                    if output is not None:  
-                        output = detach_tensors_in_dict(output)
-                        del output
                     if output_weak is not None:
                         output_weak = detach_tensors_in_dict(output_weak)
                         del output_weak
@@ -349,7 +345,6 @@ class Trainer:
                 # update info
                 self.info["iter"] += 1
                 self.info["sampleitr"] += self.args.batch_size
-                
                 # logging and stuff
                 if (i+1) % self.args.val_every_i_steps == 0:
                     if self.args.supmode=="weaksup" and self.args.weak_validation:
@@ -369,6 +364,7 @@ class Trainer:
     
     def log_train(self, train_stats, tqdmstuff=None):
         train_stats = {k: v / train_stats["log_count"] for k, v in train_stats.items()}
+        train_stats["Population_weak/r2"] = r2(torch.tensor(self.pred_buffer.get()),torch.tensor(self.target_buffer.get()))
 
         # print logs to console via tqdm
         if tqdmstuff is not None:

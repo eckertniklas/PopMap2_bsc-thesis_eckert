@@ -222,3 +222,18 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
                 sample["input"] = transform["general"](sample["input"])
     
     return sample
+
+
+
+class NumberList:
+    def __init__(self):
+        self.numbers = []
+
+    def add(self, nums):
+        for num in nums:
+            if len(self.numbers) >= 50:
+                self.numbers.pop(0)
+            self.numbers.append(num)
+
+    def get(self):
+        return self.numbers

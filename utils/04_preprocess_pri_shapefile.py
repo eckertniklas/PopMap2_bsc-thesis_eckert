@@ -13,12 +13,14 @@ import torch
 from tqdm import tqdm
 from shapely import wkt
 
+import tkinter
 import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use( 'tkagg' )
+import matplotlib 
 matplotlib.use('TkAgg')
 
 from plot import plot_2dmatrix
+from sklearn.cluster import AgglomerativeClustering
+
 
 def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mode=True):
 
@@ -99,25 +101,21 @@ def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mod
     # # Convert the 'geometry' column to actual geometry objects
     # data['geometry'] = gpd.GeoSeries.from_wkt(data['geometry'])
 
-    
+    # block_level = gdb.dissolve(by='BLOCKCE20', aggfunc='sum')
+    # block_level.plot(column="POP20", legend=True)
+    # plt.show()
 
-    block_level = gdb.dissolve(by='BLOCKCE20', aggfunc='sum')
-    block_level.plot(column="POP20", legend=True)
-    plt.show()
+    # # Aggregate the data at the 'TRACTCE20' level
+    # tract_level = gdb.dissolve(by='TRACTCE20', aggfunc='sum')
 
-    # Aggregate the data at the 'TRACTCE20' level
-    tract_level = gdb.dissolve(by='TRACTCE20', aggfunc='sum')
-
-    # Aggregate the data at the 'COUNTYFP20' level
-    county_level = gdb.dissolve(by='COUNTYFP20', aggfunc='sum')
-
+    # # Aggregate the data at the 'COUNTYFP20' level
+    # county_level = gdb.dissolve(by='COUNTYFP20', aggfunc='sum')
 
     for level in levels:
 
         thisdb = gdb[["POP20", "geometry",level]].dissolve(by=level, aggfunc=np.sum).reset_index()
         thisdb["idx"] = np.arange(len(thisdb))
         
-
         plot = False
         if plot:
             # plot the database
@@ -168,6 +166,107 @@ def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mod
 
         # write censusdata
         thisdb[["idx", "POP20", "bbox", "count"]].to_csv(this_censusfile)
+    
+    print("Done with the official levels")
+    
+    #####  let's merge the tract level regions to about 200 regions #####
+    # set random seed for reproducibility
+    np.random.seed(0)
+
+    # set the level to merge
+    level = "coarseTRACTCE20"
+    num_desired_regions = 200
+    gdf = gdb[["POP20", "geometry","TRACTCE20"]].dissolve(by="TRACTCE20", aggfunc=np.sum).reset_index()
+    num_regions = len(gdf)
+    distance_matrix = np.ones((num_regions, num_regions))
+    # for i in tqdm(range(num_regions)):
+    #     for j in range(i+1, num_regions):
+    #         if gdf.iloc[i]['geometry'].touches(gdf.iloc[j]['geometry']) or gdf.iloc[i]['geometry'].intersects(gdf.iloc[j]['geometry']):
+    #             random_eps = np.random.rand()*3e-1
+    #             distance_matrix[i, j] = random_eps
+    #             distance_matrix[j, i] = random_eps
+
+    distance_matrix = np.ones((num_regions, num_regions))*100
+    for i in tqdm(range(num_regions)):
+        for j in range(i+1, num_regions):
+            # Get the shared border
+            shared_border = gdf.iloc[i]['geometry'].boundary.intersection(gdf.iloc[j]['geometry'].boundary)
+            # If the polygons share a border
+            if shared_border.length > 0:
+                # Set the distance to the negative length of the shared border
+                # (we use the negative length because a larger shared border should result in a smaller distance)
+                distance_matrix[i, j] = -shared_border.length**2
+                distance_matrix[j, i] = -shared_border.length**2
+                
+
+    # distance_matrix = distance_matrix + np.random.rand(num_regions, num_regions)*1e-1
+
+    # Fit the AgglomerativeClustering model
+    model = AgglomerativeClustering(n_clusters=num_desired_regions, metric='precomputed', linkage='complete')
+    gdf['cluster'] = model.fit_predict(distance_matrix)
+
+    # Merge the regions based on the 'cluster' column
+    thisdb = gdf[["geometry", "POP20", "cluster"]].dissolve(by='cluster', aggfunc=np.sum).reset_index()
+
+    # Check the number of unique regions after merging
+    num_merged_regions = len(thisdb)
+    assert num_merged_regions == num_desired_regions
+
+    thisdb["idx"] = np.arange(len(thisdb))
+    
+    plot = False
+    if plot:
+        # plot the database
+        thisdb.plot(column="cluster", legend=True)
+        # thisdb.plot(column="POP20", legend=True)
+        plt.show()
+
+    this_outputfile = output_tif_file.replace("boundaries", "boundaries_" + level)
+    this_censusfile = output_census_file.replace("census", "census_" + level)
+
+    thismetadata = metadata.copy()
+    thismetadata.update({"compress": "lzw"})
+    with rasterio.open(this_outputfile, 'w+', **thismetadata) as out:
+        out_arr = out.read(1)
+
+        # this is where we create a generator of geom, value pairs to use in rasterizing
+        shapes = ((geom,i) for i, geom in zip(thisdb["idx"], thisdb.geometry))
+
+        # flattens the shapefile into the raster (burns them in)
+        burned1 = features.rasterize(shapes=shapes, fill=0, out=out_arr, transform=out.transform)
+        out.write_band(1, burned1)
+
+    # bring to torch for parallel implementation
+    burned1 = torch.tensor(burned1, dtype=torch.int32)
+    if gpu_mode:
+        burned1 = burned1.cuda()
+
+    thisdb["bbox"] = ""
+    thisdb["count"] = 0
+    
+    # precalculate all the bounding boxes
+    for i in tqdm(thisdb["idx"]):
+        mask = burned1==i
+        count = mask.sum()
+        if count==0:
+            xmin, xmax = 0, 0
+            ymin, ymax = 0, 0
+        else:
+            # get the bounding box by calculating the min and max of the indices
+            vertical_indicies = torch.where(torch.any(mask,dim=1))[0]
+            horizontal_indicies = torch.where(torch.any(mask,dim=0))[0]
+            xmin, xmax = vertical_indicies[[0, -1]].cpu()
+            ymin, ymax = horizontal_indicies[[0, -1]].cpu()
+            xmax, ymax = xmax+1, ymax+1
+            xmin, xmax, ymin, ymax = xmin.item(), xmax.item(), ymin.item(), ymax.item()
+
+        thisdb.at[i,"bbox"] = (xmin, xmax, ymin, ymax)
+        thisdb.loc[i,"count"] = count.cpu().item()
+
+    # write censusdata
+    thisdb[["idx", "POP20", "bbox", "count"]].to_csv(this_censusfile)
+    
+
 
     return None
 

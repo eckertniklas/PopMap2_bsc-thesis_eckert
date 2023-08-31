@@ -120,6 +120,10 @@ datalocations = {
             'boundary': "boundaries_TRACTCE20.tif",
             'census': "census_TRACTCE20.csv",
         },
+        'coarseTRACTCE': {
+            'boundary': "boundaries_coarseTRACTCE20.tif",
+            'census': "census_coarseTRACTCE20.csv",
+        },
         'coarse': {
             'boundary': "boundaries_COUNTYFP20.tif",
             'census': "census_COUNTYFP20.csv",
@@ -204,7 +208,7 @@ datalocations = {
 }
 
 testlevels = {
-    'pricp2': ["fine", "fineTRACTCE", "fineBLOCKCE"],
+    'pricp2': ["fine", "fineTRACTCE", "coarseTRACTCE"],
     # 'rwa': ["coarse"]
     'rwa': ["fine100", "fine200", "fine400", "fine1000", "coarse"],
     'rwa2022': ["coarse"],

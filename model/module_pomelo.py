@@ -32,7 +32,7 @@ class POMELO_module(nn.Module):
     def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", down=5,
                 occupancymodel=False, pretrained=False, dilation=1, replace7x7=True,
                 parent=None, experiment_folder=None, useposembedding=False, head="v1", grouped=False,
-                lempy_eps=0.0):
+                lempty_eps=0.0):
         super(POMELO_module, self).__init__()
         """
         Args:
@@ -46,6 +46,11 @@ class POMELO_module(nn.Module):
             - pretrained (bool): whether to use the pretrained feature extractor
             - dilation (int): dilation factor
             - replace7x7 (bool): whether to replace the 7x7 convolutions with 3 3x3 convolutions
+            - parent (str): path to the parent model
+            - experiment_folder (str): path to the experiment folder
+            - useposembedding (bool): whether to use the pose embedding
+            - grouped (bool): whether to use grouped convolutions
+
         """
 
         self.down = down
@@ -56,8 +61,10 @@ class POMELO_module(nn.Module):
         head_input_dim = 0
         this_input_dim = input_channels
         head_input_dim = head_input_dim
-        self.lempty_eps = torch.nn.Parameter(torch.tensor(lempy_eps), requires_grad=lempy_eps>0)
-
+        if lempty_eps>0:
+            self.lempty_eps = torch.nn.Parameter(torch.tensor(lempty_eps), requires_grad=True)
+        else:
+            self.lempty_eps = 0.0
         
         # Padding Params
         self.p = 14
@@ -179,6 +186,9 @@ class POMELO_module(nn.Module):
         """
 
         inputdata = inputs["input"]
+
+        if self.lempty_eps>0:
+            inputs["building_counts"][:,0] = inputs["building_counts"][:,0] + self.lempty_eps
 
         if sparse:
             # create sparsity mask
@@ -309,23 +319,13 @@ class POMELO_module(nn.Module):
                 # aux["scale_raw"] = popdensemap_raw.clone().cpu().detach()
                 # popdensemap_raw = popdensemap_raw * inputs["building_counts"][:,0]
                 # popvarmap_raw = popvarmap_raw * inputs["building_counts"][:,0]
-                # for final
-                # aux["scale"] = popdensemap.clone().cpu().detach()
+                
+                # save the scale
                 aux["scale"] = scale
-
-                # sparse sampling of the empty scale
                 aux["empty_scale"] = scale * (1-inputs["building_counts"][:,0])
 
-                # subsample the empty scale
-                # xindices = torch.ones(scale.shape[1]).multinomial(num_samples=min(30,scale.shape[1]), replacement=False).sort()[0]
-                # yindices = torch.ones(scale.shape[2]).multinomial(num_samples=min(30,scale.shape[2]), replacement=False).sort()[0]
-                # aux["empty_scale"] = aux["empty_scale"][:,xindices][:,:,yindices] 
-
-
+                # Get the population density map
                 popdensemap = scale * inputs["building_counts"][:,0]
-                # popdensemap = popdensemap * (inputs["building_counts"][:,0]>0.25)
-                # popdensemap = popdensemap * (inputs["building_counts"][:,0]>0.25) * inputs["building_counts"][:,0]
-                # popvarmap = popvarmap #* inputs["building_counts"][:,0]
             else: 
                 raise ValueError("building_counts not in inputs.keys()")
         else:

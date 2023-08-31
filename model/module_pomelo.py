@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 # import copy
 import segmentation_models_pytorch as smp
-from model.DANN import DomainClassifier, DomainClassifier1x1, DomainClassifier_v3, DomainClassifier_v4, DomainClassifier_v5, DomainClassifier_v6, ReverseLayerF
+# from model.DANN import DomainClassifier, DomainClassifier1x1, DomainClassifier_v3, DomainClassifier_v4, DomainClassifier_v5, DomainClassifier_v6, ReverseLayerF
 from model.customUNet import CustomUNet
 from torch.nn.functional import upsample_nearest, interpolate
 import ast
@@ -140,6 +140,7 @@ class POMELO_module(nn.Module):
                 nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(h, 2, kernel_size=1, padding=0)
             )
+            this_input_dim -= 1 # no building footprint
 
 
         # Build the main model

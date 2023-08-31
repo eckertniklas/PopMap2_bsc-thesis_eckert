@@ -173,8 +173,11 @@ class Trainer:
                 for level in testlevels[testdataloader.dataset.region]:
                     # convert map to census
                     census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True, level=level, details_to=os.path.join(self.experiment_folder, "{}_{}".format(testdataloader.dataset.region, level)))
-                    self.target_test_stats = {**self.target_test_stats,
-                                              **get_test_metrics(census_pred, census_gt.float().cuda(), tag="MainCensus_{}_{}".format(testdataloader.dataset.region, level))}
+                    this_metrics = get_test_metrics(census_pred, census_gt.float().cuda(), tag="MainCensus_{}_{}".format(testdataloader.dataset.region, level))
+                    print(this_metrics)
+                    self.target_test_stats = {**self.target_test_stats, **this_metrics}
+
+                    # get the metrics for the clearly built up areas
                     built_up = census_gt>10
                     self.target_test_stats = {**self.target_test_stats,
                                               **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="MainCensusPos_{}_{}".format(testdataloader.dataset.region, level))}
@@ -188,13 +191,19 @@ class Trainer:
                                                   **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos_{}_{}".format(testdataloader.dataset.region, level))}
 
                     # create scatterplot and upload to wandb
-                    print(self.target_test_stats)
+                    # print(self.target_test_stats)
                     scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist(), log_scale=True)
                     if scatterplot is not None:
                         self.target_test_stats["Scatter/Scatter_{}_{}".format(testdataloader.dataset.region, level)] = wandb.Image(scatterplot)
                 
                 # adjust map (disaggregate) and recalculate everything
+                print("-"*50)
+                print("Adjusting map")
                 output_map_adj = testdataloader.dataset.adjust_map_to_census(output_map)
+
+                # save adjusted map
+                if save:
+                    testdataloader.dataset.save(output_map_adj, self.experiment_folder, tag="ADJ_{}".format(testdataloader.dataset.region))
 
                 for level in testlevels[testdataloader.dataset.region]:
                     # convert map to census

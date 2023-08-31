@@ -1,23 +1,32 @@
-
+import sys
+sys.path.insert(0, '../')
+sys.path.insert(0, '../../')
 
 import argparse
-import geopandas as gdp
+import geopandas as gpd
+import pandas as pd
 import numpy as np
 import rasterio
 from rasterio import features
 import os
 import torch
 from tqdm import tqdm
+from shapely import wkt
 
-# from utils.plot import plot_2dmatrix
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use( 'tkagg' )
+matplotlib.use('TkAgg')
+
+from plot import plot_2dmatrix
 
 def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mode=True):
 
     # read shapefile
-    gdb = gdp.read_file(sh_path)
-
+    gdb = gpd.read_file(sh_path)
     gdb["idx"] = np.arange(len(gdb))
 
+    # administative levels in the shapefile counted
     # len(np.unique(gdb["COUNTYFP20"])) #78
     # len(np.unique(gdb["BLOCKCE20"])) #363
     # len(np.unique(gdb["TRACTCE20"])) #952
@@ -28,7 +37,7 @@ def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mod
         metadata = tmp.meta.copy()
 
     # make sure that the metadata matches
-    metadata.update({"count": 1})
+    metadata.update({"count": 1, "compress": "lzw"})
 
     this_outputfile = output_tif_file.replace("boundaries", "boundaries4")
     this_censusfile = output_census_file.replace("census", "census4")
@@ -57,7 +66,6 @@ def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mod
 
     gdb["bbox"] = ""
     gdb["count"] = 0
-    
     # precalculate all the bounding boxes
     for i in tqdm(gdb["idx"]):
         mask = burned==i
@@ -80,17 +88,48 @@ def process(sh_path, output_tif_file, output_census_file, template_file, gpu_mod
     gdb[["idx", "POP20", "bbox", "count"]].to_csv(this_censusfile)
 
     # set levels
-    levels = ["COUNTYFP20", "BLOCKCE20", "TRACTCE20"]
-       
+    levels = ["COUNTYFP20", "BLOCKCE20", "TRACTCE20"] 
+
+    # # save geodatabase with geometry
+    # gdb[["idx", "POP20", "COUNTYFP20", "BLOCKCE20", "TRACTCE20", "geometry"]].to_csv("/scratch2/metzgern/HAC/data/PopMapData/raw/boundaries/pricp2/deleteme/test.csv")
+    
+    # # read it back in
+    # data = pd.read_csv('/mnt/data/test.csv')
+
+    # # Convert the 'geometry' column to actual geometry objects
+    # data['geometry'] = gpd.GeoSeries.from_wkt(data['geometry'])
+
+    
+
+    block_level = gdb.dissolve(by='BLOCKCE20', aggfunc='sum')
+    block_level.plot(column="POP20", legend=True)
+    plt.show()
+
+    # Aggregate the data at the 'TRACTCE20' level
+    tract_level = gdb.dissolve(by='TRACTCE20', aggfunc='sum')
+
+    # Aggregate the data at the 'COUNTYFP20' level
+    county_level = gdb.dissolve(by='COUNTYFP20', aggfunc='sum')
+
+
     for level in levels:
 
         thisdb = gdb[["POP20", "geometry",level]].dissolve(by=level, aggfunc=np.sum).reset_index()
         thisdb["idx"] = np.arange(len(thisdb))
+        
+
+        plot = False
+        if plot:
+            # plot the database
+            thisdb.plot(column="POP20", legend=True)
+            plt.show()
 
         this_outputfile = output_tif_file.replace("boundaries", "boundaries_" + level)
         this_censusfile = output_census_file.replace("census", "census_" + level)
 
-        with rasterio.open(this_outputfile, 'w+', **metadata) as out:
+        thismetadata = metadata.copy()
+        thismetadata.update({"compress": "lzw"})
+        with rasterio.open(this_outputfile, 'w+', **thismetadata) as out:
             out_arr = out.read(1)
 
             # this is where we create a generator of geom, value pairs to use in rasterizing

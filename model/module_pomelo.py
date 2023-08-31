@@ -31,7 +31,8 @@ class POMELO_module(nn.Module):
     '''
     def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", down=5,
                 occupancymodel=False, pretrained=False, dilation=1, replace7x7=True,
-                parent=None, experiment_folder=None, useposembedding=False, head="v1", grouped=False):
+                parent=None, experiment_folder=None, useposembedding=False, head="v1", grouped=False,
+                lempy_eps=0.0):
         super(POMELO_module, self).__init__()
         """
         Args:
@@ -55,6 +56,7 @@ class POMELO_module(nn.Module):
         head_input_dim = 0
         this_input_dim = input_channels
         head_input_dim = head_input_dim
+        self.lempty_eps = torch.nn.Parameter(torch.tensor(lempy_eps), requires_grad=lempy_eps>0)
 
         
         # Padding Params
@@ -99,10 +101,6 @@ class POMELO_module(nn.Module):
             # create the parent file
             self.parent = None
 
-        # this_input_dim = input_channels if self.parent is None else input_channels + 1
-        # this_input_dim = input_channels if self.parent is None else input_channels + feature_dim #old
-
-
         if useposembedding:
             freq = 4 # for 2 dimensions and 2 components (sin and cos)
             self.embedder = nn.Sequential(
@@ -115,23 +113,7 @@ class POMELO_module(nn.Module):
             head_input_dim += feature_dim
 
 
-        if head=="v1":
-            self.head = nn.Sequential(
-                nn.Conv2d(feature_dim, 2, kernel_size=1, padding=0)
-            )
-            this_input_dim += feature_dim
-
-        elif head=="v2":
-            h = 64
-            head_input_dim += feature_dim
-            self.head = nn.Sequential(
-                nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(h, 2, kernel_size=1, padding=0)
-            )
-
-        elif head=="v3":
+        if head=="v3":
             h = 64
             head_input_dim += feature_dim + 1
             self.head = nn.Sequential(
@@ -142,23 +124,8 @@ class POMELO_module(nn.Module):
             )
             this_input_dim -= 1 # no building footprint
 
-        elif head=="v4":
-            #footprint at the front and middle input
-            h = 64
-            head_input_dim += 1 + 1
-            self.head = nn.Sequential(
-                nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(h, 2, kernel_size=1, padding=0)
-            )
-        elif head=="v5":
-            freq = 4 # for 2 dimensions and 2 components (sin and cos)
-            self.embedder = nn.Sequential(
-                nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
-            )
-            h = 64
+        elif head=="v6":
+            h = 128
             head_input_dim += feature_dim + 1
             self.head = nn.Sequential(
                 nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(),
@@ -166,7 +133,7 @@ class POMELO_module(nn.Module):
                 nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(h, 2, kernel_size=1, padding=0)
             )
-            this_input_dim -= 1 # no building footprint
+
 
         # Build the main model
         if feature_extractor=="DDA":
@@ -200,6 +167,7 @@ class POMELO_module(nn.Module):
         print("Head: ",sum(p.numel() for p in self.head.parameters() if p.requires_grad))
         self.num_params += sum(p.numel() for p in self.head.parameters() if p.requires_grad)
         self.num_params += self.unetmodel.num_params
+
 
     def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True,
                 encoder_no_grad=False, unet_no_grad=False, sparse=False):
@@ -253,17 +221,13 @@ class POMELO_module(nn.Module):
                     pose = self.embedder(inputs["positional_encoding"])
 
             # Concatenate the pose embedding to the input data
-            if self.head_name in ["v2", "v4"]:
-                inputdata = inputdata
-            elif self.head_name in ["v3"]:
+            if self.head_name in ["v3", "v6"]:
                 inputdata = inputdata[:,0:-1] # remove the building footprint from the variables
             else:
                 inputdata = torch.cat([inputdata, pose], dim=1)
 
         else:
-            if self.head_name in ["v2", "v4"]:
-                inputdata = inputdata
-            elif self.head_name in ["v3"]:
+            if self.head_name in ["v3", "v6"]:
                 inputdata = inputdata[:,0:-1] # remove the building footprint from the variables
             else:
                 inputdata = inputdata
@@ -299,13 +263,12 @@ class POMELO_module(nn.Module):
             aux["features"] = features
             aux["decoder_features"] = decoder_features
 
-            if self.head_name in ["v2"]:
-                out = self.head(torch.cat([features, pose], dim=1))
-            elif self.head_name in ["v3", "v4"]:
+            if self.head_name in ["v3", "v4", "v6"]:
+
+                # append building counts to the middle features
+                middlefeatures.append(inputs["building_counts"])
+
                 if self.occupancymodel:
-                    
-                    # middlefeatures.append(features)
-                    middlefeatures.append(inputs["building_counts"])
                     
                     # prepare the input to the head
                     if self.useposembedding: 
@@ -320,12 +283,8 @@ class POMELO_module(nn.Module):
                         out = self.head(headin)
 
                 else:
-                    middlefeatures.append(inputs["building_counts"])
                     if self.useposembedding:
                         middlefeatures.append(pose)
-                        # out = self.head(torch.cat([features, pose, inputs["building_counts"]], dim=1))
-                    # else:
-                        # out = self.head(torch.cat([features, inputs["building_counts"]], dim=1))
                     headin = torch.cat(middlefeatures, dim=1)
                     out = self.head(headin)
             else:

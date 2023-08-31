@@ -710,13 +710,13 @@
                 "-lr", "1e-3", 
                 "--model", "POMELO_module", 
                 "--head", "v3", 
-                // "--grouped",
+                "--grouped",
                 "-l", "log_l1_loss",
                 // "-l", "l1_loss",
                 // "-la", "1.0", "1.0",
                 "-la", "1.0",
-                "-esr2", "0.01", 
                 "--empty_eps", "0.01",
+                "-esr2", "0.001", 
                 "-dw","2", 
                 "-S2",
                 "-NIR",
@@ -1046,12 +1046,13 @@
                 "-lr", "1e-4", 
                 "--model", "POMELO_module",  
                 "--head", "v3",
-                "--grouped",
+                // "--grouped",
                 // "-l", "log_l1_loss", "L1reg", 
                 "-l", "log_l1_loss",
                 // "-la", "1.0", "0.01",
                 "-la", "1.0",
-                "-esr2", "0.01",
+                "--empty_eps", "0.01",
+                "-esr2", "0.001",
                 "-dw","2",
                 "-S2",
                 "-NIR",
@@ -1101,8 +1102,7 @@
                 // "--weak_validation",
                 "--useposembedding",
                 // "--val_every_i_steps", "1200",
-                // "--test_every_i_steps", "100",
-                "--max_weak_pix", "1000000"
+                // "--test_every_i_steps", "100", 
             ]
         },
         {
@@ -1343,12 +1343,13 @@
                 "-dw","2",
                 "-S2",
                 "-NIR",
-                // "-S1",
+                "-S1",
                 "-f", "8",
                 "-rse",
                 "-treg", "rwa", "rwa2022",
                 "--train_level", "coarse", "coarse",
-                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1855_904/last_model.pth"
+                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1855_904/last_model.pth",
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1882_542/last_model.pth"
             ]
         },
         {

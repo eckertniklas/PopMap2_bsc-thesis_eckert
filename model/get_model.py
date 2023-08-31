@@ -70,4 +70,5 @@ def get_model_kwargs(args, model_name):
         kwargs['useposembedding'] = args.useposembedding
         kwargs['head'] = args.head
         kwargs['grouped'] = args.grouped
+        kwargs['lempty_eps'] = args.lempty_eps
     return kwargs

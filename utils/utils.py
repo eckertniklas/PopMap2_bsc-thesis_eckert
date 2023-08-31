@@ -229,7 +229,7 @@ class NumberList:
     """
     Class to store a list of numbers and return the last n numbers
     """
-    def __init__(self, window=200):
+    def __init__(self, window=400):
         self.numbers = []
         self.window = window
 

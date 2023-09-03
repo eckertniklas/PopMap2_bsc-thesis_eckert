@@ -1,3 +1,4 @@
+
 import sys
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
@@ -11,10 +12,9 @@ import os
 from utils.metrics import get_test_metrics
 import torch
 from utils.plot import plot_2dmatrix, plot_and_save, scatter_plot3
+import math
 
-
-def reproject_maps(map_path, template_path, output_path, sumpool=False):
-
+def reproject_maps(map_path, template_path, output_path):
 
     # get transform of original map
     with rasterio.open(map_path) as src:
@@ -39,7 +39,8 @@ def reproject_maps(map_path, template_path, output_path, sumpool=False):
                 # 'transform': transform,
                 'transform': dst.transform,
                 'width': width,
-                'height': height
+                'height': height,
+                'compress': 'lzw'
             })
 
             # Write the reprojected raster to the new dataset
@@ -52,7 +53,7 @@ def reproject_maps(map_path, template_path, output_path, sumpool=False):
                         src_crs=src.crs,
                         dst_transform=transform,
                         dst_crs=dst.crs,
-                        resampling=Resampling.sum if sumpool else Resampling.nearest
+                        resampling=Resampling.nearest
                     )
 
     x_stretch = src_transform.a / dst.transform.a
@@ -63,16 +64,12 @@ def reproject_maps(map_path, template_path, output_path, sumpool=False):
 
 
 
-def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
-
-    print("Evaluating", map_path)
-
+def evaluate_meta_maps(map_path, template_path, force_recompute=False):
 
     parent_dir = "/".join(map_path.split("/")[:-1])
 
     # high_resolution map 
     hr_map_path = map_path.replace(".tif", "_hr.tif")
-    # hr_map_path = map_path.replace(".tiff", "_hr.tiff")
 
     # load map
     with rasterio.open(map_path) as src:
@@ -81,91 +78,67 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
     pop_map[pop_map != pop_map] = 0
     
     # translate the the meta maps in the template file coordinate system
-    # force_recompute = False
-    # if not os.path.exists(hr_map_path) or force_recompute:
-    #     x_stretch, y_stretch = reproject_maps(map_path, template_path, hr_map_path)
-    # else:
-    #     x_stretch = 1.0
-    #     y_stretch = 1.0
+    if not os.path.exists(hr_map_path) or force_recompute:
+        x_stretch, y_stretch = reproject_maps(map_path, template_path, hr_map_path)
+    else:
+        # x_stretch = 9.276624194838645
+        # y_stretch = 9.276624194838645
+        pass
 
-    x_stretch = 1.0
-    y_stretch = 1.0
+    #
+    # x_stretch = 10/0.9276624194838645/0.6479
+    # y_stretch = 10/0.9276624194838645/0.6479
+
+    # x_stretch = 10/0.9276624194838645/0.6479*math.sqrt(0.4382897921990371)
+    # y_stretch = 10/0.9276624194838645/0.6479*math.sqrt(0.4382897921990371)
 
     # Load the high resolution map
-    with rasterio.open(map_path) as src:
+    with rasterio.open(hr_map_path) as src:
         hr_pop_map = torch.from_numpy(src.read(1))
         hr_pop_map = hr_pop_map/x_stretch/y_stretch
-        hr_pop_map = hr_pop_map.to(torch.float16)
+        # hr_pop_map = hr_pop_map.to(torch.float16)
+        hr_pop_map = hr_pop_map.to(torch.float32)
 
     # replace nan values with 0
     hr_pop_map[hr_pop_map != hr_pop_map] = 0
     hr_pop_map[hr_pop_map < 0] = 0
 
-    
     # define GT dataset
-    dataset = Population_Dataset_target("rwa", train_level="coarse")
+    dataset = Population_Dataset_target("pricp2", train_level="fineTRACTCE")
+    # dataset = Population_Dataset_target("rwa")
 
-    # adjust map with the coarse census
-    hr_pop_map_adj = dataset.adjust_map_to_census(hr_pop_map.clone()/255)
-
-    # save adjusted map
-    hr_map_path_adj = map_path.replace(".tif", "_hr_adj.tif")
-    metadata = src.meta.copy()
-    metadata.update({"dtype": "float32",
-                     "compress": "lzw"})
-    
-    if not os.path.exists( hr_map_path_adj):
-        with rasterio.open(hr_map_path_adj, 'w', **metadata) as dst:
-            dst.write(hr_pop_map_adj.to(torch.float32).cpu().numpy(), 1)
-        print("Adjusted map saved to: ", hr_map_path_adj)
-
-    # reproject to the worldpop map
-    hr_map_path_adj_reproj = map_path.replace(".tif", "_hr_adj_reproj.tif")
-    if not os.path.exists(hr_map_path_adj_reproj):
-        _, _ = reproject_maps(hr_map_path_adj, wpop_raster_template, hr_map_path_adj_reproj)
-        print("Reprojected map saved to: ", hr_map_path_adj_reproj)
-
-
-    # define levels
-    levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
+    # levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
+    levels = ["fine", "fineTRACTCE", "fineBLOCKCE", "coarse"]
     # levels = ["coarse"]
 
     for level in levels:
         print("Evaluating level: ", level)
-        print("-------------------------------")
-        print("Direct metrics:")
         census_pred, census_gt = dataset.convert_popmap_to_census(hr_pop_map, gpu_mode=True, level=level)
         test_metrics_meta = get_test_metrics(census_pred, census_gt.float().cuda() )
-        empirical_global_bias = census_pred.sum() / census_gt.sum()
-        print("Empirical global bias: ", empirical_global_bias)
         print(test_metrics_meta)
 
         scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
-        scatterplot.save(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
-        print("-------------------------------")
-        print("Adjusted metrics:")
-        census_pred_adj, census_gt = dataset.convert_popmap_to_census(hr_pop_map_adj, gpu_mode=True, level=level)
-        test_metrics_meta_adj = get_test_metrics(census_pred_adj, census_gt.float().cuda() )
-        print(test_metrics_meta_adj)
-
-        scatterplot_adj = scatter_plot3(census_pred_adj.tolist(), census_gt.tolist())
-        scatterplot_adj.save(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
+        scatterplot.save(os.path.join(parent_dir, "last_scatter_{}.png".format(level)))
 
         print("---------------------------------")
 
+    print(census_pred.sum().item())
+    print(census_gt.sum().item())
+    print(census_pred.sum().item()/census_gt.sum().item())
     print("Done")
-
-    pass
 
 
 if __name__=="__main__":
     """
-    Evaluates the Worldpop-maps on the test set of Rwanda
+    Evaluates the GPWv4-maps on the test set of Puertorico
     """
-    # map_path = "/scratch/metzgern/HAC/data/PopMapData/processed/rwa/buildingsDDA2_44C.tif"
-    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/rwa/Gbuildings_rwa_counts.tif"
-    # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1540_88/rwa_predictions.tif"
-    template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa/S2Aautumn/rwa_S2Aautumn.tif"
-    wpop_raster_template = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_constrained.tif"
+    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/GHS_POP/GHS_POP_E2030_GLOBE_R2023A_54009_100_V1_0_R10_C22.tif"
+    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/CIENSIN/gpw-v4-documentation-rev11/gpw-v4-population-density-rev11_2020_30_sec_tif/gpw_v4_population_density_rev11_2020_30_sec.tif"
+    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/GHS_POP/ghs_merged.tif"
+    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_UNadj.tif"
+    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_constrained.tif"
+    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/RWA/rwa_ppp_2020_UNadj_constrained.tif"
+    template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/pricp2/S2Aautumn/pricp2_S2Aautumn.tif"
 
-    evaluate_meta_maps(map_path, template_path, wpop_raster_template)
+    evaluate_meta_maps(map_path, template_path, force_recompute=True)
+

@@ -114,6 +114,8 @@ class Trainer:
             else:
                 params_positional = []
 
+            params_unet_only = [param for name, param in self.model.named_parameters() if name not in head_name and 'embedder' not in name and 'unetmodel' in name]
+
             # Get the head bias parameter, only bias, if available
             params_without_decay = [param for name, param in self.model.named_parameters() if name in head_name and 'embedder' not in name]
 
@@ -127,6 +129,7 @@ class Trainer:
             self.optimizer = optim.Adam([
                     {'params': params_with_decay, 'weight_decay': args.weightdecay}, # Apply weight decay here
                     {'params': params_positional, 'weight_decay': args.weightdecay_pos}, # Apply weight decay here
+                    {'params': params_unet_only, 'weight_decay': args.weightdecay_unet}, # No weight decay
                     {'params': params_without_decay, 'weight_decay': 0.0}, # No weight decay
                 ]
                 , lr=args.learning_rate)

@@ -660,13 +660,12 @@ class Population_Dataset_target(Dataset):
 
             pred = pred.to(torch.float32)
 
-            census_pred_i = -torch.ones(len(census), dtype=torch.float32).cuda()
-            census_i = -torch.ones(len(census), dtype=torch.float32).cuda()
+            census_pred_i = -torch.ones(len(census), dtype=torch.float32)
+            census_i = -torch.ones(len(census), dtype=torch.float32)
 
             # iterate over census regions and get totals
             for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
-                xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(','))) 
-                # census_pred[cidx] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].sum()
+                xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
                 census_pred_i[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
                 census_i[i] = census["POP20"][i]
 

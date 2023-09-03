@@ -170,9 +170,12 @@ class Trainer:
                         testdataloader.dataset.save(output_scale_map, self.experiment_folder, tag="SCALE_{}".format(testdataloader.dataset.region))
                 
                 # convert populationmap to census
+                gpu_mode = True
                 for level in testlevels[testdataloader.dataset.region]:
+                    print("-"*50)
+                    print("Evaluating level: ", level)
                     # convert map to census
-                    census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=True, level=level, details_to=os.path.join(self.experiment_folder, "{}_{}".format(testdataloader.dataset.region, level)))
+                    census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=gpu_mode, level=level, details_to=os.path.join(self.experiment_folder, "{}_{}".format(testdataloader.dataset.region, level)))
                     this_metrics = get_test_metrics(census_pred, census_gt.float().cuda(), tag="MainCensus_{}_{}".format(testdataloader.dataset.region, level))
                     print(this_metrics)
                     self.target_test_stats = {**self.target_test_stats, **this_metrics}
@@ -183,7 +186,7 @@ class Trainer:
                                               **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="MainCensusPos_{}_{}".format(testdataloader.dataset.region, level))}
                     
                     if self.boosted:
-                        census_pred_raw, census_gt_raw = testdataloader.dataset.convert_popmap_to_census(output_map_raw, gpu_mode=True, level=level)
+                        census_pred_raw, census_gt_raw = testdataloader.dataset.convert_popmap_to_census(output_map_raw, gpu_mode=gpu_mode, level=level)
                         self.target_test_stats = {**self.target_test_stats,
                                                   **get_test_metrics(census_pred_raw, census_gt_raw.float().cuda(), tag="CensusRaw_{}_{}".format(testdataloader.dataset.region, level))}
                         built_up = census_gt_raw>10
@@ -207,8 +210,10 @@ class Trainer:
 
                 for level in testlevels[testdataloader.dataset.region]:
                     # convert map to census
-                    census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map_adj, gpu_mode=True, level=level, details_to=os.path.join(self.experiment_folder, "{}_{}_adj".format(testdataloader.dataset.region, level)))
+                    census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map_adj, gpu_mode=gpu_mode, level=level, details_to=os.path.join(self.experiment_folder, "{}_{}_adj".format(testdataloader.dataset.region, level)))
                     test_stats_adj = get_test_metrics(census_pred, census_gt.float().cuda(), tag="AdjCensus_{}_{}".format(testdataloader.dataset.region, level))
+                    print(test_stats_adj)
+                    
                     built_up = census_gt>10
                     test_stats_adj = {**test_stats_adj,
                                       **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="AdjCensusPos_{}_{}".format(testdataloader.dataset.region, level))}

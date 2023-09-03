@@ -592,6 +592,27 @@
             "console": "integratedTerminal",
         },
         {
+            "name": "eval_CIENSIN_maps.py, RWA",
+            "type": "python",
+            "request": "launch",
+            "module": "baselines.rwa.eval_CIENSIN_maps",
+            "console": "integratedTerminal",
+        },
+        {
+            "name": "eval_CIENSIN_maps.py, PRI",
+            "type": "python",
+            "request": "launch",
+            "module": "baselines.pri.eval_CIENSIN_maps",
+            "console": "integratedTerminal",
+        },
+        {
+            "name": "eval_CIENSIN_maps.py, CHE",
+            "type": "python",
+            "request": "launch",
+            "module": "baselines.che.eval_CIENSIN_maps",
+            "console": "integratedTerminal",
+        },
+        {
             "name": "eval_dda_adj_maps.py, RWA",
             "type": "python",
             "request": "launch",
@@ -613,6 +634,13 @@
             "console": "integratedTerminal",
         },
         {
+            "name": "eval_TLM_adj_maps.py, CHE",
+            "type": "python",
+            "request": "launch",
+            "module": "baselines.che.eval_TLM_adj_maps",
+            "console": "integratedTerminal",
+        },
+        {
             "name": "eval_ours_adj.py, RWA",
             "type": "python",
             "request": "launch",
@@ -624,6 +652,13 @@
             "type": "python",
             "request": "launch",
             "module": "baselines.pri.eval_ours_adj",
+            "console": "integratedTerminal",
+        },
+        {
+            "name": "eval_ours_adj.py, CHE",
+            "type": "python",
+            "request": "launch",
+            "module": "baselines.che.eval_ours_adj",
             "console": "integratedTerminal",
         },
         {
@@ -758,6 +793,7 @@
                 "--useposembedding",
                 "--weightdecay_pos", "0.0",
                 "--weightdecay", "0.0",
+                "--weightdecay_unet", "1e-6",
                 "--sentinelbuildings",
                 "--train_level", "coarse",
                 // "-r77",
@@ -1327,7 +1363,7 @@
             ]
         },
         {
-            "name": "eval",
+            "name": "eval, RWA",
             "type": "python",
             "request": "launch",
             "program": "run_eval.py",
@@ -1350,7 +1386,61 @@
                 "-treg", "rwa", "rwa2022",
                 "--train_level", "coarse", "coarse",
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1855_904/last_model.pth",
-                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1882_542/last_model.pth"
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_314_728/last_model.pth"
+            ]
+        },
+        {
+            "name": "eval, PRI",
+            "type": "python",
+            "request": "launch",
+            "program": "run_eval.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--model", "POMELO_module",
+                "--head", "v3",
+                // "--grouped",
+                "--occupancymodel",
+                "--buildinginput",
+                "--useposembedding",
+                "--sentinelbuildings",
+                "-dw","2",
+                "-S2",
+                "-NIR",
+                "-S1",
+                "-f", "8",
+                "-rse",
+                "-treg", "pricp2", 
+                "--train_level", "fineTRACTCE", 
+                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1855_904/last_model.pth",
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1891_431/last_model.pth"
+            ]
+        },
+        {
+            "name": "eval, CHE",
+            "type": "python",
+            "request": "launch",
+            "program": "run_eval.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--model", "POMELO_module",
+                "--head", "v3",
+                // "--grouped",
+                "--occupancymodel",
+                "--buildinginput",
+                "--useposembedding",
+                "--sentinelbuildings",
+                "-dw","2",
+                "-S2",
+                "-NIR",
+                "-S1",
+                "-f", "8",
+                "-rse",
+                "-treg", "che", 
+                "--train_level", "fineTRACTCE", 
+                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1855_904/last_model.pth",
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1891_431/last_model.pth"
             ]
         },
         {

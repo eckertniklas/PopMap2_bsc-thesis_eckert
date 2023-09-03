@@ -255,7 +255,7 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_f
         dst.write(reprojected_enumeration_data_zurich, 1)
 
 
-    # TODO: create small subdataset for the greater region of zurich
+    # create small subdataset for the greater region of zurich
     xmin, xmax = 2000, 20000
     ymin, ymax = 28000, 31000
     reprojected_data_zurich2 = np.zeros_like(reprojected_data)
@@ -272,8 +272,8 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_f
     # create fine census
     fine_dict = {
         # "finezurich": (reprojected_data_zurich, reprojected_enumeration_data_zurich),
-        "finezurich2": (reprojected_data_zurich2, reprojected_enumeration_data_zurich2),
-        # "fine": (reprojected_data, reprojected_enumeration_data),
+        # "finezurich2": (reprojected_data_zurich2, reprojected_enumeration_data_zurich2),
+        "fine": (reprojected_data, reprojected_enumeration_data),
     }
 
     for name, (popdensity, boundaries) in fine_dict.items():

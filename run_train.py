@@ -105,7 +105,7 @@ class Trainer:
             head_name = ['head.6.weight','head.6.bias']
 
             # Get all parameters except the head bias
-            params_with_decay = [param for name, param in self.model.named_parameters() if name not in head_name and 'embedder' not in name]
+            params_with_decay = [param for name, param in self.model.named_parameters() if name not in head_name and 'embedder' not in name and 'unetmodel' not in name]
 
             # check if the model has an embedder
             if hasattr(self.model, 'embedder'):
@@ -117,7 +117,7 @@ class Trainer:
             params_unet_only = [param for name, param in self.model.named_parameters() if name not in head_name and 'embedder' not in name and 'unetmodel' in name]
 
             # Get the head bias parameter, only bias, if available
-            params_without_decay = [param for name, param in self.model.named_parameters() if name in head_name and 'embedder' not in name]
+            params_without_decay = [param for name, param in self.model.named_parameters() if name in head_name and 'embedder' not in name and 'unetmodel' not in name]
 
             # self.optimizer = optim.Adam([
             #         {'params': params_with_decay, 'weight_decay': args.weightdecay, "lr": args.learning_rate}, # Apply weight decay here

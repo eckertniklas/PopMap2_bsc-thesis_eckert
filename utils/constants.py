@@ -213,7 +213,7 @@ testlevels = {
     'rwa': ["fine100", "fine200", "fine400", "fine1000", "coarse"],
     'rwa2022': ["coarse"],
     'uga': ["coarse"],
-    'che': ["finezurich", "finezurich2", "coarse4"]
+    'che': ["fine", "finezurich", "finezurich2", "coarse4"]
 }
 
 # inicies to skip while training

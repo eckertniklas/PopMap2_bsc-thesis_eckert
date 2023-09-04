@@ -1276,6 +1276,7 @@
                 // "--segmentationinput",
                 "--useposembedding",
                 "--weightdecay_pos", "0.0",
+                "--weightdecay_unet", "0.00001",
                 // "--val_every_i_steps", "5000",
                 "--sentinelbuildings",
                 // "-r77",

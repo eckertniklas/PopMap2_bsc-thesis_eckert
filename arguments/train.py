@@ -85,7 +85,7 @@ parser.add_argument("-head", "--head", default="v1", help="")
 
 parser.add_argument('-wd', '--weightdecay', help='', type=float, default=0.0)
 parser.add_argument('-wdp', '--weightdecay_pos', help='', type=float, default=0.01)
-parser.add_argument('-wdu', '--weightdecay_unet', help='', type=float, default=0.01)
+parser.add_argument('-wdu', '--weightdecay_unet', help='', type=float, default=0.0)
 parser.add_argument('-ls', '--lassoreg', help='Lasso style regularization of the preds.', type=float, default=0.0)
 parser.add_argument('-tv', '--tv', help='Total variation regularization of the preds.', type=float, default=0.0)
 parser.add_argument("-rse", "--random_season", action='store_true', help="")

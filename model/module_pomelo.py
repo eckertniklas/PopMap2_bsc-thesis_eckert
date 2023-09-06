@@ -119,7 +119,6 @@ class POMELO_module(nn.Module):
 
             head_input_dim += feature_dim
 
-
         if head=="v3":
             h = 64
             head_input_dim += feature_dim + 1
@@ -211,7 +210,6 @@ class POMELO_module(nn.Module):
             # Concatenate the parent features with middle features of the current model
             middlefeatures.append(output_dict["scale"].unsqueeze(1))
             
-
         # Embed the pose information
         if self.useposembedding:
         
@@ -302,24 +300,14 @@ class POMELO_module(nn.Module):
                 out = self.head(features)
 
         # Population map and total count
-        # popvarmap_raw = nn.functional.softplus(out_raw[:,1])
-        # popvarmap = nn.functional.softplus(out[:,1])
-
-        # popdensemap_raw = nn.functional.relu(out_raw[:,0])
-        # popdensemap = nn.functional.relu(out[:,0])
-
         if self.occupancymodel:
 
             # activation function
             popvarmap = nn.functional.softplus(out[:,1])
-            # popdensemap = nn.functional.softplus(out[:,0])
             scale = nn.functional.relu(out[:,0])
 
             # for raw
-            if "building_counts" in inputs.keys():
-                # aux["scale_raw"] = popdensemap_raw.clone().cpu().detach()
-                # popdensemap_raw = popdensemap_raw * inputs["building_counts"][:,0]
-                # popvarmap_raw = popvarmap_raw * inputs["building_counts"][:,0]
+            if "building_counts" in inputs.keys(): 
                 
                 # save the scale
                 aux["scale"] = scale

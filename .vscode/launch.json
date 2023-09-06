@@ -529,6 +529,24 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "11_process_swissTLM3d.py, CHE, for s2 raster",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/11_process_swissTLM3d.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "11_process_swissTLM3d.py, CHE, for worldpop raster",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/11_process_swissTLM3d.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--target_raster", "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_UNadj_constrained.tif",
+                "--suffix", "wpop"
+            ]
+        },
+        {
             "name": "eval_meta_maps.py, RWA",
             "type": "python",
             "request": "launch",
@@ -744,8 +762,8 @@
                 "-b", "16",
                 "-lr", "1e-3", 
                 "--model", "POMELO_module", 
-                "--head", "v3", 
-                "--grouped",
+                "--head", "v6", 
+                // "--grouped",
                 "-l", "log_l1_loss",
                 // "-l", "l1_loss",
                 // "-la", "1.0", "1.0",

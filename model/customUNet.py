@@ -1,31 +1,49 @@
-
+####################################################################################################
+# Nando Metzger, ETH Zurich, 2023
+####################################################################################################
 
 
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
-
-# import copy
 import segmentation_models_pytorch as smp
-
-from utils.plot import plot_2dmatrix
-
-import torch.nn as nn
+ 
 
 
 class CustomUNet(smp.Unet):
     def __init__(self, encoder_name, in_channels, classes, down=3, fsub=16, pretrained=False,
                  dilation=1, replace7x7=True, activation=nn.LeakyReLU, grouped=False):
+        """
+        Custom UNet model with optional dilation and grouped convolutions
+        Input:
+            encoder_name: name of the encoder (e.g. resnet18)
+            in_channels: number of input channels
+            classes: number of output channels
+            down: depth of the U-Net
+            fsub: factor to subsample the features
+            pretrained: if True, use pretrained weights
+            dilation: dilation factor for the convolutions
+            replace7x7: if True, replace the first 7x7 convolution with a 3x3 convolution
+            activation: activation function
+            grouped: if True, use grouped convolutions
+        Output:
+            model: Custom UNet model
+        """
 
-        # instanciate the base model
-        # super().__init__(encoder_name, encoder_weights="imagenet",
-        # super().__init__(encoder_name, encoder_weights="swsl",
+        # instanciate the base model 
         super().__init__(encoder_name, encoder_weights="imagenet" if pretrained else None,
                         in_channels=in_channels, classes=classes, decoder_channels=(64,32,16), 
                         decoder_use_batchnorm=False, encoder_depth=3, activation=activation)
         
-        self.decoder_channels = (256,128,64,32,16)[-down:] 
-        self.latent_dim = sum(self.decoder_channels)
+        # assertions
+        assert down <= 5, "The maximum depth of the U-Net is 5"
+        assert encoder_name.startswith("resnet") or encoder_name.startswith("vgg"), "Only resnet and vgg encoders are supported"
+        assert not (encoder_name.startswith("vgg") and replace7x7), "replace7x7 is not supported for vgg encoders"
+        assert not (encoder_name.startswith("vgg") and grouped), "grouped convolutions are not supported for vgg encoders"
+        assert not (encoder_name.startswith("vgg") and dilation > 1), "dilation is not supported for vgg encoders"
+
+        # Deine decoder output channels
+        self.decoder_channels = (256,128,64,32,16)[-down:]
         self.fsub = fsub
 
         # Adjust the U-Net depth to 2 or lower here
@@ -35,7 +53,8 @@ class CustomUNet(smp.Unet):
             depth=down,
             weights="imagenet" if pretrained else None,
         )
-
+        
+        # define decoder blocks accordingly
         self.decoder = smp.decoders.unet.model.UnetDecoder(
             encoder_channels=self.encoder.out_channels,
             decoder_channels=self.decoder_channels,
@@ -44,6 +63,7 @@ class CustomUNet(smp.Unet):
             center=True if encoder_name.startswith("vgg") else False
         )
 
+        # include optional dilation
         if dilation > 1:
             self.modify_dilation(self.encoder, dilation=dilation)
 
@@ -54,13 +74,11 @@ class CustomUNet(smp.Unet):
             self.encoder.conv1.weight = nn.Parameter(conv1w[:,:,2:-2,2:-2])
             kernel_size, padding = 3, 1
         else:
-            kernel_size, padding = 7, 3
             if encoder_name.startswith("resnet"):
                 conv1w = self.encoder.conv1.weight # old kernel
 
                 # we have to revert the dilation that might have been applied before
-                if dilation > 1:
-                    # self.encoder.conv1.modify_dilation(dilation=1)
+                if dilation > 1: 
                     self.encoder.conv1 = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False, dilation=1)
                     self.encoder.conv1.weight = nn.Parameter(conv1w)
             else:
@@ -68,26 +86,28 @@ class CustomUNet(smp.Unet):
                 if dilation > 1:
                     self.encoder.features[0] = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False, dilation=1)
                     self.encoder.features[0].weight = nn.Parameter(conv1w)
+            kernel_size, padding = 7, 3
 
         if grouped:
+            # Adjust the encoder blocks for to group the convolutions for the first two stages
+
             # replace first layer with grouped convolutions to avoid early interaction
             conv1w = self.encoder.conv1.weight # old kernel
-            self.encoder.conv1 = CustomGroupedConvolution(sentinel_2_channels=4, sentinel_1_channels=2,
-                                                          out_channels=64,
+            self.encoder.conv1 = CustomGroupedConvolution(sentinel_2_channels=4, sentinel_1_channels=2, out_channels=64,
                                                           kernel_size=kernel_size, padding=padding, bias=False, stride=2)
             self.encoder.conv1.s2_conv.weight = nn.Parameter(conv1w[:64//2, :4, :, :])
             self.encoder.conv1.s1_conv.weight = nn.Parameter(conv1w[64//2:, 4:, :, :])
 
             # replace other convolutions at the second level as well
-            self.encoder.layer1[0].conv1 = self.replace_with_groups(self.encoder.layer1[0].conv1) # old kernel
-            self.encoder.layer1[0].conv2 = self.replace_with_groups(self.encoder.layer1[0].conv2) # old kernel
-            self.encoder.layer1[1].conv1 = self.replace_with_groups(self.encoder.layer1[1].conv1) # old kernel
-            self.encoder.layer1[1].conv2 = self.replace_with_groups(self.encoder.layer1[1].conv2) # old kernel
+            self.encoder.layer1[0].conv1 = self.replace_with_groups(self.encoder.layer1[0].conv1)
+            self.encoder.layer1[0].conv2 = self.replace_with_groups(self.encoder.layer1[0].conv2)
+            self.encoder.layer1[1].conv1 = self.replace_with_groups(self.encoder.layer1[1].conv1)
+            self.encoder.layer1[1].conv2 = self.replace_with_groups(self.encoder.layer1[1].conv2)
 
-            self.encoder.layer2[0].conv1 = self.replace_with_groups(self.encoder.layer2[0].conv1, stride=2) # old kernel
-            self.encoder.layer2[0].conv2 = self.replace_with_groups(self.encoder.layer2[0].conv2) # old kernel
-            self.encoder.layer2[1].conv1 = self.replace_with_groups(self.encoder.layer2[1].conv1) # old kernel
-            self.encoder.layer2[1].conv2 = self.replace_with_groups(self.encoder.layer2[1].conv2) # old kernel
+            self.encoder.layer2[0].conv1 = self.replace_with_groups(self.encoder.layer2[0].conv1, stride=2)
+            self.encoder.layer2[0].conv2 = self.replace_with_groups(self.encoder.layer2[0].conv2)
+            self.encoder.layer2[1].conv1 = self.replace_with_groups(self.encoder.layer2[1].conv1)
+            self.encoder.layer2[1].conv2 = self.replace_with_groups(self.encoder.layer2[1].conv2)
             
         # adapt size of the center block for vgg
         if encoder_name.startswith("vgg"):
@@ -109,7 +129,7 @@ class CustomUNet(smp.Unet):
         self.num_params = self.num_effective_params(down=down, verbose=True)
 
 
-    def remove_batchnorm(self, model):
+    def remove_batchnorm(self, model: nn.Module) -> None:
         """
         remove batchnorm layers from model
         """
@@ -120,7 +140,10 @@ class CustomUNet(smp.Unet):
                 self.remove_batchnorm(module)
 
 
-    def replace_with_groups(self, module, kernel_size=3, padding=1, stride=1):
+    def replace_with_groups(self, module: nn.Module, kernel_size=3, padding=1, stride=1) -> nn.Module:
+        """
+        replace a convolution with a grouped convolution
+        """
         convXw = module.weight # old kernel
         module = CustomGroupedConvolution(sentinel_2_channels=convXw.shape[1]//2, sentinel_1_channels=convXw.shape[1]//2,
                                                             out_channels=convXw.shape[0],
@@ -130,7 +153,7 @@ class CustomUNet(smp.Unet):
         return module
 
 
-    def modify_dilation(self, net, dilation=2):
+    def modify_dilation(self, net: nn.Module, dilation=2):
         for name, module in net.named_modules():
             if isinstance(module, nn.Conv2d):
                 module.dilation = (dilation, dilation)
@@ -139,7 +162,7 @@ class CustomUNet(smp.Unet):
                 module.padding = (padding_needed, padding_needed)
 
 
-    def num_effective_params(self, down=5, verbose=False):
+    def num_effective_params(self, down=5, verbose=False) -> int:
         """
         print number of parameters that are actually used
         """
@@ -162,7 +185,7 @@ class CustomUNet(smp.Unet):
         return stages_param_count+decoder_sum+segmentation_sum
 
 
-    def forward(self, x, return_features=True, encoder_no_grad=False):
+    def forward(self, x: torch.tensor, return_features=True, encoder_no_grad=False) -> torch.Tensor:
         """
         pass `x` trough model`s encoder, decoder and heads
         """
@@ -193,7 +216,6 @@ class CustomUNet(smp.Unet):
             x = decoder_block(x, skip)
 
             if return_features:
-                # rs, re = torch.randint(self.fsub,self.fsub*2,(1,)).item(), torch.randint(self.fsub*2,self.fsub*2,(1,)).item()
                 xup = F.interpolate(x, size=(h//self.fsub,w//self.fsub), mode='nearest') # interpolate/subsample to other size
                 decoder_features.append(xup.view(bs,x.size(1),-1))
         decoder_output = x

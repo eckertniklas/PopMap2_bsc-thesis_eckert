@@ -21,9 +21,7 @@ def process(buildings_shapefile, target_raster, suffix=""):
         None   
     """
 
-    # load the shapefile
     # building_df = gpd.read_file(buildings_shapefile)
-
     def load_shapefile_to_geodataframe(buildings_shapefile):
         features = []
 
@@ -34,13 +32,15 @@ def process(buildings_shapefile, target_raster, suffix=""):
                 progressbar.update(1)
                 if element:
                     features.append(element)
-                # if len(features) > 500000:
+                # if len(features) > 100000:
                 #     break
-            
+        
+        print("Merging features to geodataframe...")
         return gpd.GeoDataFrame.from_features(features)
     
     building_df = load_shapefile_to_geodataframe(buildings_shapefile)
     building_df.crs = "EPSG:2056"
+    print("Done loading shapefile:", buildings_shapefile)
 
     # load the raster
     with rasterio.open(target_raster) as src:
@@ -81,9 +81,10 @@ def process(buildings_shapefile, target_raster, suffix=""):
     
     
     # Only divide where building_count is not zero. Otherwise, set the value to 0.
-    mean_building_area = np.where(building_count != 0, building_area / building_count, 0)
+    # mean_building_area = np.where(building_count != 0, building_area / building_count, 0)
+    mean_building_area = np.where(building_count > 0.5, building_area / building_count, 0)
 
-    def windowed_write(dst, array, block_size=512):
+    def windowed_write(dst, array, block_size=1024):
         """
         Write a numpy array to a rasterio dataset using windows.
 
@@ -97,7 +98,7 @@ def process(buildings_shapefile, target_raster, suffix=""):
         """
         rows, cols = array.shape
         offsets = product(range(0, rows, block_size), range(0, cols, block_size))
-        for row_off, col_off in offsets:
+        for row_off, col_off in tqdm(offsets, total=(rows // block_size) * (cols // block_size)):
             window = Window(col_off, row_off, block_size, block_size)
             dst.write(array[row_off: row_off + block_size, col_off: col_off + block_size], 1, window=window)
 
@@ -108,6 +109,7 @@ def process(buildings_shapefile, target_raster, suffix=""):
     output_path = buildings_shapefile.replace(".shp", "_count_" + suffix + ".tif")
     with rasterio.open(output_path, 'w', **this_meta) as dst:
         dst.write(building_count, 1)
+        # windowed_write(dst, building_count)
 
     # save the building area raster
     this_meta = meta.copy()

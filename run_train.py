@@ -248,8 +248,8 @@ class Trainer:
                     # check if the input is to large 
                     num_pix = sample_weak["input"].shape[0]*sample_weak["input"].shape[2]*sample_weak["input"].shape[3]
                     # limit1, limit2, limit3 = 10000000, 12500000, 15000000
-                    # limit1, limit2, limit3 = 7000000,  1000000, 12000000
-                    limit1, limit2, limit3 =    4000000,  500000, 12000000
+                    limit1, limit2, limit3 = 7000000,  1000000, 15000000
+                    # limit1, limit2, limit3 =    4000000,  500000, 12000000
                     # limit1, limit2, limit3 =    2000000,  300000, 10000000
 
                     encoder_no_grad, unet_no_grad = False, False 

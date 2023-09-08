@@ -336,9 +336,13 @@ class POMELO_module(nn.Module):
             # for raw
             if "building_counts" in inputs.keys(): 
                 
-                # save the scale 
-                aux["scale"] = scale[sparsity_mask]
-                aux["empty_scale"] = (scale * (1-inputs["building_counts"][:,0]))[sparsity_mask]
+                # save the scale
+                if sparse:
+                    aux["scale"] = scale[sparsity_mask]
+                    aux["empty_scale"] = (scale * (1-inputs["building_counts"][:,0]))[sparsity_mask]
+                else:
+                    aux["scale"] = scale
+                    aux["empty_scale"] = scale * (1-inputs["building_counts"][:,0])
 
                 # Get the population density map
                 popdensemap = scale * inputs["building_counts"][:,0]

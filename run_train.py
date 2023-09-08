@@ -15,6 +15,7 @@ from utils.transform import RandomRotationTransform, RandomHorizontalFlip, Rando
 # from utils.transform import Eu2Rwa
 from tqdm import tqdm
  
+from torch.cuda.amp import autocast, GradScaler
 
 import wandb
  
@@ -80,6 +81,7 @@ class Trainer:
         else:
             self.boosted = False
 
+
         # set up model
         seed_all(args.seed+1)
         
@@ -119,13 +121,6 @@ class Trainer:
             # Get the head bias parameter, only bias, if available
             params_without_decay = [param for name, param in self.model.named_parameters() if name in head_name and 'embedder' not in name and 'unetmodel' not in name]
 
-            # self.optimizer = optim.Adam([
-            #         {'params': params_with_decay, 'weight_decay': args.weightdecay, "lr": args.learning_rate}, # Apply weight decay here
-            #         {'params': params_positional, 'weight_decay': args.weightdecay_pos, "lr": args.learning_rate}, # Apply weight decay here
-            #         {'params': params_without_decay, 'weight_decay': 0.0, "lr": args.learning_rate/10}, # No weight decay
-            #     ]
-            #     , lr=args.learning_rate)
-            
             self.optimizer = optim.Adam([
                     {'params': params_with_decay, 'weight_decay': args.weightdecay}, # Apply weight decay here
                     {'params': params_positional, 'weight_decay': args.weightdecay_pos}, # Apply weight decay here
@@ -141,6 +136,11 @@ class Trainer:
             self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
             # self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weightdecay)
 
+        
+        if args.half:
+            self.model = self.model.half()
+            self.scaler = GradScaler()
+            # model, optimizer = amp.initialize(self.model, self.optimizer, opt_level="O1")
 
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
         # self.scheduler = CustomLRScheduler(self.optimizer, drop_epochs=[3, 5, 10, 15, 20, 25, 30, 40, 50, 70, 90, 110, 150, ], gamma=0.75)
@@ -236,20 +236,23 @@ class Trainer:
                 loss_dict_weak = {}
                 loss_dict_raw = {}
                 
-
                 #  check if sample is weakly target supervised or source supervised 
                 if self.args.supmode=="weaksup":
                     
                     # forward pass and loss computation
-                    sample_weak = to_cuda_inplace(sample) 
+                    sample_weak = to_cuda_inplace(sample, self.args.half, spare=["y", "source"]) 
                     sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput,
                                                                       segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
                     
-                    # check if the input is to large 
-                    num_pix = sample_weak["input"].shape[0]*sample_weak["input"].shape[2]*sample_weak["input"].shape[3]
+                    # check if the input is to large
+                    if sample_weak["input"] is not None:
+                        num_pix = sample_weak["input"].shape[0]*sample_weak["input"].shape[2]*sample_weak["input"].shape[3]
+                    else:
+                        num_pix = 0
+
                     # limit1, limit2, limit3 = 10000000, 12500000, 15000000
-                    limit1, limit2, limit3 = 7000000,  1000000, 15000000
-                    limit1, limit2, limit3 = 15000000,  1500000, 15000000
+                    # limit1, limit2, limit3 = 7000000,  1000000, 15000000
+                    limit1, limit2, limit3 = 15000000,  20000000, 20000000
                     # limit1, limit2, limit3 = 16000000,  2500000, 2500000
                     # limit1, limit2, limit3 =    4000000,  500000, 12000000
 
@@ -263,12 +266,20 @@ class Trainer:
                             if num_pix > limit3:
                                 print("Input to large for encoder and unet. No forward pass.")
                                 continue
-
-                    output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False,
-                                            encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad,
-                                            # sparse=self.args.empty_eps>0.0
-                                            sparse=True
-                                            )
+                    
+                    if self.args.half:
+                        with autocast():
+                            output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False,
+                                                encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad,
+                                                # sparse=self.args.empty_eps>0.0
+                                                sparse=True
+                                                )
+                    else:
+                        output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False,
+                                                encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad,
+                                                # sparse=self.args.empty_eps>0.0
+                                                sparse=True
+                                                )
 
                     # merge augmented samples
                     if self.args.weak_merge_aug:
@@ -283,11 +294,19 @@ class Trainer:
                                 output_weak["intermediate"]["popvar"] = output_weak["intermediate"]["popvar"].sum(dim=0, keepdim=True)
 
                     # compute loss
-                    loss_weak, loss_dict_weak = get_loss(
-                        output_weak, sample_weak, scale=output_weak["scale"], empty_scale=output_weak["empty_scale"], loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
-                        scale_regularization=args.scale_regularization, scale_regularizationL2=args.scale_regularizationL2, emptyscale_regularizationL2=args.emptyscale_regularizationL2,
-                        output_regularization=args.output_regularization,
-                        tag="weak")
+                    if self.args.half:
+                        with autocast():
+                            loss_weak, loss_dict_weak = get_loss(
+                                output_weak, sample_weak, scale=output_weak["scale"], empty_scale=output_weak["empty_scale"], loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
+                                scale_regularization=args.scale_regularization, scale_regularizationL2=args.scale_regularizationL2, emptyscale_regularizationL2=args.emptyscale_regularizationL2,
+                                output_regularization=args.output_regularization,
+                                tag="weak")
+                    else:
+                        loss_weak, loss_dict_weak = get_loss(
+                            output_weak, sample_weak, scale=output_weak["scale"], empty_scale=output_weak["empty_scale"], loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
+                            scale_regularization=args.scale_regularization, scale_regularizationL2=args.scale_regularizationL2, emptyscale_regularizationL2=args.emptyscale_regularizationL2,
+                            output_regularization=args.output_regularization,
+                            tag="weak")
                     
                     # Detach tensors
                     loss_dict_weak = detach_tensors_in_dict(loss_dict_weak)
@@ -332,18 +351,29 @@ class Trainer:
                 # detect NaN loss 
                 if torch.isnan(optim_loss):
                     raise Exception("detected NaN loss..")
+                if torch.isinf(optim_loss):
+                    raise Exception("detected Inf loss..")
                 
                 # backprop
                 if self.info["epoch"] > 0 or not self.args.no_opt:
-                    optim_loss.backward()
+                    if self.args.half:
+                        self.scaler.scale(optim_loss).backward()
+                        # if torch.isnan(output_weak["scale"].grad).any():
+                        #     print("NaN values detected in the gradient of scale.")
+                    else:
+                        optim_loss.backward()
 
                     # gradient clipping
                     if self.args.gradient_clip > 0.:
                         clip_grad_norm_(self.model.parameters(), self.args.gradient_clip)
                     
                     if (i + 1) % self.accumulation_steps == 0:
-                        self.optimizer.step()
-                        self.optimizer.zero_grad()
+                        if self.args.half:
+                            self.scaler.step(self.optimizer)
+                            self.scaler.update()
+                        else:
+                            self.optimizer.step()
+                            self.optimizer.zero_grad()
                     optim_loss = optim_loss.detach()
                     if output_weak is not None:
                         output_weak = detach_tensors_in_dict(output_weak)
@@ -613,9 +643,11 @@ class Trainer:
 
         # if there is a self.model.unet, save the unet as well
         if hasattr(self.model, "unetmodel"):
-            torch.save({
-                'model': self.model.unetmodel.state_dict(),
-            }, os.path.join(self.experiment_folder, f'{prefix}_unetmodel.pth'))
+            # if self.model.unetmodel is of type torch module
+            if isinstance(self.model.unetmodel, torch.nn.Module):
+                torch.save({
+                    'model': self.model.unetmodel.state_dict(),
+                }, os.path.join(self.experiment_folder, f'{prefix}_unetmodel.pth'))
 
         # if there is a self.model.head, save the head as well
         if hasattr(self.model, "head"):

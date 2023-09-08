@@ -31,6 +31,12 @@ def get_loss(output, gt, scale=None, empty_scale=None, loss=["l1_loss"], lam=[1.
         auxdict: dict, auxiliary losses
     """
     auxdict = defaultdict(float)
+
+
+    # get the tensors to float32 if they are not already
+    for key, val in output.items():
+        if isinstance(val, torch.Tensor):
+            output[key] = val.float()
     
     # prepare vars1.0
     y_pred = output["popcount"][gt["source"]]
@@ -101,21 +107,26 @@ def get_loss(output, gt, scale=None, empty_scale=None, loss=["l1_loss"], lam=[1.
 
     # occupancy scale regularization
     if scale is not None:
-        popdict["scale"] = scale.abs().mean()
-        popdict["scaleL2"] = scale.pow(2).mean()
+        if torch.isnan(scale).any():
+            print("NaN values detected in scale.")
+        if torch.isinf(scale).any():
+            print("inf values detected in scale.")
+        popdict["scale"] = scale.float().abs().mean()
+        popdict["scaleL2"] = scale.float().pow(2).mean()
         if scale_regularization>0.0:
             optimization_loss += scale_regularization * popdict["scale"]
-        if scale_regularizationL2 is not None:
+        if scale_regularizationL2>0.0:
             optimization_loss += scale_regularizationL2 * popdict["scaleL2"]
 
     if empty_scale is not None:
-        popdict["empty_scale"] = empty_scale.abs().mean()
-        popdict["empty_scaleL2"] = empty_scale.pow(2).mean()
-        if emptyscale_regularizationL2 is not None:
+        popdict["empty_scale"] = empty_scale.float().abs().mean()
+        popdict["empty_scaleL2"] = empty_scale.float().pow(2).mean()
+        if emptyscale_regularizationL2>0.0:
             optimization_loss += emptyscale_regularizationL2 * popdict["empty_scaleL2"]
 
     if output_regularization>0.0:
         optimization_loss += output_regularization * output["popcount"].abs().mean()
+
 
     # prepare for logging
     if tag=="":

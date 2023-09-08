@@ -695,6 +695,7 @@
                 "-lr", "1e-4", 
                 "--model", "POMELO_module", 
                 "--head", "v3", 
+                // "-fe", "mobileone_s0",
                 // "--grouped",
                 "-l", "log_l1_loss",
                 // "-la", "1.0", "1.0",
@@ -729,7 +730,7 @@
                 "--nomain",
                 // "--weak_merge_aug",
                 // "--max_weak_samples", "2",
-                "--val_every_n_epochs", "1",
+                "--val_every_n_epochs", "2",
                 // "--test_every_i_steps", "50",
                 // "--val_every_n_epochs", "100",
                 // "--weak_batch_size", "4",
@@ -741,11 +742,12 @@
                 "--useposembedding",
                 "--weightdecay_pos", "0.0",
                 "--weightdecay", "0.0",
+                "--weightdecay_unet", "0.0001",
                 "--sentinelbuildings",
                 "--train_level", "coarse",
                 "--pretrained",
-                // "--gradientaccumulation",
-                "--val_every_n_epochs", "2"
+                // "--half"
+                // "--gradientaccumulation", 
             ]
         },
         {

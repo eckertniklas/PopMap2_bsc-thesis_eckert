@@ -112,17 +112,17 @@ class POMELO_module(nn.Module):
             if head=="v3":
                 freq = 2 # for x dimensions and 2 components (sin and cos)
                 self.embedder = nn.Sequential(
-                    nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(),
-                    nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
-                    nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
+                    nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+                    nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+                    nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(inplace=True),
                 )
                 self.embedding_dim = feature_dim
                 head_input_dim += feature_dim
             elif head=="v4":
                     freq = 2 # for x dimensions and 2 components (sin and cos)
                     self.embedder = nn.Sequential(
-                        nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(),
-                        nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
+                        nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+                        nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(inplace=True),
                     )
                     self.embedding_dim = feature_dim
                     head_input_dim += feature_dim
@@ -130,34 +130,34 @@ class POMELO_module(nn.Module):
         if head=="v3":
             h = 64
             head_input_dim += feature_dim + 1
+            head_input_dim -= feature_dim if this_input_dim==0 else 0
             self.head = nn.Sequential(
-                nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
                 nn.Conv2d(h, 2, kernel_size=1, padding=0)
             )
-            this_input_dim -= 1 # no building footprint
         
         elif head=="v4":
             h = 64
             head_input_dim += feature_dim + 1
+            head_input_dim -= feature_dim if this_input_dim==0 else 0
             self.head = nn.Sequential(
-                nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(), 
+                nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(inplace=True), 
                 nn.Conv2d(h, 2, kernel_size=1, padding=0)
             )
-            this_input_dim -= 1 # no building footprint
 
         elif head=="v6":
             h = 128
             head_input_dim += feature_dim + 1
+            head_input_dim -= feature_dim if this_input_dim==0 else 0
             self.head = nn.Sequential(
-                nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
                 nn.Conv2d(h, 2, kernel_size=1, padding=0)
             )
-            this_input_dim -= 1 # no building footprint
 
 
         # Build the main model
@@ -174,15 +174,18 @@ class POMELO_module(nn.Module):
                 ## load weights from checkpoint
                 self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
         else:
-            self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 
-                                        down=self.down, dilation=dilation, replace7x7=replace7x7, pretrained=pretrained,
-                                        grouped=grouped)
-            
+            if this_input_dim>0:
+                self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 
+                                            down=self.down, dilation=dilation, replace7x7=replace7x7, pretrained=pretrained,
+                                            grouped=grouped)
+            else:
+                self.unetmodel = None
+
         # lift the bias of the head to avoid the risk of dying ReLU
         self.head[-1].bias.data = 0.75 * torch.ones(2)
 
         # calculate the number of parameters
-        self.params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
+        # self.params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
 
         # print size of the embedder and head network
         self.num_params = 0
@@ -191,7 +194,8 @@ class POMELO_module(nn.Module):
             self.num_params += sum(p.numel() for p in self.embedder.parameters() if p.requires_grad)
         print("Head: ",sum(p.numel() for p in self.head.parameters() if p.requires_grad))
         self.num_params += sum(p.numel() for p in self.head.parameters() if p.requires_grad)
-        self.num_params += self.unetmodel.num_params
+        self.num_params += self.unetmodel.num_params if self.unetmodel is not None else 0
+
 
 
     def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True,
@@ -203,7 +207,7 @@ class POMELO_module(nn.Module):
             - inputs["input"].shape = [batch_size, input_channels, height, width]
         """
 
-        inputdata = inputs["input"]
+        X = inputs["input"]
 
         if self.lempty_eps>0:
             inputs["building_counts"][:,0] = inputs["building_counts"][:,0] + self.lempty_eps
@@ -238,9 +242,9 @@ class POMELO_module(nn.Module):
                     # downsample the feature map
                     lazy_pos = True
                     if lazy_pos:
-                        downsampled = F.interpolate(inputs["positional_encoding"], size=(20, 20), mode='bilinear', align_corners=False)
-                        downsampled_pose = self.embedder(downsampled)
-                        pose = F.interpolate(downsampled_pose, size=(inputs["positional_encoding"].shape[2], inputs["positional_encoding"].shape[3]), mode='bilinear', align_corners=False)
+                        pose = F.interpolate(inputs["positional_encoding"], size=(20, 20), mode='bilinear', align_corners=False)
+                        pose = self.embedder(pose)
+                        pose = F.interpolate(pose, size=(inputs["positional_encoding"].shape[2], inputs["positional_encoding"].shape[3]), mode='bilinear', align_corners=False)
                     else:
                         pose = self.sparse_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
 
@@ -249,47 +253,52 @@ class POMELO_module(nn.Module):
 
             # Concatenate the pose embedding to the input data
             if self.head_name in ["v3", "v4", "v6"]:
-                inputdata = inputdata[:,0:-1] # remove the building footprint from the variables
+                X = X
+                # X = X[:,0:-1] # remove the building footprint from the variables
             else:
-                inputdata = torch.cat([inputdata, pose], dim=1)
+                X = torch.cat([X, pose], dim=1)
 
         else:
             if self.head_name in ["v3", "v4","v6"]:
-                inputdata = inputdata[:,0:-1] # remove the building footprint from the variables
+                # X = X[:,0:-1] # remove the building footprint from the variables
+                X = X
             else:
-                inputdata = inputdata
+                X = X
 
         # Add padding
-        data, (px1,px2,py1,py2) = self.add_padding(inputdata, padding)
+        # X, (px1,px2,py1,py2) = self.add_padding(X, padding) # refactored to later
 
         # Forward the main model
         if self.feature_extractor=="DDA":
-            x_fusion = torch.cat([data[:, 4:6], # S1
-                                  torch.flip(data[:, :3],dims=(1,)), # S2_RGB
-                                  data[:, 3:4]], # S2_NIR
+            X, (px1,px2,py1,py2) = self.add_padding(X, padding)
+            X = torch.cat([X[:, 4:6], # S1
+                                  torch.flip(X[:, :3],dims=(1,)), # S2_RGB
+                                  X[:, 3:4]], # S2_NIR
                                   dim=1)
             
-            _, _, fusion_logits, _, _ = self.unetmodel(x_fusion, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
+            _, _, X, _, _ = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
 
             # repeat along dim 1
-            out = fusion_logits.repeat(1, 2, 1, 1)
+            out = X.repeat(1, 2, 1, 1)
             out = self.revert_padding(out, (px1,px2,py1,py2))
 
         else:
+            if self.unetmodel is not None: 
+                X, (px1,px2,py1,py2) = self.add_padding(X, padding)
+                if unet_no_grad:
+                    with torch.no_grad():
+                        features, decoder_features = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
+                else:
+                    features, decoder_features = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
 
-            if unet_no_grad:
-                with torch.no_grad():
-                    features, decoder_features = self.unetmodel(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
-            else:
-                features, decoder_features = self.unetmodel(data, return_features=return_features, encoder_no_grad=encoder_no_grad)
+                # revert padding
+                features = self.revert_padding(features, (px1,px2,py1,py2))
+                middlefeatures.append(features)
 
-            # revert padding
-            features = self.revert_padding(features, (px1,px2,py1,py2))
-            middlefeatures.append(features)
+                aux["features"] = features
+                aux["decoder_features"] = decoder_features
 
-            aux["features"] = features
-            aux["decoder_features"] = decoder_features
-
+            # Forward the head
             if self.head_name in ["v3", "v4", "v6"]:
 
                 # append building counts to the middle features
@@ -321,15 +330,15 @@ class POMELO_module(nn.Module):
         if self.occupancymodel:
 
             # activation function
-            popvarmap = nn.functional.softplus(out[:,1])
+            # popvarmap = nn.functional.softplus(out[:,1])
             scale = nn.functional.relu(out[:,0])
 
             # for raw
             if "building_counts" in inputs.keys(): 
                 
-                # save the scale
-                aux["scale"] = scale
-                aux["empty_scale"] = scale * (1-inputs["building_counts"][:,0])
+                # save the scale 
+                aux["scale"] = scale[sparsity_mask]
+                aux["empty_scale"] = (scale * (1-inputs["building_counts"][:,0]))[sparsity_mask]
 
                 # Get the population density map
                 popdensemap = scale * inputs["building_counts"][:,0]
@@ -339,27 +348,34 @@ class POMELO_module(nn.Module):
             # popdensemap_raw = nn.functional.relu(out_raw[:,0])
             # popvarmap_raw = nn.functional.softplus(out_raw[:,1])
             popdensemap = nn.functional.relu(out[:,0])
-            popvarmap = nn.functional.softplus(out[:,1])
-            aux["scale"] = popdensemap.clone().cpu().detach()
+            # popvarmap = nn.functional.softplus(out[:,1])
+            # aux["scale"] = popdensemap.clone().cpu().detach()
             aux["scale"] = None
         
+
         # aggregate the population counts
         if "admin_mask" in inputs.keys():
             # make the following line work for both 2D and 3D
             this_mask = inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1)
             # popcount_raw = (popdensemap_raw * this_mask).sum((1,2))
+            # if popdensemap.dtype==torch.float16:
+            #     popcount = (popdensemap * this_mask).sum((1,2)).half()
+            # else:
+            #     popcount = (popdensemap * this_mask).sum((1,2))
+
             popcount = (popdensemap * this_mask).sum((1,2))
+            
             # popvar_raw = (popvarmap_raw * this_mask).sum((1,2))
-            popvar = (popvarmap * this_mask).sum((1,2))
+            # popvar = (popvarmap * this_mask).sum((1,2))
         else:
             # popcount_raw = popdensemap_raw.sum((1,2))
             popcount = popdensemap.sum((1,2))
             # popvar_raw = popvarmap_raw.sum((1,2))
-            popvar = popvarmap.sum((1,2))
+            # popvar = popvarmap.sum((1,2))
 
 
         return {"popcount": popcount, "popdensemap": popdensemap,
-                "popvar": popvar ,"popvarmap": popvarmap, 
+                # "popvar": popvar ,"popvarmap": popvarmap, 
                 # "builtdensemap": builtdensemap, "builtcount": builtcount,
                 # "builtupmap": builtupmap,
                 # "intermediate": {"popcount": popcount_raw, "popdensemap": popdensemap_raw, "popvar": popvar_raw,
@@ -396,7 +412,7 @@ class POMELO_module(nn.Module):
         inp_flat_masked = inp_flat[:, mask_flat]
 
         # initialize the output
-        out_flat = torch.zeros((out_channels, batch_size*height*width,1), device=inp.device)
+        out_flat = torch.zeros((out_channels, batch_size*height*width,1), device=inp.device, dtype=inp.dtype)
         
         # perform the forward pass with the module
         out_flat[ :, mask_flat] = module(inp_flat_masked)

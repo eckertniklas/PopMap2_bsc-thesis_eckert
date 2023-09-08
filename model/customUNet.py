@@ -37,7 +37,8 @@ class CustomUNet(smp.Unet):
         
         # assertions
         assert down <= 5, "The maximum depth of the U-Net is 5"
-        assert encoder_name.startswith("resnet") or encoder_name.startswith("vgg"), "Only resnet and vgg encoders are supported"
+        if grouped or dilation > 1 or replace7x7:
+            assert encoder_name.startswith("resnet") or encoder_name.startswith("vgg"), "Only resnet and vgg encoders are supported"
         assert not (encoder_name.startswith("vgg") and replace7x7), "replace7x7 is not supported for vgg encoders"
         assert not (encoder_name.startswith("vgg") and grouped), "grouped convolutions are not supported for vgg encoders"
         assert not (encoder_name.startswith("vgg") and dilation > 1), "dilation is not supported for vgg encoders"
@@ -82,8 +83,8 @@ class CustomUNet(smp.Unet):
                     self.encoder.conv1 = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False, dilation=1)
                     self.encoder.conv1.weight = nn.Parameter(conv1w)
             else:
-                conv1w = self.encoder.features[0]
                 if dilation > 1:
+                    conv1w = self.encoder.features[0]
                     self.encoder.features[0] = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False, dilation=1)
                     self.encoder.features[0].weight = nn.Parameter(conv1w)
             kernel_size, padding = 7, 3

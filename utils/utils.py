@@ -36,21 +36,44 @@ def to_cuda(sample):
             sampleout[key] = val
     return sampleout
 
-def to_cuda_inplace(sample):
-    # sampleout = {}
+# def to_cuda_inplace(sample, half=False):
+#     # sampleout = {}
+#     for key, val in sample.items():
+#         if isinstance(val, torch.Tensor):
+#             sample[key] = val.cuda()
+#         elif isinstance(val, list):
+#             new_val = []
+#             for e in val:
+#                 if isinstance(e, torch.Tensor):
+#                     new_val.append(e.cuda())
+#                 else:
+#                     new_val.append(e)
+#             sample[key] = new_val
+#         elif isinstance(val, dict):
+#             sample[key] = to_cuda_inplace(val)
+#         else:
+#             sample[key] = val
+#     return sample
+
+def to_cuda_inplace(sample, half=False, spare=[]):
     for key, val in sample.items():
         if isinstance(val, torch.Tensor):
             sample[key] = val.cuda()
+            if half and val.dtype == torch.float32 and key not in spare:
+                sample[key] = sample[key].half()
         elif isinstance(val, list):
             new_val = []
             for e in val:
                 if isinstance(e, torch.Tensor):
-                    new_val.append(e.cuda())
+                    e = e.cuda()
+                    if half and val.dtype == torch.float32 and key not in spare:
+                        e = e.half()
+                    new_val.append(e)
                 else:
-                    new_val.append(val)
+                    new_val.append(e)
             sample[key] = new_val
         elif isinstance(val, dict):
-            sample[key] = to_cuda_inplace(val)
+            sample[key] = to_cuda_inplace(val, half=half)
         else:
             sample[key] = val
     return sample
@@ -177,7 +200,17 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
             del sample["building_segmentation"]
 
         # merge the inputs
-        sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS", "building_segmentation", "building_counts"] if key in sample], dim=1)
+        # sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS", "building_segmentation", "building_counts"] if key in sample], dim=1)
+        # sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS"] if key in sample], dim=1)
+        keys_to_concatenate = [sample[key] for key in ["S2", "S1", "VIIRS"] if key in sample]
+
+        if keys_to_concatenate:
+            sample["input"] = torch.concatenate(keys_to_concatenate, dim=1)
+        else:
+            # Handle the case where no modality is available
+            # This could be setting sample["input"] to None, or some default tensor, or raising an exception, etc.
+            sample["input"] = None  # or any other appropriate action
+            
 
     else:
         sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS"] if key in sample], dim=1)
@@ -203,23 +236,25 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
                     lens.append(data[-1].shape[1])
 
             # Apply the transformation if there is data
-            if sum(lens) > 0:
-                
-                # Transform the data
-                sample["input"], data = transform["general"]((sample["input"], torch.cat(data, dim=1)))
+            if sample["input"] is not None:
+                if sum(lens) > 0:
+                    
+                    # Transform the datas
+                    if sample["input"] is not None:
+                        sample["input"], data = transform["general"]((sample["input"], torch.cat(data, dim=1)))
 
-                # Reassign transformed data back into sample
-                start = 0
-                for i, key in enumerate(keys):
-                    if key in sample:
-                        end = start + lens[i]
-                        sample[key] = data[:, start:end, :, :]
-                        if key == "admin_mask":
-                            sample[key] = sample[key][:,0,:,:]
-                        start = end
-                        
-            else:
-                sample["input"] = transform["general"](sample["input"])
+                    # Reassign transformed data back into sample
+                    start = 0
+                    for i, key in enumerate(keys):
+                        if key in sample:
+                            end = start + lens[i]
+                            sample[key] = data[:, start:end, :, :]
+                            if key == "admin_mask":
+                                sample[key] = sample[key][:,0,:,:]
+                            start = end
+                            
+                else:
+                    sample["input"] = transform["general"](sample["input"])
     
     return sample
 

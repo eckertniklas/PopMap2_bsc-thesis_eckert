@@ -826,21 +826,28 @@ def Population_Dataset_collate_fn(batch):
         max_y = max([item['S1'].shape[2] for item in batch])
         input_batch_S1 = torch.zeros(len(batch), batch[0]['S1'].shape[0], max_x, max_y)
         use_S1 = True
+
+    # initialize the other tensors
+    if 'building_segmentation' in batch[0]:
+        max_x = max([item['building_segmentation'].shape[2] for item in batch])
+        max_y = max([item['building_segmentation'].shape[3] for item in batch])
+        building_segmentation = torch.zeros(len(batch), 1, max_x, max_y)
+    if 'positional_encoding' in batch[0]:
+        max_x = max([item['positional_encoding'].shape[1] for item in batch])
+        max_y = max([item['positional_encoding'].shape[2] for item in batch])
+        positional_encoding = torch.zeros(len(batch), batch[0]['positional_encoding'].shape[0], max_x, max_y)
+    if 'building_counts' in batch[0]:
+        max_x = max([item['building_counts'].shape[1] for item in batch])
+        max_y = max([item['building_counts'].shape[2] for item in batch])
+        building_counts = torch.zeros(len(batch), 1, max_x, max_y)
+    
+    # initialize flags
+    use_building_segmentation, use_building_counts, use_positional_encoding = False, False, False
     
     # initialize tensors
     admin_mask_batch = torch.zeros(len(batch), max_x, max_y)
     y_batch = torch.zeros(len(batch))
-
-    # initialize the other tensors
-    if 'building_segmentation' in batch[0]:
-        building_segmentation = torch.zeros(len(batch), 1, max_x, max_y)
-    if 'positional_encoding' in batch[0]:
-        positional_encoding = torch.zeros(len(batch), batch[0]['positional_encoding'].shape[0], max_x, max_y)
-    if 'building_counts' in batch[0]:
-        building_counts = torch.zeros(len(batch), 1, max_x, max_y)
     
-    use_building_segmentation, use_building_counts, use_positional_encoding = False, False, False
-
     # Fill the tensors with the data from the batch
     for i, item in enumerate(batch):
         if use_S2:
@@ -850,19 +857,25 @@ def Population_Dataset_collate_fn(batch):
             x_size, y_size = item['S1'].shape[1], item['S1'].shape[2]
             input_batch_S1[i, :, :x_size, :y_size] = item['S1']
 
-        admin_mask_batch[i, :x_size, :y_size] = item['admin_mask']
         y_batch[i] = item['y']
 
         # check if the other tensors are present and fill them if they are
         if "building_segmentation" in item:
+            x_size, y_size = item['building_segmentation'].shape[2], item['building_segmentation'].shape[3]
             building_segmentation[i, :, :x_size, :y_size] = item['building_segmentation']
             use_building_segmentation = True
         if "building_counts" in item:
+            x_size, y_size = item['building_counts'].shape[1], item['building_counts'].shape[2]
             building_counts[i, :, :x_size, :y_size] = item['building_counts']
             use_building_counts = True
         if 'positional_encoding' in item:
+            x_size, y_size = item['positional_encoding'].shape[1], item['positional_encoding'].shape[2]
             positional_encoding[i, :, :x_size, :y_size] = item['positional_encoding']
             use_positional_encoding = True
+
+        # get the admin_mask
+        x_size, y_size = item['admin_mask'].shape[0], item['admin_mask'].shape[1]
+        admin_mask_batch[i, :x_size, :y_size] = item['admin_mask']
 
     out_dict = {
         'admin_mask': admin_mask_batch,

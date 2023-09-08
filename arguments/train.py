@@ -14,6 +14,7 @@ parser.add_argument('-r', '--resume', type=str, help='if argument is given, skri
 parser.add_argument('-re', '--resume_extractor', type=str, help=' ')
 
 # parser.add_argument("-d", "--dataset", type=str, default="So2Sat", help="the source domain") 
+parser.add_argument("-half", "--half", action='store_true', help="")
 parser.add_argument("-treg", "--target_regions", nargs='+', default=["pri2017"], help="the target domains")
 parser.add_argument("-tregtrain", "--target_regions_train", nargs='+', default=["pri2017"], help="the target domains")
 parser.add_argument("-S1", "--Sentinel1", action='store_true', help="")

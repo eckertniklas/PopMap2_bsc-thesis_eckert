@@ -128,7 +128,8 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
     else:
         print("Reprojected adjusted map to worldpop raster already exists: ", hr_map_path_adj_reproj)
 
-    levels = ["finezurich", "finezurich2", "coarse"]
+    # levels = ["finezurich", "finezurich2", "coarse"]
+    levels = ["fine", "coarse", "finezurich", "finezurich2"]
     # levels = ["coarse"]
 
     for level in levels:
@@ -140,7 +141,7 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
 
         scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
         scatterplot.save(os.path.join(parent_dir, "last_scatter_{}.png".format(level)))
-        
+
         print("-------------------------------")
         print("Adjusted metrics:")
         census_pred_adj, census_gt = dataset.convert_popmap_to_census(hr_pop_map_adj, gpu_mode=True, level=level)

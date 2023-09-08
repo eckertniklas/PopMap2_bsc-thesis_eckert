@@ -109,8 +109,9 @@ def evaluate_meta_maps(map_path, template_path, force_recompute=False):
     # dataset = Population_Dataset_target("rwa")
 
     # levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
-    levels = ["fine", "fineTRACTCE", "fineBLOCKCE", "coarse"]
-    levels = ["finezurich", "finezurich2", "coarse"]
+    # levels = ["fine", "fineTRACTCE", "fineBLOCKCE", "coarse"]
+    # levels = ["finezurich", "finezurich2", "coarse"]
+    levels = ["fine", "coarse", "finezurich", "finezurich2"]
     # levels = ["coarse"]
 
     for level in levels:

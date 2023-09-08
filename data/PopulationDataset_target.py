@@ -263,7 +263,7 @@ class Population_Dataset_target(Dataset):
             with rasterio.open(self.file_paths[list(self.file_paths.keys())[0]]["boundary"], "r") as src:
                 self.img_shape = src.shape
         
-            self.pos_enc = PositionalEncoding2D(src.shape, 2)
+            self.pos_enc = PositionalEncoding2D(src.shape, 1)
 
         # normalize the dataset (do not use, this does not make sense for variable regions sizes like here)
         print("Setup done!")

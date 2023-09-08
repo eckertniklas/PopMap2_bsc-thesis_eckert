@@ -79,44 +79,55 @@ def process(buildings_shapefile, target_raster, suffix=""):
         # add the area to the pixel (assuming you want to track building area per pixel as well)
         building_area[lat, lon] += area
     
-    
     # Only divide where building_count is not zero. Otherwise, set the value to 0.
-    # mean_building_area = np.where(building_count != 0, building_area / building_count, 0)
     mean_building_area = np.where(building_count > 0.5, building_area / building_count, 0)
 
-    def windowed_write(dst, array, block_size=1024):
-        """
-        Write a numpy array to a rasterio dataset using windows.
+    def windowed_write(dst, array):
+        # Define a window size
+        rows_per_block, cols_per_block = dst.block_shapes[0]
+        
+        # Calculate number of blocks in both dimensions
+        n_rows_blocks = int(np.ceil(array.shape[0] / rows_per_block))
+        n_cols_blocks = int(np.ceil(array.shape[1] / cols_per_block))
 
-        Parameters:
-        dst: rasterio dataset
-            The dataset to write to.
-        array: numpy array
-            The array to write.
-        block_size: int
-            The size of the window to write at once. The default is 512.
-        """
-        rows, cols = array.shape
-        offsets = product(range(0, rows, block_size), range(0, cols, block_size))
-        for row_off, col_off in tqdm(offsets, total=(rows // block_size) * (cols // block_size)):
-            window = Window(col_off, row_off, block_size, block_size)
-            dst.write(array[row_off: row_off + block_size, col_off: col_off + block_size], 1, window=window)
+        # Write data block by block
+        for row_block in tqdm(range(n_rows_blocks)):
+            for col_block in range(n_cols_blocks):
+                # Calculate window position
+                start_row = row_block * rows_per_block
+                start_col = col_block * cols_per_block
+                window = Window(col_off=start_col, row_off=start_row, width=cols_per_block, height=rows_per_block)
+                
+                # Slice the source data array
+                src_data = array[start_row:start_row+rows_per_block, start_col:start_col+cols_per_block]
+
+                # Write the sliced array to the destination
+                dst.write(src_data, window=window, indexes=1)
 
 
     # save the building count raster
     this_meta = meta.copy()
     this_meta.update({'dtype': 'uint8', 'count': 1, 'compress': 'lzw', 'nodata': None})
     output_path = buildings_shapefile.replace(".shp", "_count_" + suffix + ".tif")
+    print("Saving building count raster to:", output_path)
     with rasterio.open(output_path, 'w', **this_meta) as dst:
-        dst.write(building_count, 1)
-        # windowed_write(dst, building_count)
+        windowed_write(dst, building_count)
 
-    # save the building area raster
+    #save total building area raster
     this_meta = meta.copy()
     this_meta.update({'dtype': 'float32', 'count': 1, 'compress': 'lzw', 'nodata': -1})
-    output_path = buildings_shapefile.replace(".shp", "_area_" + suffix + ".tif")
+    output_path = buildings_shapefile.replace(".shp", "_total_area_" + suffix + ".tif")
+    print("Saving total building area raster to:", output_path)
     with rasterio.open(output_path, 'w', **this_meta) as dst:
-        dst.write(mean_building_area, 1)
+        windowed_write(dst, building_area)
+
+    # save the mean building area raster
+    this_meta = meta.copy()
+    this_meta.update({'dtype': 'float32', 'count': 1, 'compress': 'lzw', 'nodata': -1})
+    output_path = buildings_shapefile.replace(".shp", "_mean_area_" + suffix + ".tif")
+    print("Saving building area raster to:", output_path)
+    with rasterio.open(output_path, 'w', **this_meta) as dst:
+        windowed_write(dst, mean_building_area)
 
     # clean up
     del building_count
@@ -124,8 +135,9 @@ def process(buildings_shapefile, target_raster, suffix=""):
 
     # rasterize
     this_meta = meta.copy()
-    this_meta.update({'dtype': 'uint8', 'count': 1, 'compress': 'lzw', 'nodata': 255})
+    this_meta.update({'dtype': 'uint8', 'count': 1, 'compress': 'lzw', 'nodata': None})
     output_path = buildings_shapefile.replace(".shp", "_segmentation_" + suffix + ".tif")
+    print("Saving building segmentation raster to:", output_path)
     with rasterio.open(output_path, 'w+', **this_meta) as out:
         out_arr = out.read(1)
 

@@ -12,7 +12,7 @@ import segmentation_models_pytorch as smp
 
 class CustomUNet(smp.Unet):
     def __init__(self, encoder_name, in_channels, classes, down=3, fsub=16, pretrained=False,
-                 dilation=1, replace7x7=True, activation=nn.LeakyReLU, grouped=False):
+                 dilation=1, replace7x7=True, activation=nn.LeakyReLU, grouped=False, remove_batchnorm=True):
         """
         Custom UNet model with optional dilation and grouped convolutions
         Input:
@@ -117,8 +117,10 @@ class CustomUNet(smp.Unet):
             )
         else:
             self.decoder.center = nn.Identity()
- 
-        self.remove_batchnorm(self)
+
+        # remove batchnorm layers
+        if remove_batchnorm:
+            self.remove_batchnorm(self)
 
         # initialize
         print("self.encoder.out_channels", self.encoder.out_channels)

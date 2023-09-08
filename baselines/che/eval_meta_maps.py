@@ -96,7 +96,8 @@ def evaluate_meta_maps(map_path, template_path):
     # define GT dataset
     dataset = Population_Dataset_target("che", train_level="coarse4") 
  
-    levels = ["finezurich", "finezurich2", "coarse"]
+    # levels = ["fine", "finezurich", "finezurich2", "coarse"]
+    levels = ["fine", "coarse", "finezurich", "finezurich2"]
     # levels = ["coarse"]
 
     for level in levels:

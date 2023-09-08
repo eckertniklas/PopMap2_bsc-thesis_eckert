@@ -100,8 +100,9 @@ def evaluate_meta_maps(map_path, template_path):
     # adjust map with the coarse census
     hr_pop_map_adj = dataset.adjust_map_to_census(hr_pop_map.clone())
 
-    levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
-    levels = ["finezurich", "finezurich2", "coarse"]
+    # levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
+    # levels = ["finezurich", "finezurich2", "coarse"]
+    levels = ["fine", "coarse", "finezurich", "finezurich2"]
     # levels = ["coarse"]
 
     for level in levels:

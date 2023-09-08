@@ -109,15 +109,23 @@ class POMELO_module(nn.Module):
             self.parent = None
 
         if useposembedding:
-            freq = 4 # for 2 dimensions and 2 components (sin and cos)
-            self.embedder = nn.Sequential(
-                nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
-                nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
-            )
-            self.embedding_dim = feature_dim
-
-            head_input_dim += feature_dim
+            if head=="v3":
+                freq = 2 # for x dimensions and 2 components (sin and cos)
+                self.embedder = nn.Sequential(
+                    nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(),
+                    nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(),
+                    nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
+                )
+                self.embedding_dim = feature_dim
+                head_input_dim += feature_dim
+            elif head=="v4":
+                    freq = 2 # for x dimensions and 2 components (sin and cos)
+                    self.embedder = nn.Sequential(
+                        nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(),
+                        nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(),
+                    )
+                    self.embedding_dim = feature_dim
+                    head_input_dim += feature_dim
 
         if head=="v3":
             h = 64
@@ -126,6 +134,16 @@ class POMELO_module(nn.Module):
                 nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
                 nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(h, 2, kernel_size=1, padding=0)
+            )
+            this_input_dim -= 1 # no building footprint
+        
+        elif head=="v4":
+            h = 64
+            head_input_dim += feature_dim + 1
+            self.head = nn.Sequential(
+                nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(),
+                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(), 
                 nn.Conv2d(h, 2, kernel_size=1, padding=0)
             )
             this_input_dim -= 1 # no building footprint
@@ -230,13 +248,13 @@ class POMELO_module(nn.Module):
                     pose = self.embedder(inputs["positional_encoding"])
 
             # Concatenate the pose embedding to the input data
-            if self.head_name in ["v3", "v6"]:
+            if self.head_name in ["v3", "v4", "v6"]:
                 inputdata = inputdata[:,0:-1] # remove the building footprint from the variables
             else:
                 inputdata = torch.cat([inputdata, pose], dim=1)
 
         else:
-            if self.head_name in ["v3", "v6"]:
+            if self.head_name in ["v3", "v4","v6"]:
                 inputdata = inputdata[:,0:-1] # remove the building footprint from the variables
             else:
                 inputdata = inputdata

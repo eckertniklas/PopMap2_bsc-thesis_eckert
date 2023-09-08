@@ -129,7 +129,9 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
     # define levels
     # levels = ["fine", "fineTRACTCE", "fineBLOCKCE", "coarse"]
     # levels = ["coarse"]
-    levels = ["finezurich", "finezurich2", "coarse"]
+    # levels = ["finezurich", "finezurich2", "coarse", "fine"]
+    # levels = ["fine", "finezurich2", "coarse"]
+    levels = ["fine", "coarse", "finezurich", "finezurich2"]
 
     for level in levels:
         print("Evaluating level: ", level)
@@ -163,7 +165,10 @@ if __name__=="__main__":
     """
     Evaluates the Worldpop-maps on the test set of Switzerland
     """
-    map_path = "/scratch/metzgern/HAC/data/PopMapData/processed/che/buildingsDDA2_44C.tif"
+    # map_path = "/scratch/metzgern/HAC/data/PopMapData/processed/che/buildingsDDA2_44C.tif"
+    map_path = "/scratch/metzgern/HAC/data/PopMapData/raw/SwissBuildings/SwissTLM3D/swisstlm3d_2020-03_2056_5728/2020_SWISSTLM3D_SHP_CHLV95_LN02/TLM_BAUTEN/swissTLM3D_TLM_GEBAEUDE_FOOTPRINT_count_s2.tif"
+    # map_path = "/scratch/metzgern/HAC/data/PopMapData/raw/SwissBuildings/SwissTLM3D/swisstlm3d_2020-03_2056_5728/2020_SWISSTLM3D_SHP_CHLV95_LN02/TLM_BAUTEN/swissTLM3D_TLM_GEBAEUDE_FOOTPRINT_area_s2.tif"
+    # map_path = "/scratch/metzgern/HAC/data/PopMapData/raw/SwissBuildings/SwissTLM3D/swisstlm3d_2020-03_2056_5728/2020_SWISSTLM3D_SHP_CHLV95_LN02/TLM_BAUTEN/swissTLM3D_TLM_GEBAEUDE_FOOTPRINT_segmentation_s2.tif"
     # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/pricp2/Gbuildings_pricp2_counts.tif"
     # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1540_88/rwa_predictions.tif"
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/che/S2Aautumn/pricp2_S2Aautumn.tif"

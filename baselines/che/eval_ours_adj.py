@@ -113,8 +113,9 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
         print("Reprojected adjusted map to worldpop raster already exists: ", hr_map_path_adj_reproj)
 
     # define levels
-    levels = ["finezurich", "finezurich2", "coarse"]
+    # levels = ["finezurich", "finezurich2", "coarse"]
     # levels = ["coarse"]
+    levels = ["fine", "coarse", "finezurich", "finezurich2"]
 
     for level in levels:
         print("Evaluating level: ", level)

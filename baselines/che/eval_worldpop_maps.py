@@ -97,7 +97,8 @@ def evaluate_meta_maps(map_path, template_path):
     # define GT dataset
     dataset = Population_Dataset_target("che", train_level="coarse4")
 
-    levels = ["finezurich", "finezurich2", "coarse"]
+    # levels = ["finezurich", "finezurich2", "coarse"]
+    levels = ["fine", "coarse", "finezurich", "finezurich2"]
     # levels = ["finezurich", "finezurich2", "coarse"]
 
     for level in levels:
@@ -121,9 +122,9 @@ if __name__=="__main__":
     Evaluates the Worldpop-maps on the test set of Rwanda
     """
     # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020.tif"
-    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_UNadj.tif"
+    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_UNadj.tif"
     # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_constrained.tif"
-    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_UNadj_constrained.tif"
+    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_UNadj_constrained.tif"
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/che/S2Aautumn/che_S2Aautumn.tif"
 
     evaluate_meta_maps(map_path, template_path)

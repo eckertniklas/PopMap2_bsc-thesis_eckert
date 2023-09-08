@@ -194,7 +194,7 @@ class Trainer:
                     #     self.validate_weak()
                     #     torch.cuda.empty_cache()
                 
-                if (self.info["epoch"] + 1) % (1*self.args.val_every_n_epochs) == 0:
+                if (self.info["epoch"] + 1) % (self.args.val_every_n_epochs) == 0:
                     self.test_target(save=True)
                     torch.cuda.empty_cache()
 
@@ -249,16 +249,19 @@ class Trainer:
                     num_pix = sample_weak["input"].shape[0]*sample_weak["input"].shape[2]*sample_weak["input"].shape[3]
                     # limit1, limit2, limit3 = 10000000, 12500000, 15000000
                     limit1, limit2, limit3 = 7000000,  1000000, 15000000
+                    limit1, limit2, limit3 = 15000000,  1500000, 15000000
+                    # limit1, limit2, limit3 = 16000000,  2500000, 2500000
                     # limit1, limit2, limit3 =    4000000,  500000, 12000000
-                    # limit1, limit2, limit3 =    2000000,  300000, 10000000
 
                     encoder_no_grad, unet_no_grad = False, False 
                     if num_pix > limit1:
                         encoder_no_grad, unet_no_grad = True, False
+                        print("Feezing encoder")
                         if num_pix > limit2:
                             encoder_no_grad, unet_no_grad = True, True 
+                            print("Feezing decod                                                                                                                                                                                                                                                                                                           er")
                             if num_pix > limit3:
-                                print("Input to large for encoder and unet")
+                                print("Input to large for encoder and unet. No forward pass.")
                                 continue
 
                     output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False,

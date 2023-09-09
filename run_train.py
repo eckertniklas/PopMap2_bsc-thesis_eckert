@@ -383,8 +383,8 @@ class Trainer:
                     gc.collect()
 
                 # update info
-                self.info["iter"] += 1
-                self.info["sampleitr"] += self.args.batch_size
+                self.info["iter"] += 1 
+                self.info["sampleitr"] += self.args.weak_batch_size
                 # logging and stuff
                 if (i+1) % self.args.val_every_i_steps == 0:
                     if self.args.supmode=="weaksup" and self.args.weak_validation:

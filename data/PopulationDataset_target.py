@@ -164,7 +164,6 @@ class Population_Dataset_target(Dataset):
 
             self.S1Asc_file = {0: S1springAsc_file, 1: S1summerAsc_file, 2: S1autumnAsc_file, 3: S1winterAsc_file}
 
-
         if not os.path.exists(S1spring_file):
             print(S1spring_file, "Does not exist, using virtual rasters for S1") 
         
@@ -685,6 +684,7 @@ class Population_Dataset_target(Dataset):
             for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
                 densities[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = pred_densities_census[i]
+            densities = densities.cpu()
 
             # total map
             totals = torch.zeros_like(pred, dtype=torch.float32)
@@ -692,6 +692,7 @@ class Population_Dataset_target(Dataset):
             for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
                 totals[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = totals_pred_census[i]
+            totals = totals.cpu()
 
             # produce density map for the ground truth
             densities_gt = torch.zeros_like(pred)
@@ -699,6 +700,7 @@ class Population_Dataset_target(Dataset):
             for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
                 densities_gt[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = gt_densities_census[i]
+            densities_gt = densities_gt.cpu()
 
             # total map
             totals_gt = torch.zeros_like(pred, dtype=torch.float32)
@@ -706,6 +708,7 @@ class Population_Dataset_target(Dataset):
             for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
                 totals_gt[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = totals_gt_census[i]
+            totals_gt = totals_gt.cpu()
 
             # residual map
             residuals = torch.zeros_like(pred, dtype=torch.float32) 
@@ -713,12 +716,18 @@ class Population_Dataset_target(Dataset):
             for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
                 residuals[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = residuals_census[i]
+            residuals = residuals.cpu()
 
             #relaltive residuals
             residuals_rel = torch.zeros_like(pred, dtype=torch.float32) 
-            pop20 = torch.tensor(census["POP20"]).to(torch.float32)
-            pix_count = torch.tensor(census["count"]).to(torch.float32)
-            census_pred = census_pred_i.cpu().to(torch.float32)
+            if gpu_mode:
+                pop20 = torch.tensor(census["POP20"]).cuda().to(torch.float32)
+                pix_count = torch.tensor(census["count"]).cuda().to(torch.float32)
+                census_pred = census_pred_i.cuda().to(torch.float32)
+            else:
+                pop20 = torch.tensor(census["POP20"]).to(torch.float32)
+                pix_count = torch.tensor(census["count"]).to(torch.float32)
+                census_pred = census_pred_i.to(torch.float32)
             # residuals_rel_census = (census_pred - pop20) / pop20
             residuals_rel_census = (census_pred - pop20) / pix_count
             residuals_rel_census[torch.isinf(residuals_rel_census) | torch.isnan(residuals_rel_census)] = 0
@@ -726,8 +735,11 @@ class Population_Dataset_target(Dataset):
             for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
                 residuals_rel[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx] = residuals_rel_census[i]
+            residuals_rel = residuals_rel.cpu()
 
             # save the maps
+            print("*"*10)
+            print ("saving detailed maps to ", details_to, " folder")
             self.save(densities, details_to, "_densities")
             self.save(totals, details_to, "_totals")
             self.save(densities_gt, details_to, "_densities_gt")

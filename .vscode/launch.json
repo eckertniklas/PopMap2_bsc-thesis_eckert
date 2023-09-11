@@ -1532,9 +1532,12 @@
                 "-f", "8",
                 "-rse",
                 "-treg", "che", 
-                "--train_level", "fineTRACTCE", 
+                "--train_level", "coarse4", 
+                // "--fourseasons",
+                "--empty_eps", "0.01",
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1855_904/last_model.pth",
-                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1891_431/last_model.pth"
+                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1891_431/last_model.pth"
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_386_648/last_model.pth"
             ]
         },
         {

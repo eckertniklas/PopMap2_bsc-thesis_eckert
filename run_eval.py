@@ -92,8 +92,9 @@ class Trainer:
             self.resume(path=args.resume)
 
 
-    def test_target(self, save=False, full=True):
+    def test_target(self, save=False, full=True, save_scatter=False):
         # Test on target domain
+        save_scatter = False
         self.model.eval()
         self.test_stats = defaultdict(float)
         # self.model.train()
@@ -119,7 +120,10 @@ class Trainer:
 
                 for sample in tqdm(testdataloader, leave=True):
                     sample = to_cuda_inplace(sample)
-                    sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput, segmentationinput=self.args.segmentationinput)
+                    # sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput,
+                    #     segmentationinput=self.args.segmentationinput)
+                    sample = apply_transformations_and_normalize(sample,  transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput,
+                                                                      segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
 
                     # get the valid coordinates
                     xl,yl = [val.item() for val in sample["img_coords"]]
@@ -140,8 +144,7 @@ class Trainer:
 
                     output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
 
-                # average over the number of times each pixel was visited
-
+                ###### average over the number of times each pixel was visited ######
                 # mask out values that are not visited of visited exactly once
                 div_mask = output_map_count > 1
                 output_map[div_mask] = output_map[div_mask] / output_map_count[div_mask]
@@ -156,6 +159,7 @@ class Trainer:
                     output_scale_map[div_mask] = output_scale_map[div_mask] / output_map_count[div_mask]
                 
                 # save maps
+                print("saving maps")
                 if save:
                     # save the output map
                     testdataloader.dataset.save(output_map, self.experiment_folder)
@@ -195,10 +199,11 @@ class Trainer:
 
                     # create scatterplot and upload to wandb
                     # print(self.target_test_stats)
-                    scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist(), log_scale=True)
-                    if scatterplot is not None:
-                        self.target_test_stats["Scatter/Scatter_{}_{}".format(testdataloader.dataset.region, level)] = wandb.Image(scatterplot)
-                
+                    if save_scatter:
+                        scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist(), log_scale=True)
+                        if scatterplot is not None:
+                            self.target_test_stats["Scatter/Scatter_{}_{}".format(testdataloader.dataset.region, level)] = wandb.Image(scatterplot)
+                    
                 # adjust map (disaggregate) and recalculate everything
                 print("-"*50)
                 print("Adjusting map")
@@ -222,9 +227,11 @@ class Trainer:
                     self.target_test_stats = {**self.target_test_stats,
                                               **test_stats_adj}
 
-                    scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist(), log_scale=True)
-                    if scatterplot is not None:
-                        self.target_test_stats["Scatter/Scatter_{}_{}_adj".format(testdataloader.dataset.region, level)] = wandb.Image(scatterplot)
+                    if save_scatter:
+                        # create scatterplot and upload to wandb
+                        scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist(), log_scale=True)
+                        if scatterplot is not None:
+                            self.target_test_stats["Scatter/Scatter_{}_{}_adj".format(testdataloader.dataset.region, level)] = wandb.Image(scatterplot)
                     
             
             # save the target test stats

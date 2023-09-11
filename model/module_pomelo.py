@@ -119,13 +119,13 @@ class POMELO_module(nn.Module):
                 self.embedding_dim = feature_dim
                 head_input_dim += feature_dim
             elif head=="v4":
-                    freq = 2 # for x dimensions and 2 components (sin and cos)
-                    self.embedder = nn.Sequential(
-                        nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(inplace=True),
-                        nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(inplace=True),
-                    )
-                    self.embedding_dim = feature_dim
-                    head_input_dim += feature_dim
+                freq = 2 # for x dimensions and 2 components (sin and cos)
+                self.embedder = nn.Sequential(
+                    nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+                    nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+                )
+                self.embedding_dim = feature_dim
+                head_input_dim += feature_dim
 
         if head=="v3":
             h = 64

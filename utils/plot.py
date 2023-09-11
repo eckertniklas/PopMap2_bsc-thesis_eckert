@@ -180,3 +180,125 @@ def scatter_plot3(predicted, ground_truth, log_scale=True):
     # Open the BytesIO object as a PIL Image and return it
     return Image.open(buffer)
 
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import gaussian_kde
+from io import BytesIO
+from PIL import Image
+
+def scatter_plot_with_zeros(predicted, ground_truth, log_scale=True):
+    # Convert input data to numpy arrays
+    x = np.array(predicted)
+    y = np.array(ground_truth)
+
+    # Create the main scatter plot for non-zero data
+    fig, ax_main = plt.subplots()
+    
+    mask_non_zero = (x != 0) & (y != 0)
+    x_non_zero = x[mask_non_zero]
+    y_non_zero = y[mask_non_zero]
+    
+    if len(x_non_zero) > 2:
+        # Calculate point density for color scale
+        xy = np.vstack([x_non_zero, y_non_zero])
+        z = gaussian_kde(xy)(xy)
+        ax_main.scatter(x_non_zero, y_non_zero, c=z, s=12)
+
+        if log_scale:
+            ax_main.set_xscale('log')
+            ax_main.set_yscale('log')
+            ax_main.set_xlim(min(0.5, np.min(x_non_zero)), np.max(x_non_zero))
+            ax_main.set_ylim(min(0.5, np.min(y_non_zero)), np.max(y_non_zero))
+
+    # Create insets for zeros
+    ax_x_inset = fig.add_axes([0.1, 0.1, 0.4, 0.03])  # [x, y, width, height]
+    ax_x_inset.set_xticks([])
+    ax_x_inset.set_yticks([])
+    ax_x_inset.spines['top'].set_visible(False)
+    ax_x_inset.spines['right'].set_visible(False)
+    ax_x_inset.spines['bottom'].set_visible(False)
+    ax_x_inset.spines['left'].set_visible(False)
+    ax_x_inset.plot([0, 1], [0.5, 0.5], color='gray', linestyle='--')
+    ax_x_inset.scatter(np.linspace(0, 1, np.sum(x == 0)), [0.5]*np.sum(x == 0), marker='|', color='blue')
+
+    ax_y_inset = fig.add_axes([0.1, 0.15, 0.03, 0.4])
+    ax_y_inset.set_xticks([])
+    ax_y_inset.set_yticks([])
+    ax_y_inset.spines['top'].set_visible(False)
+    ax_y_inset.spines['right'].set_visible(False)
+    ax_y_inset.spines['bottom'].set_visible(False)
+    ax_y_inset.spines['left'].set_visible(False)
+    ax_y_inset.plot([0.5, 0.5], [0, 1], color='gray', linestyle='--')
+    ax_y_inset.scatter([0.5]*np.sum(y == 0), np.linspace(0, 1, np.sum(y == 0)), marker='_', color='red')
+
+    # Set labels and title
+    ax_main.set_xlabel('Predicted Values')
+    ax_main.set_ylabel('Ground Truth Values')
+    ax_main.set_title('Predicted vs. Ground Truth Values')
+    
+    return fig, ax_main
+
+
+
+def scatter_plot_with_zeros_v9(predicted, ground_truth, log_scale=True):
+    # Convert input data to numpy arrays
+    x = np.array(predicted)
+    y = np.array(ground_truth)
+
+    # Create the main scatter plot for non-zero data
+    fig, ax_main = plt.subplots()
+    
+    # Calculate point density for the entire dataset
+    xy = np.vstack([x, y])
+    z = gaussian_kde(xy)(xy)
+    
+    mask_non_zero = (x != 0) & (y != 0)
+    x_non_zero = x[mask_non_zero]
+    y_non_zero = y[mask_non_zero]
+    z_non_zero = z[mask_non_zero]
+    
+    if len(x_non_zero) > 2:
+        ax_main.scatter(x_non_zero, y_non_zero, c=z_non_zero, s=12)
+
+        if log_scale:
+            ax_main.set_xscale('log')
+            ax_main.set_yscale('log')
+            ax_main.set_xlim(min(0.5, np.min(x_non_zero)), np.max(x_non_zero))
+            ax_main.set_ylim(min(0.5, np.min(y_non_zero)), np.max(y_non_zero))
+
+    # Adjust insets for zeros with more appropriate positioning and spacing
+    ax_x_inset = fig.add_axes([0.125, 0.01, 0.775, 0.03])  # [x, y, width, height]
+    ax_x_inset.set_xticks([])
+    ax_x_inset.set_yticks([0.5])
+    ax_x_inset.spines['top'].set_visible(False)
+    ax_x_inset.spines['right'].set_visible(False)
+    ax_x_inset.spines['bottom'].set_visible(False)
+    ax_x_inset.spines['left'].set_visible(False)
+    # Moved the scatter plot on ax_x_inset to y = 0.0 as requested
+    ax_x_inset.scatter(np.linspace(0, 1, np.sum(x == 0)), [0.0]*np.sum(x == 0), c=z[x==0], marker='|', s=12)
+
+    ax_y_inset = fig.add_axes([0.03, 0.125, 0.03, 0.775])
+    ax_y_inset.set_xticks([0.5])
+    ax_y_inset.set_yticks([])
+    ax_y_inset.spines['top'].set_visible(False)
+    ax_y_inset.spines['right'].set_visible(False)
+    ax_y_inset.spines['bottom'].set_visible(False)
+    ax_y_inset.spines['left'].set_visible(False)
+    ax_y_inset.scatter([0.0]*np.sum(y == 0), np.linspace(0, 1, np.sum(y == 0)), c=z[y==0], marker='_', s=12)
+
+    # Set labels and title with adjustments
+    ax_main.set_xlabel('Predicted Values', labelpad=25)
+    ax_main.set_ylabel('Ground Truth Values', labelpad=25)
+    ax_main.set_title('Predicted vs. Ground Truth Values')
+    ax_main.tick_params(axis='x', which='major', pad=20)
+    ax_main.tick_params(axis='y', which='major', pad=15)
+    
+    return fig, ax_main
+
+# Run the updated function and plot
+# fig, ax = scatter_plot_with_zeros_v9(predicted, ground_truth)
+# plt.show()
+
+

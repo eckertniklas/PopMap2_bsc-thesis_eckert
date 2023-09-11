@@ -29,6 +29,7 @@ parser.add_argument("-dil", "--dilation", help='', type=int, default=1)
 parser.add_argument('-par', '--parent', type=str, help=' ', default=None)
 parser.add_argument("-gr", "--grouped", help='', action='store_true')
 parser.add_argument('-tlevel', '--train_level', nargs='+', default=["fine"] )
+parser.add_argument('-eeps', '--empty_eps', default=0.0, type=float, help="")
 
 #Training
 parser.add_argument("-clasif", "--classifier", default="v8", help="")

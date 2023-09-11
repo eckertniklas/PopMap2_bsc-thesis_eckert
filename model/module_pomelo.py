@@ -284,9 +284,9 @@ class POMELO_module(nn.Module):
                 X, (px1,px2,py1,py2) = self.add_padding(X, padding)
                 if unet_no_grad:
                     with torch.no_grad():
-                        features, decoder_features = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
+                        features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
                 else:
-                    features, decoder_features = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
+                    features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
 
                 # revert padding
                 features = self.revert_padding(features, (px1,px2,py1,py2))

@@ -145,7 +145,7 @@ class CustomUNet(smp.Unet):
             if isinstance(module, nn.BatchNorm2d):
                 setattr(model, name, replacement)
             else:
-                self.remove_batchnorm(module)
+                self.remove_batchnorm(module, replacement)
 
 
     def replace_with_groups(self, module: nn.Module, kernel_size=3, padding=1, stride=1) -> nn.Module:

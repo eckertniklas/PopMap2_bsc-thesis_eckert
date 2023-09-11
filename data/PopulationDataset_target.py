@@ -152,7 +152,7 @@ class Population_Dataset_target(Dataset):
         if not os.path.exists(covar_root):
             covar_root = covar_root.replace("scratch", "scratch2")
         if not os.path.exists(covar_root):
-            covar_root = covar_root.replace("scratch", "scratch3")
+            covar_root = covar_root.replace("scratch2", "scratch3")
         
         if not os.path.exists(covar_root):
             raise ValueError("Covariate root does not exist")
@@ -179,7 +179,7 @@ class Population_Dataset_target(Dataset):
             if not os.path.exists(os.path.join(rawEE_map_root, region, "S1spring")):
                 rawEE_map_root = rawEE_map_root.replace("scratch", "scratch2")
             if not os.path.exists(os.path.join(rawEE_map_root, region, "S1spring")):
-                rawEE_map_root = rawEE_map_root.replace("scratch", "scratch3")
+                rawEE_map_root = rawEE_map_root.replace("scratch2", "scratch3")
         
             spring_dir = os.path.join(rawEE_map_root, region, "S1spring")
             summer_dir = os.path.join(rawEE_map_root, region, "S1summer")

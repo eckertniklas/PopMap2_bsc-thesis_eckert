@@ -262,7 +262,7 @@ class Trainer:
                         print("Feezing encoder")
                         if num_pix > limit2:
                             encoder_no_grad, unet_no_grad = True, True 
-                            print("Feezing decod                                                                                                                                                                                                                                                                                                           er")
+                            print("Feezing decoder")                                                                                                                                                                                                                                                                                                           er")
                             if num_pix > limit3:
                                 print("Input to large for encoder and unet. No forward pass.")
                                 continue

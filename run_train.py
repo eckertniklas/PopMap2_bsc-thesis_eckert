@@ -138,8 +138,10 @@ class Trainer:
 
         
         if args.half:
-            self.model = self.model.half()
+            # self.model = self.model.float()
             self.scaler = GradScaler()
+            # print(next(self.model.parameters()).dtype)  # Should output torch.float32
+
             # model, optimizer = amp.initialize(self.model, self.optimizer, opt_level="O1")
 
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
@@ -240,7 +242,8 @@ class Trainer:
                 if self.args.supmode=="weaksup":
                     
                     # forward pass and loss computation
-                    sample_weak = to_cuda_inplace(sample, self.args.half, spare=["y", "source"]) 
+                    # sample_weak = to_cuda_inplace(sample, self.args.half, spare=["y", "source"]) 
+                    sample_weak = to_cuda_inplace(sample) 
                     sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput,
                                                                       segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
                     
@@ -252,7 +255,8 @@ class Trainer:
 
                     # limit1, limit2, limit3 = 10000000, 12500000, 15000000
                     # limit1, limit2, limit3 = 7000000,  1000000, 15000000
-                    limit1, limit2, limit3 = 14000000,  22000000, 22000000
+                    limit1, limit2, limit3 = 14000000,  18000000, 22000000
+                    # limit1, limit2, limit3 = 22000000,  44000000, 44000000
                     # limit1, limit2, limit3 = 16000000,  2500000, 2500000
                     # limit1, limit2, limit3 =    4000000,  500000, 12000000
 
@@ -262,7 +266,7 @@ class Trainer:
                         print("Feezing encoder")
                         if num_pix > limit2:
                             encoder_no_grad, unet_no_grad = True, True 
-                            print("Feezing decoder")                                                                                                                                                                                                                                                                                                           er")
+                            print("Feezing decoder")
                             if num_pix > limit3:
                                 print("Input to large for encoder and unet. No forward pass.")
                                 continue

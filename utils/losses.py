@@ -32,16 +32,25 @@ def get_loss(output, gt, scale=None, empty_scale=None, loss=["l1_loss"], lam=[1.
     """
     auxdict = defaultdict(float)
 
-
-    # get the tensors to float32 if they are not already
-    for key, val in output.items():
-        if isinstance(val, torch.Tensor):
-            output[key] = val.float()
+    # check if popcount is float32
+    if output["popcount"].dtype != torch.float32:
+        output["popcount"] = output["popcount"].float()
     
+    if output["popdensemap"].dtype != torch.float32:
+        output["popdensemap"] = output["popdensemap"].float()
+
+    if output["scale"].dtype != torch.float32:
+        output["scale"] = output["scale"].float()
+    
+    if output["empty_scale"].dtype != torch.float32:
+        output["empty_scale"] = output["empty_scale"].float()
+        
     # prepare vars1.0
     y_pred = output["popcount"][gt["source"]]
     y_gt = gt["y"][gt["source"]]
     if "popvar" in output.keys():
+        if output["popvar"].dtype != torch.float32:
+            output["popvar"] = output["popvar"].float()
         var = output["popvar"][gt["source"]]
 
     # Population loss and metrics
@@ -126,7 +135,6 @@ def get_loss(output, gt, scale=None, empty_scale=None, loss=["l1_loss"], lam=[1.
 
     if output_regularization>0.0:
         optimization_loss += output_regularization * output["popcount"].abs().mean()
-
 
     # prepare for logging
     if tag=="":

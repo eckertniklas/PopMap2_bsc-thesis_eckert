@@ -184,9 +184,6 @@ class POMELO_module(nn.Module):
         # lift the bias of the head to avoid the risk of dying ReLU
         self.head[-1].bias.data = 0.75 * torch.ones(2)
 
-        # calculate the number of parameters
-        # self.params_sum = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
-
         # print size of the embedder and head network
         self.num_params = 0
         if hasattr(self, "embedder"):
@@ -295,8 +292,8 @@ class POMELO_module(nn.Module):
                 features = self.revert_padding(features, (px1,px2,py1,py2))
                 middlefeatures.append(features)
 
-                aux["features"] = features
-                aux["decoder_features"] = decoder_features
+                # aux["features"] = features
+                # aux["decoder_features"] = decoder_features
 
             # Forward the head
             if self.head_name in ["v3", "v4", "v6"]:
@@ -415,11 +412,17 @@ class POMELO_module(nn.Module):
         # apply mask to the input
         inp_flat_masked = inp_flat[:, mask_flat]
 
-        # initialize the output
-        out_flat = torch.zeros((out_channels, batch_size*height*width,1), device=inp.device, dtype=inp.dtype)
         
         # perform the forward pass with the module
-        out_flat[ :, mask_flat] = module(inp_flat_masked)
+        a = module(inp_flat_masked)
+
+        # initialize the output
+        # out_flat = torch.zeros((out_channels, batch_size*height*width,1), device=inp.device, dtype=inp.dtype)
+        out_flat = torch.zeros((out_channels, batch_size*height*width,1), device=a.device, dtype=a.dtype)
+
+        # form together
+        # out_flat[ :, mask_flat] = module(inp_flat_masked)
+        out_flat[ :, mask_flat] = a
         
         # reshape the output
         out = out_flat.view(out_channels, batch_size, height, width).permute(1,0,2,3)

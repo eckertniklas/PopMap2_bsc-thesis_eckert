@@ -32,7 +32,7 @@ class POMELO_module(nn.Module):
     def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", down=5,
                 occupancymodel=False, pretrained=False, dilation=1, replace7x7=True,
                 parent=None, experiment_folder=None, useposembedding=False, head="v1", grouped=False,
-                lempty_eps=0.0):
+                lempty_eps=0.0, dropout=0.0):
         super(POMELO_module, self).__init__()
         """
         Args:
@@ -177,7 +177,7 @@ class POMELO_module(nn.Module):
             if this_input_dim>0:
                 self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 
                                             down=self.down, dilation=dilation, replace7x7=replace7x7, pretrained=pretrained,
-                                            grouped=grouped)
+                                            grouped=grouped, dropout=dropout)
             else:
                 self.unetmodel = None
 

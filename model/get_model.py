@@ -72,4 +72,5 @@ def get_model_kwargs(args, model_name):
         kwargs['head'] = args.head
         kwargs['grouped'] = args.grouped
         kwargs['lempty_eps'] = args.lempty_eps
+        kwargs['dropout'] = args.dropout
     return kwargs

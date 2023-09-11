@@ -12,7 +12,8 @@ import segmentation_models_pytorch as smp
 
 class CustomUNet(smp.Unet):
     def __init__(self, encoder_name, in_channels, classes, down=3, fsub=16, pretrained=False,
-                 dilation=1, replace7x7=True, activation=nn.LeakyReLU, grouped=False, remove_batchnorm=True):
+                 dilation=1, replace7x7=True, activation=nn.LeakyReLU, grouped=False,
+                 remove_batchnorm=True, dropout=0.5):
         """
         Custom UNet model with optional dilation and grouped convolutions
         Input:
@@ -121,7 +122,11 @@ class CustomUNet(smp.Unet):
 
         # remove batchnorm layers
         if remove_batchnorm:
-            self.remove_batchnorm(self)
+            # replace them with a dropout layer
+            if dropout>0:
+                self.remove_batchnorm(self, replacement=nn.Dropout2d(dropout, inplace=True) ) 
+            else:
+                self.remove_batchnorm(self, replacement=nn.Identity())
 
         # initialize
         print("self.encoder.out_channels", self.encoder.out_channels)
@@ -132,13 +137,13 @@ class CustomUNet(smp.Unet):
         self.num_params = self.num_effective_params(down=down, verbose=True)
 
 
-    def remove_batchnorm(self, model: nn.Module) -> None:
+    def remove_batchnorm(self, model: nn.Module, replacement=nn.Identity()) -> None:
         """
         remove batchnorm layers from model
         """
         for name, module in model.named_children():
             if isinstance(module, nn.BatchNorm2d):
-                setattr(model, name, nn.Identity())
+                setattr(model, name, replacement)
             else:
                 self.remove_batchnorm(module)
 

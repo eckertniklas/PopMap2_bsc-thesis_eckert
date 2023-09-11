@@ -40,10 +40,12 @@ parser.add_argument("-dw2", "--down2", help='', type=int, default=2)
 parser.add_argument("-lra", "--lam_raw", help='', type=float, default=1.0)
 parser.add_argument('-fe', '--feature_extractor', type=str, help=' ', default="resnet18")
 parser.add_argument("-dil", "--dilation", help='', type=int, default=1)
+parser.add_argument("-dro", "--dropout", help='', type=float, default=0.0)
 parser.add_argument("-r77", "--replace7x7", action='store_true', help="")
 parser.add_argument('-smo', '--supmode', type=str, help="'unsup', 'weaksup'", default="unsup", choices=["unsup", "weaksup"])
 parser.add_argument("-nomain", "--nomain", action='store_true', help="no optimization on the So2 dataset")
 parser.add_argument("-no_opt", "--no_opt", action='store_true', help="no optimization")
+
 
 #Training
 parser.add_argument('-e', '--num_epochs', help='', type=int, default=20)

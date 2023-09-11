@@ -203,6 +203,12 @@ datalocations = {
         'coarse': {
             'boundary': "boundaries_coarse4.tif",
             'census': "census_coarse4.csv",
+        },
+    },
+    "afg": {
+        "coarse": {
+            "boundary": "boundaries.tif",
+            "census": "census.csv",
         }
     }
 }
@@ -213,7 +219,8 @@ testlevels = {
     'rwa': ["fine100", "fine200", "fine400", "fine1000", "coarse"],
     'rwa2022': ["coarse"],
     'uga': ["coarse"],
-    'che': ["fine", "finezurich", "finezurich2", "coarse4"]
+    'che': ["fine", "finezurich", "finezurich2", "coarse4"],
+    'afg': ["coarse"]
 }
 
 # inicies to skip while training
@@ -222,7 +229,8 @@ skip_indices = {
     "rwa": [],
     "rwa2022": [],
     "uga": [1323],
-    "che": []
+    "che": [],
+    "afg": []
 }
 
 

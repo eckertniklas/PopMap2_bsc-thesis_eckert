@@ -508,6 +508,16 @@
             ]
         },
         {
+            "name": "07_create_buildings.py, AFG",
+            "type": "python",
+            "request": "launch",
+            "module": "utils.07_create_buildings",
+            "console": "integratedTerminal",
+            "args": [
+                "--region", "afg"
+            ]
+        },
+        {
             "name": "08_preprocess_uga_shapefile.py, UGA",
             "type": "python",
             "request": "launch",
@@ -545,6 +555,13 @@
                 "--target_raster", "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_UNadj_constrained.tif",
                 "--suffix", "wpop"
             ]
+        },
+        {
+            "name": "12_preprocess_afg_shapefile.py, AFG",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/12_preprocess_afg_shapefile.py",
+            "console": "integratedTerminal"
         },
         {
             "name": "eval_meta_maps.py, RWA",
@@ -746,6 +763,7 @@
                 "--sentinelbuildings",
                 "--train_level", "coarse",
                 "--pretrained",
+                "--dropout", "0.5",
                 // "--half"
                 // "--gradientaccumulation", 
             ]

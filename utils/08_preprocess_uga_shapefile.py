@@ -113,7 +113,6 @@ def process(sh_path, census_path, output_tif_file, output_census_file, template_
 
 
 
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--sh_path", default="/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopGIS/Mastergrid/Global_2000_2020/UGA/Subnational/Shapefile/uga_subnational_2000_2020.shp", type=str, help="Shapefile with boundaries and census")

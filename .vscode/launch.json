@@ -508,10 +508,10 @@
             ]
         },
         {
-            "name": "07_create_buildings.py, AFG",
+            "name": "07b_create_buildings.py, AFG",
             "type": "python",
             "request": "launch",
-            "module": "utils.07_create_buildings",
+            "module": "utils.07b_create_buildings",
             "console": "integratedTerminal",
             "args": [
                 "--region", "afg"
@@ -751,7 +751,7 @@
                 // "--test_every_i_steps", "50",
                 // "--val_every_n_epochs", "100",
                 // "--weak_batch_size", "4",
-                "--weak_batch_size", "4",
+                "--weak_batch_size", "1",
                 // "--weak_merge_aug",
                 "--occupancymodel",
                 "--buildinginput",

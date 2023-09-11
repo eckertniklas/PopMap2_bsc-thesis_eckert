@@ -149,7 +149,13 @@ class Population_Dataset_target(Dataset):
 
         # get the path to the data files
         covar_root = os.path.join(pop_map_covariates, region)
-        covar_root = covar_root if os.path.exists(covar_root) else covar_root.replace("scratch", "scratch2")
+        if not os.path.exists(covar_root):
+            covar_root = covar_root.replace("scratch", "scratch2")
+        if not os.path.exists(covar_root):
+            covar_root = covar_root.replace("scratch", "scratch3")
+        
+        if not os.path.exists(covar_root):
+            raise ValueError("Covariate root does not exist")
         
         S1spring_file = os.path.join(covar_root,  os.path.join("S1spring", region +"_S1spring.tif"))
         S1summer_file = os.path.join(covar_root,  os.path.join("S1summer", region +"_S1summer.tif"))
@@ -165,7 +171,15 @@ class Population_Dataset_target(Dataset):
             self.S1Asc_file = {0: S1springAsc_file, 1: S1summerAsc_file, 2: S1autumnAsc_file, 3: S1winterAsc_file}
 
         if not os.path.exists(S1spring_file):
-            print(S1spring_file, "Does not exist, using virtual rasters for S1") 
+            print(S1spring_file, "Does not exist, using virtual rasters for S1")
+            # print(os.path.exists(os.path.join(rawEE_map_root, region, "S1spring")))
+            global rawEE_map_root
+            # rawEE_map_root = rawEE_map_root
+            print(rawEE_map_root)
+            if not os.path.exists(os.path.join(rawEE_map_root, region, "S1spring")):
+                rawEE_map_root = rawEE_map_root.replace("scratch", "scratch2")
+            if not os.path.exists(os.path.join(rawEE_map_root, region, "S1spring")):
+                rawEE_map_root = rawEE_map_root.replace("scratch", "scratch3")
         
             spring_dir = os.path.join(rawEE_map_root, region, "S1spring")
             summer_dir = os.path.join(rawEE_map_root, region, "S1summer")
@@ -173,7 +187,7 @@ class Population_Dataset_target(Dataset):
             winter_dir = os.path.join(rawEE_map_root, region, "S1winter")
 
             if not os.path.exists(os.path.join(rawEE_map_root, region, "S1winter_out.vrt")):
-                print("VRT {} file do not exist".format(os.path.exists(os.path.join(rawEE_map_root, region, "S1winter_out.vrt"))))
+                print("VRT {} file do not exist".format(os.path.join(rawEE_map_root, region, "S1winter_out.vrt")))
                 from osgeo import gdal
                 _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1spring_out.vrt"), [ os.path.join(spring_dir, f) for f in os.listdir(spring_dir) if f.endswith(".tif")])
                 _ = gdal.BuildVRT(os.path.join(rawEE_map_root, region, "S1summer_out.vrt"), [ os.path.join(summer_dir, f) for f in os.listdir(summer_dir) if f.endswith(".tif")])

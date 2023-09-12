@@ -725,7 +725,7 @@
                 "-S1",
                 "-f",
                 // "16",
-                "8",
+                "4",
                 // "--dilation", "2",
                 "-rse",
                 "-treg", "rwa",
@@ -759,11 +759,12 @@
                 "--useposembedding",
                 "--weightdecay_pos", "0.0",
                 "--weightdecay", "0.0",
-                "--weightdecay_unet", "0.000001",
+                "--weightdecay_unet", "0.00002",
                 "--sentinelbuildings",
                 "--train_level", "coarse",
                 "--pretrained",
-                "--dropout", "0.5",
+                // "--dropout", "0.5",
+                "--addgaussiannoise",
                 // "--half"
                 // "--gradientaccumulation", 
             ]

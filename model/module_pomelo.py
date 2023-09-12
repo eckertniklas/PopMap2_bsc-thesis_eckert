@@ -250,21 +250,16 @@ class POMELO_module(nn.Module):
 
             # Concatenate the pose embedding to the input data
             if self.head_name in ["v3", "v4", "v6"]:
-                X = X
-                # X = X[:,0:-1] # remove the building footprint from the variables
+                X = X 
             else:
                 X = torch.cat([X, pose], dim=1)
 
         else:
-            if self.head_name in ["v3", "v4","v6"]:
-                # X = X[:,0:-1] # remove the building footprint from the variables
+            if self.head_name in ["v3", "v4","v6"]: 
                 X = X
             else:
                 X = X
-
-        # Add padding
-        # X, (px1,px2,py1,py2) = self.add_padding(X, padding) # refactored to later
-
+ 
         # Forward the main model
         if self.feature_extractor=="DDA":
             X, (px1,px2,py1,py2) = self.add_padding(X, padding)
@@ -286,7 +281,11 @@ class POMELO_module(nn.Module):
                     with torch.no_grad():
                         features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
                 else:
-                    features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
+                    sparse_unet = False
+                    if sparse_unet:
+                        features = self.unetmodel.sparse_forward(X,  return_features=False, encoder_no_grad=encoder_no_grad, sparsity_mask=sparsity_mask)
+                    else:
+                        features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
 
                 # revert padding
                 features = self.revert_padding(features, (px1,px2,py1,py2))

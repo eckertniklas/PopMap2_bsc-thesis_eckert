@@ -120,7 +120,62 @@ class AddGaussianNoise(object):
     
     def __repr__(self):
         return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+
+
+# Experimental
+class AddGaussianNoiseWithCorrelation(object):
+    """Add gaussian noise with spatial correlation to a tensor image.
+    Args:
+        mean (float): mean of the noise distribution. Default value is 0.
+        std (float): standard deviation of the noise distribution. Default value is 1.
+        p (float): probability of the noise being applied. Default value is 1.0.
+        kernel (int): size of the Gaussian kernel used for filtering. Default value is 3.
+    """
+    def __init__(self, mean=0., std=1., p=1.0, kernel=13, sigma=2):
+        self.std = torch.tensor([std], dtype=torch.float32)
+        self.std = std
+        self.mean = mean
+        self.p = p
+        self.kernel_size = kernel
+        # self.gaussian_filter = torch.nn.Conv2d(1, 1, self.kernel_size, padding=self.kernel_size // 2, bias=False).cuda()
+        # self.gaussian_filter.weight.data = self.gaussian_kernel(self.kernel_size).cuda()
+        # self.gaussian_filter.weight.requires_grad = False  # No need to track gradients
+
+        self.blur = transforms.GaussianBlur(kernel_size=self.kernel_size, sigma=sigma)
+
+
+    @staticmethod
+    def gaussian_kernel(size: int, mean: float = torch.tensor([0.], dtype=torch.float32), std: float = torch.tensor([1.], dtype=torch.float32)):
+        """Generate a Gaussian kernel"""
+        values = torch.tensor([1 / (std * torch.sqrt(torch.tensor([2 * 3.1415]))) * torch.exp(-0.5 * ((i - mean) / std) ** 2)
+                               for i in range(size)], dtype=torch.float32)
+        values /= values.sum()
+        return values.view(1, 1, size, 1) * values.view(1, 1, 1, size)
+
+    def apply_gaussian_filter(self, noise):
+        return self.gaussian_filter(noise)
     
+    def __call__(self, x):
+        if torch.is_tensor(x):
+            mask = None
+        else:
+            x, mask = x
+
+        if torch.rand(1) < self.p:
+            # noise = torch.randn_like(x) * self.std + self.mean
+            noise = torch.randn((x.shape[1], 1, x.shape[2], x.shape[3]), dtype=x.dtype, device=x.device) * self.std 
+            # noise = noise.unsqueeze(0).unsqueeze(0)
+            noise = self.blur(noise)
+            # noise = self.apply_gaussian_filter(noise)
+            b = x + noise.squeeze(1).unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
+            x += noise.squeeze(1).unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
+            # x += noise.squeeze()
+        return x if mask is None else (x, mask)
+    
+    def __repr__(self):
+        return self.__class__.__name__ + '(mean={0}, std={1}, kernel={2})'.format(self.mean, self.std, self.kernel_size)
+
+
 
 class RandomHorizontalVerticalFlip(object):
     def __init__(self, p=0.5, allsame=False): 

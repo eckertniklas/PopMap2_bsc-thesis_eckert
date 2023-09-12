@@ -11,7 +11,8 @@ from torch.utils.data import DataLoader, ConcatDataset
 from torchvision.transforms import Normalize
 from torchvision import transforms
 from utils.transform import OwnCompose
-from utils.transform import RandomRotationTransform, RandomHorizontalFlip, RandomVerticalFlip, RandomHorizontalVerticalFlip, RandomBrightness, RandomGamma, HazeAdditionModule, AddGaussianNoise
+from utils.transform import RandomRotationTransform, RandomHorizontalFlip, RandomVerticalFlip, \
+    RandomHorizontalVerticalFlip, RandomBrightness, RandomGamma, HazeAdditionModule, AddGaussianNoise, AddGaussianNoiseWithCorrelation
 # from utils.transform import Eu2Rwa
 from tqdm import tqdm
  
@@ -255,7 +256,7 @@ class Trainer:
 
                     # limit1, limit2, limit3 = 10000000, 12500000, 15000000
                     # limit1, limit2, limit3 = 7000000,  1000000, 15000000
-                    limit1, limit2, limit3 = 15000000,  18000000, 22000000
+                    limit1, limit2, limit3 = 14500000,  18000000, 22000000
                     # limit1, limit2, limit3 = 22000000,  44000000, 44000000
                     # limit1, limit2, limit3 = 16000000,  2500000, 2500000
                     # limit1, limit2, limit3 =    4000000,  500000, 12000000
@@ -565,12 +566,17 @@ class Trainer:
         params = {'dim': (img_rows, img_cols), "satmode": args.satmode, 'in_memory': args.in_memory, **input_defs}
         self.data_transform = {}
         if args.full_aug:
-            self.data_transform["general"] = transforms.Compose([
-                # AddGaussianNoise(std=0.04, p=0.75),
+            general_transforms = [
+                # AddGaussianNoise(std=0.04, p=0.75), 
                 RandomVerticalFlip(p=0.5, allsame=args.supmode=="weaksup"),
                 RandomHorizontalFlip(p=0.5, allsame=args.supmode=="weaksup"),
                 RandomRotationTransform(angles=[90, 180, 270], p=0.75),
-            ])
+            ]
+            if args.addgaussiannoise:
+                general_transforms.append(AddGaussianNoiseWithCorrelation(std=1.0, p=0.75))
+                
+            self.data_transform["general"] = transforms.Compose(general_transforms)
+
             S2augs = [
                 RandomBrightness(p=0.9, beta_limit=(0.666, 1.5)),
                 RandomGamma(p=0.9, gamma_limit=(0.6666, 1.5)),

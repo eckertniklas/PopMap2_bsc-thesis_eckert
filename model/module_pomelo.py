@@ -59,7 +59,7 @@ class POMELO_module(nn.Module):
         self.feature_extractor = feature_extractor
         self.head_name = head 
         this_input_dim = input_channels
-        head_input_dim = head_input_dim
+        head_input_dim = 0
         self.sparse_unet = sparse_unet
         if lempty_eps>0:
             self.lempty_eps = torch.nn.Parameter(torch.tensor(lempty_eps), requires_grad=True)
@@ -298,7 +298,7 @@ class POMELO_module(nn.Module):
                     with torch.no_grad():
                         features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
                 else:
-                    if self.sparse_unet:
+                    if self.sparse_unet and sparse:
                         features = self.unetmodel.sparse_forward(X,  return_features=False, encoder_no_grad=encoder_no_grad, sparsity_mask=sparsity_mask)
                     else:
                         features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)

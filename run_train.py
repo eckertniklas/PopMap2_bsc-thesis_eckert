@@ -173,7 +173,7 @@ class Trainer:
                 # if self.args.supmode=="weaksup" and self.args.weak_validation:
                 #     self.validate_weak()
                 
-                # self.test_target(save=True)
+                self.test_target(save=True)
 
 
                 self.train_epoch(tnr)

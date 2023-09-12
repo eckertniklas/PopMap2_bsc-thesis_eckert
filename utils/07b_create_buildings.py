@@ -33,9 +33,9 @@ def main(args):
     # get dataset
     overlap = 128
     # ips = 512
-    # ips = 1024
+    ips = 1024
     # ips = 4096
-    ips = 2048
+    # ips = 2048
     
     input_defs = {'S1': True, 'S2': True, 'VIIRS': False, 'NIR': True}
     dataset = Population_Dataset_target(args.region, patchsize=ips, overlap=overlap, fourseasons=False,

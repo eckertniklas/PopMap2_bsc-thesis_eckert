@@ -599,8 +599,9 @@ class Trainer:
                 self.dataset_stats[mkey] = torch.tensor(val)
 
         # get the target regions for testing
+        # ascfill = True if reg in ["uga"] else False
         datasets = {
-            "test_target": [ Population_Dataset_target( reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, **input_defs) \
+            "test_target": [ Population_Dataset_target( reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, ascfill=reg in ["uga"], **input_defs) \
                                 for reg in args.target_regions ] }
         dataloaders =  {
             "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False) \

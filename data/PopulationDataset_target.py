@@ -326,7 +326,7 @@ class Population_Dataset_target(Dataset):
         else:
             main_indices = torch.cat([main_indices, season_template*0], dim=1)
 
-        # TODO: add indices for ascending orbit!
+        # TODO: add indices for ascending orbit! (maybe not necessary, since we have the ascending orbit data already)
         # if self.ascAug:
         #     main_indices_ = torch.cat([
         #         torch.cat([main_indices, season_template*0], dim=1),
@@ -424,7 +424,6 @@ class Population_Dataset_target(Dataset):
         # get admin_mask
         with rasterio.open(self.file_paths[self.train_level]["boundary"], "r") as src:
             admin_mask = torch.from_numpy(src.read(1, window=w).astype(np.float32))
-        # admin_mask = torch.from_numpy(self.cr_regions[w[0][0]:w[0][1], w[1][0]:w[1][1]].astype(np.float32))
 
         # To torch
         indata = {key:torch.from_numpy(np.asarray(val, dtype=np.float32)).type(torch.FloatTensor) for key,val in indata.items()}
@@ -462,8 +461,6 @@ class Population_Dataset_target(Dataset):
                 indata["S2"] = self.interpolate_nan(indata["S2"]) 
             
         if "S1" in indata:
-            # if np.any(np.isnan(indata["S1"])):
-            #     indata["S1"] = self.interpolate_nan(indata["S1"]) 
             if np.any(np.isnan(indata["S1"])):
                 if torch.isnan(torch.tensor(indata["S1"])).sum() / torch.numel(torch.tensor(indata["S1"])) < 0.05 and not self.ascfill:
                     indata["S1"] = self.interpolate_nan(indata["S1"])
@@ -567,7 +564,6 @@ class Population_Dataset_target(Dataset):
         fake = False
 
         ### get the input data ###
-
         # Sentinel 2
         if self.S2:
             S2_file = self.S2_file[season]

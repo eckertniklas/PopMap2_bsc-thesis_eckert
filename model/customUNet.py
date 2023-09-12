@@ -49,7 +49,7 @@ class CustomUNet(smp.Unet):
         self.decoder_channels = (256,128,64,32,16)[-down:]
         self.fsub = fsub
         self.classes = classes
-        self.patchsize = 128 # for patchwise inference
+        self.patchsize = 256 # for patchwise inference
 
         # Adjust the U-Net depth to 2 or lower here
         self.encoder = smp.encoders.get_encoder(
@@ -201,6 +201,7 @@ class CustomUNet(smp.Unet):
         pass `x` trough model`s encoder, decoder and heads
         """
 
+        # check input shape
         self.check_input_shape(x)
         bs,_,h,w = x.shape
 
@@ -215,9 +216,11 @@ class CustomUNet(smp.Unet):
         features = features[1:]  # remove first skip with same spatial resolution
         features = features[::-1]  # reverse channels to start from head of encoder
 
+        # define head and skips
         head = features[0]
         skips = features[1:]
 
+        # center block forward (might be identity)
         x = self.decoder.center(head)
 
         # decoder, with skip connections
@@ -226,6 +229,7 @@ class CustomUNet(smp.Unet):
             skip = skips[i] if i < len(skips) else None
             x = decoder_block(x, skip)
 
+            # subsample features if requested (e.g. for domain adaptation)
             if return_features:
                 xup = F.interpolate(x, size=(h//self.fsub,w//self.fsub), mode='nearest') # interpolate/subsample to other size
                 decoder_features.append(xup.view(bs,x.size(1),-1))
@@ -253,67 +257,47 @@ class CustomUNet(smp.Unet):
         self.check_input_shape(x)
         assert not return_features, "return_features is not supported for sparse_forward"
 
-        # initialize output
+        # pad the input tensor to be divisible by the patchsize
         bs,_,h,w = x.shape
-        masks = torch.zeros((bs,self.classes,h,w), device=x.device)
+        pad_h = self.patchsize - h%self.patchsize
+        pad_w = self.patchsize - w%self.patchsize
+        x = F.pad(x, (0,pad_w,0,pad_h), mode='constant', value=0)
+        sparsity_mask = F.pad(sparsity_mask, (0,pad_w,0,pad_h), mode='constant', value=0)
+
+        # initialize output
+        bs,_,hnew,wnew = x.shape
+        out = torch.zeros((bs,self.classes,hnew,wnew), device=x.device)
         
-        overlap = 10  # Size of the overlapping region on each edge
-        effective_patchsize = self.patchsize - 2 * overlap  # Effective size after considering overlap
-    
+        overlap = 16  # Size of the overlapping region on each edge
+        stride = self.patchsize - 2*overlap  # Assuming a stride of 32; you can adjust this as per your requirement 
 
         # divide the input tensor x into a grid and iterate over patches
-        for i in range(0,h,self.patchsize):
-            for j in range(0,w,self.patchsize):
+        for i in range(0, hnew, stride):
+            for j in range(0, wnew, stride):
                 # Compute actual patch boundaries, considering overlap and image edges
                 i1 = max(i - overlap, 0)
-                i2 = min(i + effective_patchsize + overlap, h)
+                i2 = min(i + self.patchsize + overlap, hnew)
                 j1 = max(j - overlap, 0)
-                j2 = min(j + effective_patchsize + overlap, w)
+                j2 = min(j + self.patchsize + overlap, wnew)
 
+                mask_patch = sparsity_mask[:, i1:i2, j1:j2]
+                active_idxs = torch.nonzero(torch.sum(mask_patch, dim=(1, 2)) > 0)
 
-                # get patch of mask in case the patch is completely masked, skip it
-                sparsity_mask_patch = sparsity_mask[:,i:i+self.patchsize,j:j+self.patchsize]
-                if sparsity_mask_patch.sum() == 0:
-                    print("skipping patch, just saved some memory :)")
-                    continue
+                if active_idxs.nelement() > 0:
+                    x_patch = x[active_idxs[:, 0], :, i1:i2, j1:j2]
 
-                # Get patch from input image
-                x_patch = x[:, :, i1:i2, j1:j2]
+                    # Forward pass
+                    out_patch = self.forward(x_patch, return_features=False, encoder_no_grad=encoder_no_grad)[0]
 
+                    # Add the patch to the output tensor
+                    i1_n = i1 + overlap if i1 != 0 else i1
+                    i2_n = i2 - overlap if i2 != h else i2
+                    j1_n = j1 + overlap if j1 != 0 else j1
+                    j2_n = j2 - overlap if j2 != w else j2
 
-                # Check dimensions and pad if necessary
-                pad_h = (4 - (i2 - i1) % 4) % 4
-                pad_w = (4 - (j2 - j1) % 4) % 4
+                    out[active_idxs[:, 0], :, i1_n:i2_n, j1_n:j2_n] = out_patch[:, :, i1_n - i1:i2_n - i1, j1_n - j1:j2_n - j1]
 
-                if pad_h > 0 or pad_w > 0:
-                    x_patch = F.pad(x_patch, (0, pad_w, 0, pad_h))
-
-                # Forward pass
-                patch_output = self.forward(x_patch, return_features=False, encoder_no_grad=encoder_no_grad)[0]
-
-                # If padding was applied, remove it from the output
-                if pad_h > 0 or pad_w > 0:
-                    patch_output = patch_output[:, :, :-pad_h, :-pad_w]
-                    
-                # Create a mask to exclude the overlapping edges
-                mask_exclude_overlap = torch.ones_like(patch_output)
-                if overlap > 0:
-                    mask_exclude_overlap[:, :, :overlap, :] = 0
-                    mask_exclude_overlap[:, :, -overlap:, :] = 0
-                    mask_exclude_overlap[:, :, :, :overlap] = 0
-                    mask_exclude_overlap[:, :, :, -overlap:] = 0
-
-                # get patch of input
-                x_patch = x[:,:,i:i+self.patchsize,j:j+self.patchsize]
-
-                # Update the mask, excluding the edges in the overlapping regions
-                masks[:, :, i1:i2, j1:j2] = masks[:, :, i1:i2, j1:j2] * (1 - mask_exclude_overlap) + patch_output * mask_exclude_overlap
-        
-
-
-        return masks, []
-
-
+        return out[:, :, :h, :w]
 
 
 class CustomGroupedConvolution(nn.Module):

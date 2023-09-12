@@ -103,6 +103,7 @@ def evaluate_meta_maps(map_path, template_path):
     # levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
     # levels = ["finezurich", "finezurich2", "coarse"]
     levels = ["fine", "coarse", "finezurich", "finezurich2"]
+    levels = ["finezurich2", "coarse"]
     # levels = ["coarse"]
 
     for level in levels:
@@ -136,7 +137,8 @@ if __name__=="__main__":
     Evaluates the Worldpop-maps on the test set of Rwanda
     """
     # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/POMELOv1Maps/che/che_predicted_target_img.tiff"
-    map_path = "/scratch/metzgern/HAC/data/PopMapData/raw/SwissBuildings/SwissTLM3D/swisstlm3d_2020-03_2056_5728/2020_SWISSTLM3D_SHP_CHLV95_LN02/TLM_BAUTEN/swissTLM3D_TLM_GEBAEUDE_FOOTPRINT_count_wpop.tif"
+    # map_path = "/scratch/metzgern/HAC/data/PopMapData/raw/SwissBuildings/SwissTLM3D/swisstlm3d_2020-03_2056_5728/2020_SWISSTLM3D_SHP_CHLV95_LN02/TLM_BAUTEN/swissTLM3D_TLM_GEBAEUDE_FOOTPRINT_count_wpop.tif"
+    map_path = "/scratch2/metzgern/HAC/viz/outputs/CHE_coarse_vfold_15.6.23_test_if_working_all_features_dr:0.5_wr:0.0000001/che_predicted_target_img.tiff"
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/che/S2Aautumn/che_S2Aautumn.tif"
 
     evaluate_meta_maps(map_path, template_path)

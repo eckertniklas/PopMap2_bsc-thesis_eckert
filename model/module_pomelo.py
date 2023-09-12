@@ -211,11 +211,29 @@ class POMELO_module(nn.Module):
 
         if sparse:
             # create sparsity mask
-            sub = 60
-            sparsity_mask = (inputs["building_counts"][:,0]>0) * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))
-            xindices = torch.ones(sparsity_mask.shape[1]).multinomial(num_samples=min(sub,sparsity_mask.shape[1]), replacement=False).sort()[0]
-            yindices = torch.ones(sparsity_mask.shape[2]).multinomial(num_samples=min(sub,sparsity_mask.shape[2]), replacement=False).sort()[0]
-            sparsity_mask[:, xindices.unsqueeze(1), yindices] = 1
+            sparse_unet = True
+
+            if sparse_unet:
+                sparsity_mask = (inputs["building_counts"][:,0]>0.0) 
+                sub = 120
+                xindices = torch.ones(sparsity_mask.shape[1]).multinomial(num_samples=min(sub,sparsity_mask.shape[1]), replacement=False).sort()[0]
+                yindices = torch.ones(sparsity_mask.shape[2]).multinomial(num_samples=min(sub,sparsity_mask.shape[2]), replacement=False).sort()[0]
+                sparsity_mask[:, xindices.unsqueeze(1), yindices] = 1
+                
+                # clip mask to the administrative region
+                sparsity_mask *= (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))
+                # sparsity_mask = (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))
+            else:
+                sparsity_mask = (inputs["building_counts"][:,0]>0) * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))
+                sub = 60
+                xindices = torch.ones(sparsity_mask.shape[1]).multinomial(num_samples=min(sub,sparsity_mask.shape[1]), replacement=False).sort()[0]
+                yindices = torch.ones(sparsity_mask.shape[2]).multinomial(num_samples=min(sub,sparsity_mask.shape[2]), replacement=False).sort()[0]
+                sparsity_mask[:, xindices.unsqueeze(1), yindices] = 1
+
+                # clip mask to the administrative region
+                sparsity_mask *= (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))
+            
+            
 
         aux = {}
 
@@ -281,7 +299,6 @@ class POMELO_module(nn.Module):
                     with torch.no_grad():
                         features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
                 else:
-                    sparse_unet = False
                     if sparse_unet:
                         features = self.unetmodel.sparse_forward(X,  return_features=False, encoder_no_grad=encoder_no_grad, sparsity_mask=sparsity_mask)
                     else:

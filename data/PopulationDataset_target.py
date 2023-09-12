@@ -154,8 +154,8 @@ class Population_Dataset_target(Dataset):
         if not os.path.exists(covar_root):
             covar_root = covar_root.replace("scratch2", "scratch3")
         
-        if not os.path.exists(covar_root):
-            raise ValueError("Covariate root does not exist")
+        # if not os.path.exists(covar_root):
+        #     raise ValueError("Covariate root does not exist")
         
         S1spring_file = os.path.join(covar_root,  os.path.join("S1spring", region +"_S1spring.tif"))
         S1summer_file = os.path.join(covar_root,  os.path.join("S1summer", region +"_S1summer.tif"))

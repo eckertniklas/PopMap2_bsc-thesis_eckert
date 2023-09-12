@@ -262,13 +262,13 @@ class Trainer:
                     # limit1, limit2, limit3 =    4000000,  500000, 12000000
 
                     encoder_no_grad, unet_no_grad = False, False 
-                    if num_pix > limit1:
+                    if num_pix > self.args.limit1:
                         encoder_no_grad, unet_no_grad = True, False
                         print("Feezing encoder")
-                        if num_pix > limit2:
+                        if num_pix > self.args.limit2:
                             encoder_no_grad, unet_no_grad = True, True 
                             print("Feezing decoder")
-                            if num_pix > limit3:
+                            if num_pix > self.args.limit3:
                                 print("Input to large for encoder and unet. No forward pass.")
                                 continue
                     

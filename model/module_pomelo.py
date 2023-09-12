@@ -32,7 +32,7 @@ class POMELO_module(nn.Module):
     def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", down=5,
                 occupancymodel=False, pretrained=False, dilation=1, replace7x7=True,
                 parent=None, experiment_folder=None, useposembedding=False, head="v1", grouped=False,
-                lempty_eps=0.0, dropout=0.0):
+                lempty_eps=0.0, dropout=0.0, sparse_unet=False):
         super(POMELO_module, self).__init__()
         """
         Args:
@@ -57,10 +57,10 @@ class POMELO_module(nn.Module):
         self.occupancymodel = occupancymodel
         self.useposembedding = useposembedding
         self.feature_extractor = feature_extractor
-        self.head_name = head
-        head_input_dim = 0
+        self.head_name = head 
         this_input_dim = input_channels
         head_input_dim = head_input_dim
+        self.sparse_unet = sparse_unet
         if lempty_eps>0:
             self.lempty_eps = torch.nn.Parameter(torch.tensor(lempty_eps), requires_grad=True)
         else:
@@ -210,10 +210,9 @@ class POMELO_module(nn.Module):
             inputs["building_counts"][:,0] = inputs["building_counts"][:,0] + self.lempty_eps
 
         if sparse:
-            # create sparsity mask
-            sparse_unet = True
+            # create sparsity mask 
 
-            if sparse_unet:
+            if self.sparse_unet:
                 sparsity_mask = (inputs["building_counts"][:,0]>0.0) 
                 sub = 120
                 xindices = torch.ones(sparsity_mask.shape[1]).multinomial(num_samples=min(sub,sparsity_mask.shape[1]), replacement=False).sort()[0]
@@ -299,7 +298,7 @@ class POMELO_module(nn.Module):
                     with torch.no_grad():
                         features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
                 else:
-                    if sparse_unet:
+                    if self.sparse_unet:
                         features = self.unetmodel.sparse_forward(X,  return_features=False, encoder_no_grad=encoder_no_grad, sparsity_mask=sparsity_mask)
                     else:
                         features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)

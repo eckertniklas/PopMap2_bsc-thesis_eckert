@@ -256,7 +256,7 @@ class Trainer:
 
                     # limit1, limit2, limit3 = 10000000, 12500000, 15000000
                     # limit1, limit2, limit3 = 7000000,  1000000, 15000000
-                    limit1, limit2, limit3 = 14000000,  18000000, 22000000
+                    # limit1, limit2, limit3 = 14000000,  18000000, 22000000
                     # limit1, limit2, limit3 = 22000000,  44000000, 44000000
                     # limit1, limit2, limit3 = 16000000,  2500000, 2500000
                     # limit1, limit2, limit3 =    4000000,  500000, 12000000
@@ -458,8 +458,8 @@ class Trainer:
         with torch.no_grad(): 
             self.target_test_stats = defaultdict(float)
             for testdataloader in self.dataloaders["test_target"]:
-                if testdataloader.dataset.region in ["uga"]:
-                    continue
+                # if testdataloader.dataset.region in ["uga"]:
+                #     continue
 
                 # inputialize the output map
                 h, w = testdataloader.dataset.shape()

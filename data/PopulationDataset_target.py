@@ -885,7 +885,7 @@ def Population_Dataset_collate_fn(batch):
 
         # check if the other tensors are present and fill them if they are
         if "building_segmentation" in item:
-            x_size, y_size = item['building_segmentation'].shape[2], item['building_segmentation'].shape[3]
+            x_size, y_size = item['building_segmentation'].shape[1], item['building_segmentation'].shape[2]
             building_segmentation[i, :, :x_size, :y_size] = item['building_segmentation']
             use_building_segmentation = True
         if "building_counts" in item:

@@ -409,13 +409,14 @@ class Population_Dataset_target(Dataset):
             
         if "S1" in indata:
             if np.any(np.isnan(indata["S1"])):
-                if torch.isnan(torch.tensor(indata["S1"])).sum() / torch.numel(torch.tensor(indata["S1"])) < 0.05 and not self.ascfill:
+                S1tensor = torch.tensor(indata["S1"])
+                if torch.isnan(S1tensor).sum() / torch.numel(S1tensor) < 0.05 and not self.ascfill:
                     indata["S1"] = self.interpolate_nan(indata["S1"])
                 else:
                     # generate another datapatch, but with the ascending orbit
                     indataAsc, _, _ = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0, admin_overlap=ad_over, descending=False)
                     indata["S1"] = indataAsc["S1"]
-                    if torch.isnan(torch.tensor(indata["S1"])).sum() / torch.numel(torch.tensor(indata["S1"])) < 0.05:
+                    if torch.isnan(S1tensor).sum() / torch.numel(S1tensor) < 0.05:
                         indata["S1"] = self.interpolate_nan(indata["S1"])
                     else:
                         print("S1 contains too many NaNs, skipping")
@@ -462,14 +463,15 @@ class Population_Dataset_target(Dataset):
             
         if "S1" in indata:
             if np.any(np.isnan(indata["S1"])):
-                if torch.isnan(torch.tensor(indata["S1"])).sum() / torch.numel(torch.tensor(indata["S1"])) < 0.05 and not self.ascfill:
+                S1tensor = torch.tensor(indata["S1"])
+                if torch.isnan(S1tensor).sum() / torch.numel(S1tensor) < 0.05 and not self.ascfill:
                     indata["S1"] = self.interpolate_nan(indata["S1"])
                 else:
                     # generate another data patch, but with the ascending orbit
                     indataAsc, mask, window = self.generate_raw_data(x,y,season.item(), descending=False)
                     indata["S1"] = indataAsc["S1"]
                     if np.any(np.isnan(indata["S1"])):
-                        if torch.isnan(torch.tensor(indata["S1"])).sum() / torch.numel(torch.tensor(indata["S1"])) < 0.05:
+                        if torch.isnan(S1tensor).sum() / torch.numel(S1tensor) < 0.05:
                             indata["S1"] = self.interpolate_nan(indata["S1"])
                         else:
                             print("S1 contains too many NaNs, skipping")
@@ -647,7 +649,7 @@ class Population_Dataset_target(Dataset):
 
         if gpu_mode: 
             pred = pred.cuda()
-            boundary = boundary.cuda() 
+            boundary = boundary#.cuda() 
 
             # initialize more efficient version
             census_pred_i = -torch.ones(len(census), dtype=torch.float32).cuda()
@@ -662,7 +664,7 @@ class Population_Dataset_target(Dataset):
 
                 # append the predicted census and the true census
                 xmin, xmax, ymin, ymax = tuple(map(int, bbox.strip('()').strip('[]').split(',')))
-                census_pred_i[i] = pred[xmin:xmax, ymin:ymax][boundary[xmin:xmax, ymin:ymax]==cidx].to(torch.float32).sum()
+                census_pred_i[i] = pred[xmin:xmax, ymin:ymax].cuda()[boundary[xmin:xmax, ymin:ymax].cuda()==cidx].to(torch.float32).sum()
                 census_i[i] = census["POP20"][i]
 
         else:
@@ -851,8 +853,8 @@ def Population_Dataset_collate_fn(batch):
 
     # initialize the other tensors
     if 'building_segmentation' in batch[0]:
-        max_x = max([item['building_segmentation'].shape[2] for item in batch])
-        max_y = max([item['building_segmentation'].shape[3] for item in batch])
+        max_x = max([item['building_segmentation'].shape[1] for item in batch])
+        max_y = max([item['building_segmentation'].shape[2] for item in batch])
         building_segmentation = torch.zeros(len(batch), 1, max_x, max_y)
     if 'positional_encoding' in batch[0]:
         max_x = max([item['positional_encoding'].shape[1] for item in batch])

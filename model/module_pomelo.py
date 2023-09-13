@@ -231,9 +231,11 @@ class POMELO_module(nn.Module):
 
                 # clip mask to the administrative region
                 sparsity_mask *= (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))
-            
-            
 
+                if sparsity_mask.sum()==0:
+                    sparsity_mask = (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))
+            
+        
         aux = {}
 
         # forward the parent model without gradient if exists

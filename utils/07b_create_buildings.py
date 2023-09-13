@@ -40,7 +40,7 @@ def main(args):
     input_defs = {'S1': True, 'S2': True, 'VIIRS': False, 'NIR': True}
     dataset = Population_Dataset_target(args.region, patchsize=ips, overlap=overlap, fourseasons=False,
                                         sentinelbuildings=False, ascfill=False, **input_defs)
-    dataloader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=False, drop_last=False)
+    dataloader = DataLoader(dataset, batch_size=1, num_workers=12, shuffle=False, drop_last=False)
 
     # get model
     MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
@@ -82,8 +82,11 @@ def main(args):
         metadata1.update({"count": 1,
                         #  "dtype": "float32",
                         "dtype": "int32",
-                        "compress": "PACKBITS"
+                        "compress": "PACKBITS",
+                        "BIGTIFF": "IF_SAFER"
                         })
+        
+        # metadata1.profile.update(BIGTIFF='IF_SAFER')
     
 
         tmp_output_map_file = os.path.join(region_root, "tmp_output_map.tif")
@@ -118,59 +121,67 @@ def main(args):
         # Copy the initialized file to create the second file
         copyfile(tmp_output_map_file, tmp_output_map_count_file)
 
-        # Initialize temporary raster files
-        with rasterio.open(tmp_output_map_file, 'r+', **metadata1) as tmp_dst, \
-            rasterio.open(tmp_output_map_count_file, 'r+', **metadata1) as tmp_count_dst:
+        # # Initialize temporary raster files
+        with rasterio.open(tmp_output_map_file, 'r+', **metadata1) as tmp_dst:
+            with rasterio.open(tmp_output_map_count_file, 'r+', **metadata1) as tmp_count_dst:
             
-            for i, sample in tqdm(enumerate(dataloader), leave=True, total=len(dataloader)):
+                for i, sample in tqdm(enumerate(dataloader), leave=True, total=len(dataloader)):
+                    
+                    # if i >= 5673:
+                    sample = to_cuda_inplace(sample)
+                    # sample = apply_normalize(sample, self.dataset_stats)
+                    sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=dataset_stats)
 
-                sample = to_cuda_inplace(sample)
-                # sample = apply_normalize(sample, self.dataset_stats)
-                sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=dataset_stats)
+                    # get the format right reverese the first 3 channels of S2
+                    S1 = sample["input"][:, 4:6] 
+                    S2_RGB = torch.flip(sample["input"][:, :3],dims=(1,))
+                    S2_NIR = sample["input"][:, 3:4]
+                    x_fusion = torch.cat([S1, S2_RGB, S2_NIR], dim=1)
 
-                # get the format right reverese the first 3 channels of S2
-                S1 = sample["input"][:, 4:6] 
-                S2_RGB = torch.flip(sample["input"][:, :3],dims=(1,))
-                S2_NIR = sample["input"][:, 3:4]
-                x_fusion = torch.cat([S1, S2_RGB, S2_NIR], dim=1)
+                    # get the coordinates and mask
+                    xl,yl = [val.item() for val in sample["img_coords"]]
+                    mask = sample["mask"][0].bool()
 
-                xl,yl = [val.item() for val in sample["img_coords"]]
-                mask = sample["mask"][0].bool()
+                    # get predictions from model
+                    _, _, fusion_logits, _, _ = net(x_fusion, alpha=0)
 
-                _, _, fusion_logits, _, _ = net(x_fusion, alpha=0)
+                    fusion_logits = fusion_logits.squeeze(0).squeeze(0)
+                    
+                    # Apply sigmoid activation
+                    fusion_logits = torch.sigmoid(fusion_logits)
 
-                fusion_logits = fusion_logits.squeeze(0).squeeze(0)
-                
-                # Apply sigmoid activation
-                fusion_logits = torch.sigmoid(fusion_logits)
-    
-                # Save current predictions to temporary file
-                xl, yl, xu, yu = xl, yl, xl+ips, yl+ips
-                window = Window(yl, xl, yu-yl, xu-xl)
+                    # Save current predictions to temporary file
+                    xl, yl, xu, yu = xl, yl, xl+ips, yl+ips
+                    window = Window(yl, xl, yu-yl, xu-xl)
 
-                # Read existing values, sum new values (accounting for mask), and write back
-                existing_values = tmp_dst.read(1, window=window).astype(np.int32)
-                existing_values[mask.cpu().numpy()] += (fusion_logits[mask].cpu().numpy()*255).astype(np.int32)
-                tmp_dst.write(existing_values, 1, window=window)
-                
-                # test
-                # a = tmp_dst.read(1, window=window).astype(np.int32)
-                
-                # Increment count in the count map
-                output_map_count = tmp_count_dst.read(1, window=window).astype(np.int32)
-                output_map_count[mask.cpu().numpy()] += 1
-                # count_chunk = np.ones(fusion_logits.shape, dtype=np.int8)
-                tmp_count_dst.write(output_map_count, 1, window=window)
+                    assert yu-yl == ips and xu-xl == ips, "window size is not correct"
 
-                # if i==10:
-                #     break
+                    # with rasterio.open(tmp_output_map_file, 'r+', **metadata1) as tmp_dst:
+
+
+                    # Read existing values, sum new values (accounting for mask), and write back
+                    existing_values = tmp_dst.read(1, window=window).astype(np.int32)
+                    existing_values[mask.cpu().numpy()] += (fusion_logits[mask].cpu().numpy()*255).astype(np.int32)
+                    tmp_dst.write(existing_values, 1, window=window)
+                    
+                    # test
+                    # a = tmp_dst.read(1, window=window).astype(np.int32)
+                    # with rasterio.open(tmp_output_map_count_file, 'r+', **metadata1) as tmp_count_dst:
+
+                    # Increment count in the count map
+                    output_map_count = tmp_count_dst.read(1, window=window).astype(np.int32)
+                    output_map_count[mask.cpu().numpy()] += 1
+                    # count_chunk = np.ones(fusion_logits.shape, dtype=np.int8)
+                    tmp_count_dst.write(output_map_count, 1, window=window)
+
+                        # if i==10:
+                        #     break
 
     # average predictions
-    # div_mask = output_map_count > 1
-    # output_map[div_mask] = output_map[div_mask] / output_map_count[div_mask]
+    del sample, fusion_logits, output_map_count, existing_values
 
-    # del output_map_count
-    del sample
+    # flush gpu memory
+    torch.cuda.empty_cache()
 
     # save predictions to file
     region_root = os.path.join(pop_map_root, args.region)
@@ -181,13 +192,14 @@ def main(args):
                      "compress": "PACKBITS"
                      })
 
+    gpu_mode = True
     # Read the temporary maps in chunks, average and write to the final output map
     with rasterio.open(tmp_output_map_file, 'r') as tmp_src, \
         rasterio.open(tmp_output_map_count_file, 'r') as tmp_count_src, \
         rasterio.open(os.path.join(region_root, "buildingsDDA2_44C.tif"), 'w', **metadata) as dst:
 
         for i in tqdm(range(0, h, chunk_size)):
-            for j in tqdm(range(0, w, chunk_size), leave=False):
+            for j in tqdm(range(0, w, chunk_size), leave=False, disable=True):
                 # Adjust the shape of the chunk for edge cases
                 chunk_height = min(chunk_size, h - i)
                 chunk_width = min(chunk_size, w - j)
@@ -199,11 +211,22 @@ def main(args):
                 count_chunk = tmp_count_src.read(1, window=window)
                     
                 # Average the data chunk
-                div_mask_chunk = count_chunk > 1
-                data_chunk[div_mask_chunk] = data_chunk[div_mask_chunk] / count_chunk[div_mask_chunk]
+                if gpu_mode:
+                    count_chunk = torch.tensor(count_chunk, dtype=torch.float32).cuda()
+                    div_mask_chunk = count_chunk > 1
+                    if div_mask_chunk.sum() > 0:
+                        data_chunk = torch.tensor(data_chunk, dtype=torch.float32).cuda()
+                        data_chunk[div_mask_chunk] = data_chunk[div_mask_chunk] / count_chunk[div_mask_chunk]
+                        data_chunk = data_chunk.cpu().numpy()
+
+                        # Write the chunk to the final file
+                        dst.write((data_chunk).astype(np.uint8), 1, window=window)
+                else:
+                    div_mask_chunk = count_chunk > 1
+                    data_chunk[div_mask_chunk] = data_chunk[div_mask_chunk] / count_chunk[div_mask_chunk]
                     
-                # Write the chunk to the final file
-                dst.write((data_chunk).astype(np.uint8), 1, window=window)
+                    # Write the chunk to the final file
+                    dst.write((data_chunk).astype(np.uint8), 1, window=window)
 
                 
     # Optionally delete the temporary files after the operation

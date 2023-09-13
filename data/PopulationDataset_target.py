@@ -416,6 +416,7 @@ class Population_Dataset_target(Dataset):
                     # generate another datapatch, but with the ascending orbit
                     indataAsc, _, _ = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0, admin_overlap=ad_over, descending=False)
                     indata["S1"] = indataAsc["S1"]
+                    S1tensor = torch.tensor(indataAsc["S1"])
                     if torch.isnan(S1tensor).sum() / torch.numel(S1tensor) < 0.05:
                         indata["S1"] = self.interpolate_nan(indata["S1"])
                     else:

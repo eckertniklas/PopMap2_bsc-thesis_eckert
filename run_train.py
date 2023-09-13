@@ -604,7 +604,7 @@ class Trainer:
             "test_target": [ Population_Dataset_target( reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, ascfill=reg in ["uga"], **input_defs) \
                                 for reg in args.target_regions ] }
         dataloaders =  {
-            "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False) \
+            "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=self.args.num_workers, shuffle=False, drop_last=False) \
                                 for datasets["test_target"] in datasets["test_target"] ]  }
         
         # add weakly supervised samples of the target domain to the trainind_dataset
@@ -625,7 +625,7 @@ class Trainer:
                                                                 fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
                                                                 ascfill=True, train_level=lvl, max_pix=self.args.max_weak_pix, ascAug=args.ascAug, **input_defs)  )
             dataloaders["weak_target_dataset"] = ConcatDataset(weak_datasets)
-            dataloaders["train"] = DataLoader(dataloaders["weak_target_dataset"], batch_size=weak_loader_batchsize, num_workers=1, shuffle=True, collate_fn=Population_Dataset_collate_fn, drop_last=True)
+            dataloaders["train"] = DataLoader(dataloaders["weak_target_dataset"], batch_size=weak_loader_batchsize, num_workers=self.args.num_workers, shuffle=True, collate_fn=Population_Dataset_collate_fn, drop_last=True)
             
             weak_datasets_val = []
             if self.args.weak_validation: 
@@ -633,7 +633,7 @@ class Trainer:
                     weak_datasets_val.append(Population_Dataset_target(reg, mode="weaksup", split="val", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
                                                                     fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
                                                                     ascfill=True, train_level=lvl, max_pix=self.args.max_weak_pix, **input_defs) )
-                dataloaders["weak_target_val"] = [ DataLoader(weak_datasets_val[i], batch_size=self.args.weak_val_batch_size, num_workers=1, shuffle=False, collate_fn=Population_Dataset_collate_fn, drop_last=True)
+                dataloaders["weak_target_val"] = [ DataLoader(weak_datasets_val[i], batch_size=self.args.weak_val_batch_size, num_workers=self.args.num_workers, shuffle=False, collate_fn=Population_Dataset_collate_fn, drop_last=True)
                                                   for i in range(len(args.target_regions_train)) ]
 
         return dataloaders

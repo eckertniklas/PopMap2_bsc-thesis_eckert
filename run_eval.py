@@ -101,9 +101,7 @@ class Trainer:
 
         with torch.no_grad(): 
             self.target_test_stats = defaultdict(float)
-            for testdataloader in self.dataloaders["test_target"]:
-                if testdataloader.dataset.region in ["uga"]:
-                    continue
+            for testdataloader in self.dataloaders["test_target"]: 
 
                 # inputialize the output map
                 h, w = testdataloader.dataset.shape()
@@ -111,12 +109,12 @@ class Trainer:
                 output_scale_map = torch.zeros((h, w), dtype=torch.float16)
                 output_map_count = torch.zeros((h, w), dtype=torch.int8)
 
-                if self.args.probabilistic:
-                    output_map_var = torch.zeros((h, w), dtype=torch.float16)
-                if self.boosted and full:
-                    output_map_raw = torch.zeros((h, w), dtype=torch.float16)
-                    if self.args.probabilistic:
-                        output_map_var_raw = torch.zeros((h, w), dtype=torch.float16)
+                # if self.args.probabilistic:
+                #     output_map_var = torch.zeros((h, w), dtype=torch.float16)
+                # if self.boosted and full:
+                #     output_map_raw = torch.zeros((h, w), dtype=torch.float16)
+                #     if self.args.probabilistic:
+                #         output_map_var_raw = torch.zeros((h, w), dtype=torch.float16)
 
                 for sample in tqdm(testdataloader, leave=True):
                     sample = to_cuda_inplace(sample)
@@ -132,12 +130,12 @@ class Trainer:
                     # get the output with a forward pass
                     output = self.model(sample, padding=False)
                     output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu().to(torch.float16)
-                    if self.args.probabilistic:
-                        output_map_var[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popvarmap"][0][mask].cpu().to(torch.float16)
-                    if self.boosted and full:
-                        output_map_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popdensemap"][0][mask].cpu().to(torch.float16)
-                        if self.args.probabilistic:
-                            output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popvarmap"][0][mask].cpu().to(torch.float16) 
+                    # if self.args.probabilistic:
+                    #     output_map_var[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popvarmap"][0][mask].cpu().to(torch.float16)
+                    # if self.boosted and full:
+                    #     output_map_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popdensemap"][0][mask].cpu().to(torch.float16)
+                    #     if self.args.probabilistic:
+                    #         output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popvarmap"][0][mask].cpu().to(torch.float16) 
 
                     if "scale" in output.keys():
                         output_scale_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale"][0][mask].cpu().to(torch.float16)
@@ -148,12 +146,12 @@ class Trainer:
                 # mask out values that are not visited of visited exactly once
                 div_mask = output_map_count > 1
                 output_map[div_mask] = output_map[div_mask] / output_map_count[div_mask]
-                if self.args.probabilistic:
-                    output_map_var[div_mask] = output_map_var[div_mask] / output_map_count[div_mask]
-                if self.boosted:
-                    output_map_raw[div_mask] = output_map_raw[div_mask] / output_map_count[div_mask]
-                    if self.args.probabilistic: 
-                        output_map_var_raw[div_mask] = output_map_var_raw[div_mask] / output_map_count[div_mask]
+                # if self.args.probabilistic:
+                #     output_map_var[div_mask] = output_map_var[div_mask] / output_map_count[div_mask]
+                # if self.boosted:
+                #     output_map_raw[div_mask] = output_map_raw[div_mask] / output_map_count[div_mask]
+                #     if self.args.probabilistic: 
+                #         output_map_var_raw[div_mask] = output_map_var_raw[div_mask] / output_map_count[div_mask]
 
                 if "scale" in output.keys():
                     output_scale_map[div_mask] = output_scale_map[div_mask] / output_map_count[div_mask]
@@ -163,12 +161,12 @@ class Trainer:
                 if save:
                     # save the output map
                     testdataloader.dataset.save(output_map, self.experiment_folder)
-                    if self.args.probabilistic:
-                        testdataloader.dataset.save(output_map_var, self.experiment_folder, tag="VAR_{}".format(testdataloader.dataset.region))
-                    if self.boosted and full:
-                        testdataloader.dataset.save(output_map_raw, self.experiment_folder, tag="RAW_{}".format(testdataloader.dataset.region))
-                        if self.args.probabilistic:
-                            testdataloader.dataset.save(output_map_var_raw, self.experiment_folder, tag="VAR_RAW_{}".format(testdataloader.dataset.region))
+                    # if self.args.probabilistic:
+                    #     testdataloader.dataset.save(output_map_var, self.experiment_folder, tag="VAR_{}".format(testdataloader.dataset.region))
+                    # if self.boosted and full:
+                    #     testdataloader.dataset.save(output_map_raw, self.experiment_folder, tag="RAW_{}".format(testdataloader.dataset.region))
+                    #     if self.args.probabilistic:
+                    #         testdataloader.dataset.save(output_map_var_raw, self.experiment_folder, tag="VAR_RAW_{}".format(testdataloader.dataset.region))
 
                     if "scale" in output.keys():
                         testdataloader.dataset.save(output_scale_map, self.experiment_folder, tag="SCALE_{}".format(testdataloader.dataset.region))
@@ -189,13 +187,13 @@ class Trainer:
                     self.target_test_stats = {**self.target_test_stats,
                                               **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="MainCensusPos_{}_{}".format(testdataloader.dataset.region, level))}
                     
-                    if self.boosted:
-                        census_pred_raw, census_gt_raw = testdataloader.dataset.convert_popmap_to_census(output_map_raw, gpu_mode=gpu_mode, level=level)
-                        self.target_test_stats = {**self.target_test_stats,
-                                                  **get_test_metrics(census_pred_raw, census_gt_raw.float().cuda(), tag="CensusRaw_{}_{}".format(testdataloader.dataset.region, level))}
-                        built_up = census_gt_raw>10
-                        self.target_test_stats = {**self.target_test_stats,
-                                                  **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos_{}_{}".format(testdataloader.dataset.region, level))}
+                    # if self.boosted:
+                    #     census_pred_raw, census_gt_raw = testdataloader.dataset.convert_popmap_to_census(output_map_raw, gpu_mode=gpu_mode, level=level)
+                    #     self.target_test_stats = {**self.target_test_stats,
+                    #                               **get_test_metrics(census_pred_raw, census_gt_raw.float().cuda(), tag="CensusRaw_{}_{}".format(testdataloader.dataset.region, level))}
+                    #     built_up = census_gt_raw>10
+                    #     self.target_test_stats = {**self.target_test_stats,
+                    #                               **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos_{}_{}".format(testdataloader.dataset.region, level))}
 
                     # create scatterplot and upload to wandb
                     # print(self.target_test_stats)
@@ -260,15 +258,16 @@ class Trainer:
                 self.dataset_stats[mkey] = torch.tensor(val)
 
         # create the raw source dataset
+        need_asc = ["uga"]
         datasets = {
-            "test_target": [ Population_Dataset_target(reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings,
+            "test_target": [ Population_Dataset_target(reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, ascfill=reg in need_asc,
                                                        fourseasons=self.args.fourseasons, train_level=lvl, **input_defs)
                                 for reg,lvl in zip(args.target_regions, args.train_level) ]
         }
         
         # create the dataloaders
         dataloaders =  {
-            "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=1, shuffle=False, drop_last=False)
+            "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=8, shuffle=False, drop_last=False)
                                 for datasets["test_target"] in datasets["test_target"] ]
         }
         

@@ -267,8 +267,15 @@ class Population_Dataset_target(Dataset):
             self.gbuildings = False
         else:
             self.sbuildings_segmentation_file = ''
-            self.gbuildings_segmentation_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_segmentation.tif")
-            self.gbuildings_counts_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_counts.tif")
+            if region == "che":
+                # there are no google buildings for Switzerland
+                global pop_gbuildings_path
+                pop_gbuildings_path = pop_gbuildings_path.replace("GoogleBuildings", "SwissBuildings")
+                self.gbuildings_segmentation_file = os.path.join(pop_gbuildings_path, "SwissTLM3D", "swisstlm3d_2020-03_2056_5728", "2020_SWISSTLM3D_SHP_CHLV95_LN02", "TLM_BAUTEN", "swissTLM3D_TLM_GEBAEUDE_FOOTPRINT_segmentation_s2.tif")
+                self.gbuildings_counts_file = os.path.join(pop_gbuildings_path, "SwissTLM3D", "swisstlm3d_2020-03_2056_5728", "2020_SWISSTLM3D_SHP_CHLV95_LN02", "TLM_BAUTEN", "swissTLM3D_TLM_GEBAEUDE_FOOTPRINT_count_s2.tif")
+            else:
+                self.gbuildings_segmentation_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_segmentation.tif")
+                self.gbuildings_counts_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_counts.tif")
             self.gbuildings = True 
 
         self.positional_encoding = True

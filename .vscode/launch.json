@@ -1500,7 +1500,7 @@
                 "--useposembedding",
                 "--weightdecay_pos", "0.0",
                 "--weightdecay_unet", "0.000001", 
-                "--sentinelbuildings", 
+                // "--sentinelbuildings", 
                 "--pretrained",
                 // "--gradientaccumulation",
                 "--train_level", "coarse4",
@@ -1624,17 +1624,20 @@
                 "--occupancymodel",
                 "--buildinginput",
                 "--useposembedding",
-                "--sentinelbuildings",
+                // "--sentinelbuildings",
+                "--empty_eps", "0.01",
                 "-dw","2",
                 "-S2",
                 "-NIR",
                 "-S1",
-                "-f", "8",
+                "-f", "4",
                 "-rse",
                 "-treg", "pricp2", 
                 "--train_level", "fineTRACTCE", 
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1855_904/last_model.pth",
-                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1891_431/last_model.pth"
+                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1891_431/last_model.pth",
+                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_442_454/last_model.pth"
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_462_248/last_model.pth"
             ]
         },
         {
@@ -1652,6 +1655,7 @@
                 "--buildinginput",
                 "--useposembedding",
                 "--sentinelbuildings",
+                "--empty_eps", "0.01",
                 "-dw","2",
                 "-S2",
                 "-NIR",
@@ -1665,6 +1669,36 @@
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1855_904/last_model.pth",
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1891_431/last_model.pth"
                 "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_386_648/last_model.pth"
+            ]
+        },
+        {
+            "name": "eval, UGA",
+            "type": "python",
+            "request": "launch",
+            "program": "run_eval.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--model", "POMELO_module",
+                "--head", "v3",
+                // "--grouped",
+                "--occupancymodel",
+                "--buildinginput",
+                "--useposembedding",
+                "--sentinelbuildings",
+                "-dw","2",
+                "-S2",
+                "-NIR",
+                "-S1",
+                "-f", "4",
+                "-rse",
+                "-treg", "uga", 
+                "--train_level", "coarse",
+                // "--fourseasons",
+                "--empty_eps", "0.01",
+                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1855_904/last_model.pth",
+                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1891_431/last_model.pth"
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_2119_928/last_model.pth"
             ]
         },
         {

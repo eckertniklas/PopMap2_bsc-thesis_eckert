@@ -47,7 +47,6 @@ parser.add_argument('-smo', '--supmode', type=str, help="'unsup', 'weaksup'", de
 parser.add_argument("-nomain", "--nomain", action='store_true', help="no optimization on the So2 dataset")
 parser.add_argument("-no_opt", "--no_opt", action='store_true', help="no optimization")
 
-
 #Training
 parser.add_argument('-e', '--num_epochs', help='', type=int, default=20)
 parser.add_argument('-lr', '--learning_rate', help='', type=float, default=1e-4)

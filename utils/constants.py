@@ -13,7 +13,8 @@ img_cols = 100  # patch width
 
 # inference patch size
 # inference_patch_size = 1024
-inference_patch_size = 2048
+# inference_patch_size = 2048
+inference_patch_size = 4096
 overlap = 128
 
 osm_features = 56  # number of osm based features

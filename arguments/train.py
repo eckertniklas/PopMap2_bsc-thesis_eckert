@@ -108,6 +108,7 @@ parser.add_argument('--save-model', default='both', choices=['last', 'best', 'no
 parser.add_argument('-ms', '--max_samples', help='', type=int, default=1e15)
 parser.add_argument('-mws', '--max_weak_samples', help='', type=int, default=None)
 parser.add_argument('-mwp', '--max_weak_pix', help='', type=int, default=10000000)
+parser.add_argument('-mpb', '--max_pix_box', help='', type=int, default=12000000)
 parser.add_argument('-tlevel', '--train_level', nargs='+', default=["fine"] )
 parser.add_argument("--in_memory", action='store_true', help='')
 parser.add_argument("--merge_aug", type=int, default=2, help='Number of Admin regions to merge, Defaults 1 with equivalent to no augmentations, so better not use this. Must be a power of 2 and a divisor of the batchsize.')

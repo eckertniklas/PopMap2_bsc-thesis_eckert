@@ -39,7 +39,7 @@ class Population_Dataset_target(Dataset):
     """
     def __init__(self, region, S1=False, S2=True, VIIRS=True, NIR=False, patchsize=1024, overlap=32, fourseasons=False, mode="test",
                  max_samples=None, transform=None, sentinelbuildings=True, ascfill=False, ascAug=False, train_level="fine", split="all",
-                 max_pix=5e6) -> None:
+                 max_pix=5e6, max_pix_box=12000000) -> None:
         """
         Input:
             region: the region identifier (e.g. "pri" for puerto rico)
@@ -120,11 +120,11 @@ class Population_Dataset_target(Dataset):
             self.coarse_census = self.coarse_census[self.coarse_census["count"]<max_pix].reset_index(drop=True)
 
             # Print the number of samples exceeding the max pixels of the bounding box (12000000) and kick them out
-            MAX_PIXELS_BOX = 12000000
+            # MAX_PIXELS_BOX = max_pix_box
             self.coarse_census["bbox_count"] = self.coarse_census["bbox"].apply(self.calculate_pixel_count)
-            num_samples_exceeding_max = (self.coarse_census["bbox_count"] >= MAX_PIXELS_BOX).sum()
-            print(f"Kicking out {num_samples_exceeding_max} samples with more than {MAX_PIXELS_BOX} pixels in the bounding box")
-            self.coarse_census = self.coarse_census[self.coarse_census["bbox_count"] < MAX_PIXELS_BOX].reset_index(drop=True)
+            num_samples_exceeding_max = (self.coarse_census["bbox_count"] >= max_pix_box).sum()
+            print(f"Kicking out {num_samples_exceeding_max} samples with more than {max_pix_box} pixels in the bounding box")
+            self.coarse_census = self.coarse_census[self.coarse_census["bbox_count"] < max_pix_box].reset_index(drop=True)
 
             # print the number of samples
             print("Effective number of samples: ", len(self.coarse_census))
@@ -140,7 +140,7 @@ class Population_Dataset_target(Dataset):
             with rasterio.open(self.file_paths[list(self.file_paths.keys())[0]]["boundary"], "r") as src:
                 self.img_shape = src.shape
                 self._meta = src.meta.copy()
-            self._meta.update(count=1, dtype='float32', nodata=None, compress='lzw')
+            self._meta.update(count=1, dtype='float32', nodata=None, compress='lzw', BIGTIFF="IF_SAFER")
 
             # get a list of indices of the possible patches
             self.patch_indices = self.get_patch_indices(patchsize, overlap)
@@ -456,7 +456,7 @@ class Population_Dataset_target(Dataset):
         x,y,season = self.patch_indices[index]
 
         # get the data
-        indata, mask, window = self.generate_raw_data(x,y,season.item())
+        indata, mask, _ = self.generate_raw_data(x,y,season.item())
 
         if "S2" in indata:
             if np.any(np.isnan(indata["S2"])): 
@@ -469,8 +469,9 @@ class Population_Dataset_target(Dataset):
                     indata["S1"] = self.interpolate_nan(indata["S1"])
                 else:
                     # generate another data patch, but with the ascending orbit
-                    indataAsc, mask, window = self.generate_raw_data(x,y,season.item(), descending=False)
+                    indataAsc, mask, _ = self.generate_raw_data(x,y,season.item(), descending=False)
                     indata["S1"] = indataAsc["S1"]
+                    S1tensor = torch.tensor(indataAsc["S1"])
                     if np.any(np.isnan(indata["S1"])):
                         if torch.isnan(S1tensor).sum() / torch.numel(S1tensor) < 0.05:
                             indata["S1"] = self.interpolate_nan(indata["S1"])

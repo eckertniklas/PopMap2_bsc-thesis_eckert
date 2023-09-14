@@ -213,10 +213,22 @@ class POMELO_module(nn.Module):
             # create sparsity mask 
 
             if self.sparse_unet:
-                sparsity_mask = (inputs["building_counts"][:,0]>0.0) 
-                sub = 120
-                xindices = torch.ones(sparsity_mask.shape[1]).multinomial(num_samples=min(sub,sparsity_mask.shape[1]), replacement=False).sort()[0]
-                yindices = torch.ones(sparsity_mask.shape[2]).multinomial(num_samples=min(sub,sparsity_mask.shape[2]), replacement=False).sort()[0]
+                building_sparsity_mask = (inputs["building_counts"][:,0]>0.010001) 
+                sub = 250
+                xindices = torch.ones(building_sparsity_mask.shape[1]).multinomial(num_samples=min(sub,building_sparsity_mask.shape[1]), replacement=False).sort()[0]
+                yindices = torch.ones(building_sparsity_mask.shape[2]).multinomial(num_samples=min(sub,building_sparsity_mask.shape[2]), replacement=False).sort()[0]
+                subsample_mask = torch.zeros_like(building_sparsity_mask)
+                subsample_mask[:, xindices.unsqueeze(1), yindices] = 1
+ 
+                subsample_mask = subsample_mask * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))
+                subsample_mask_empty = subsample_mask * ~building_sparsity_mask
+                mask_empty = (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1)) * ~building_sparsity_mask
+
+                # calculate undersampling ratio
+                ratio = mask_empty.sum((1,2)) / ( subsample_mask_empty.sum((1,2)) + 1e-5)
+                del mask_empty, subsample_mask
+
+                sparsity_mask = building_sparsity_mask.clone()
                 sparsity_mask[:, xindices.unsqueeze(1), yindices] = 1
                 
                 # clip mask to the administrative region
@@ -234,7 +246,6 @@ class POMELO_module(nn.Module):
 
                 if sparsity_mask.sum()==0:
                     sparsity_mask = (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))
-            
         
         aux = {}
 
@@ -267,18 +278,6 @@ class POMELO_module(nn.Module):
                 else:
                     pose = self.embedder(inputs["positional_encoding"])
 
-            # Concatenate the pose embedding to the input data
-            if self.head_name in ["v3", "v4", "v6"]:
-                X = X 
-            else:
-                X = torch.cat([X, pose], dim=1)
-
-        else:
-            if self.head_name in ["v3", "v4","v6"]: 
-                X = X
-            else:
-                X = X
- 
         # Forward the main model
         if self.feature_extractor=="DDA":
             X, (px1,px2,py1,py2) = self.add_padding(X, padding)
@@ -298,7 +297,10 @@ class POMELO_module(nn.Module):
                 X, (px1,px2,py1,py2) = self.add_padding(X, padding)
                 if unet_no_grad:
                     with torch.no_grad():
-                        features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
+                        if self.sparse_unet and sparse:
+                            features = self.unetmodel.sparse_forward(X,  return_features=False, encoder_no_grad=encoder_no_grad, sparsity_mask=sparsity_mask)
+                        else:
+                            features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
                 else:
                     if self.sparse_unet and sparse:
                         features = self.unetmodel.sparse_forward(X,  return_features=False, encoder_no_grad=encoder_no_grad, sparsity_mask=sparsity_mask)
@@ -313,32 +315,32 @@ class POMELO_module(nn.Module):
                 # aux["decoder_features"] = decoder_features
 
             # Forward the head
-            if self.head_name in ["v3", "v4", "v6"]:
+            # if self.head_name in ["v3", "v4", "v6"]:
 
-                # append building counts to the middle features
-                middlefeatures.append(inputs["building_counts"])
+            # append building counts to the middle features
+            middlefeatures.append(inputs["building_counts"])
 
-                if self.occupancymodel:
-                    
-                    # prepare the input to the head
-                    if self.useposembedding: 
-                        middlefeatures.append(pose)
+            if self.occupancymodel:
+                
+                # prepare the input to the head
+                if self.useposembedding: 
+                    middlefeatures.append(pose)
 
-                    headin = torch.cat(middlefeatures, dim=1)
-                    
-                    # perform sparse sampling and memory efficient forward pass
-                    if sparse:
-                        out = self.sparse_forward(headin, sparsity_mask, self.head, out_channels=2)
-                    else:
-                        out = self.head(headin)
-
+                headin = torch.cat(middlefeatures, dim=1)
+                
+                # perform sparse sampling and memory efficient forward pass
+                if sparse:
+                    out = self.sparse_forward(headin, sparsity_mask, self.head, out_channels=2)
                 else:
-                    if self.useposembedding:
-                        middlefeatures.append(pose)
-                    headin = torch.cat(middlefeatures, dim=1)
                     out = self.head(headin)
+
             else:
-                out = self.head(features)
+                if self.useposembedding:
+                    middlefeatures.append(pose)
+                headin = torch.cat(middlefeatures, dim=1)
+                out = self.head(headin)
+            # else:
+            #     out = self.head(features)
 
         # Population map and total count
         if self.occupancymodel:
@@ -363,33 +365,26 @@ class POMELO_module(nn.Module):
             else: 
                 raise ValueError("building_counts not in inputs.keys()")
         else:
-            # popdensemap_raw = nn.functional.relu(out_raw[:,0])
-            # popvarmap_raw = nn.functional.softplus(out_raw[:,1])
             popdensemap = nn.functional.relu(out[:,0])
-            # popvarmap = nn.functional.softplus(out[:,1])
-            # aux["scale"] = popdensemap.clone().cpu().detach()
             aux["scale"] = None
         
 
         # aggregate the population counts
         if "admin_mask" in inputs.keys():
             # make the following line work for both 2D and 3D
-            this_mask = inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1)
-            # popcount_raw = (popdensemap_raw * this_mask).sum((1,2))
-            # if popdensemap.dtype==torch.float16:
-            #     popcount = (popdensemap * this_mask).sum((1,2)).half()
-            # else:
-            #     popcount = (popdensemap * this_mask).sum((1,2))
-
-            popcount = (popdensemap * this_mask).sum((1,2))
+            if self.sparse_unet and sparse:
+                empty_popcount = (popdensemap * subsample_mask_empty).sum((1,2))  * ratio
+                builtup_count = (popdensemap * building_sparsity_mask * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))).sum((1,2))
+                popcount = empty_popcount + builtup_count
+            else:
+                this_mask = inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1)
+                popcount = (popdensemap * this_mask).sum((1,2))
             
+            # popcount_raw = (popdensemap_raw * this_mask).sum((1,2)) 
             # popvar_raw = (popvarmap_raw * this_mask).sum((1,2))
             # popvar = (popvarmap * this_mask).sum((1,2))
         else:
-            # popcount_raw = popdensemap_raw.sum((1,2))
             popcount = popdensemap.sum((1,2))
-            # popvar_raw = popvarmap_raw.sum((1,2))
-            # popvar = popvarmap.sum((1,2))
 
 
         return {"popcount": popcount, "popdensemap": popdensemap,

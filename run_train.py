@@ -173,7 +173,7 @@ class Trainer:
                 # if self.args.supmode=="weaksup" and self.args.weak_validation:
                 #     self.validate_weak()
                 
-                # self.test_target(save=True)
+                self.test_target(save=True)
 
 
                 self.train_epoch(tnr)
@@ -453,13 +453,10 @@ class Trainer:
         # Test on target domain
         self.model.eval()
         self.test_stats = defaultdict(float)
-        # self.model.train()
 
         with torch.no_grad(): 
             self.target_test_stats = defaultdict(float)
             for testdataloader in self.dataloaders["test_target"]:
-                # if testdataloader.dataset.region in ["uga"]:
-                #     continue
 
                 # inputialize the output map
                 h, w = testdataloader.dataset.shape()
@@ -467,12 +464,12 @@ class Trainer:
                 output_scale_map = torch.zeros((h, w), dtype=torch.float16)
                 output_map_count = torch.zeros((h, w), dtype=torch.int8)
 
-                if self.args.probabilistic:
-                    output_map_var = torch.zeros((h, w), dtype=torch.float16)
-                if self.boosted and full:
-                    output_map_raw = torch.zeros((h, w), dtype=torch.float16)
-                    if self.args.probabilistic:
-                        output_map_var_raw = torch.zeros((h, w), dtype=torch.float16)
+                # if self.args.probabilistic:
+                #     output_map_var = torch.zeros((h, w), dtype=torch.float16)
+                # if self.boosted and full:
+                #     output_map_raw = torch.zeros((h, w), dtype=torch.float16)
+                #     if self.args.probabilistic:
+                #         output_map_var_raw = torch.zeros((h, w), dtype=torch.float16)
 
                 for sample in tqdm(testdataloader, leave=False):
                     sample = to_cuda_inplace(sample)
@@ -486,12 +483,12 @@ class Trainer:
                     # get the output with a forward pass
                     output = self.model(sample, padding=False)
                     output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu().to(torch.float16)
-                    if self.args.probabilistic:
-                        output_map_var[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popvarmap"][0][mask].cpu().to(torch.float16)
-                    if self.boosted and full:
-                        output_map_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popdensemap"][0][mask].cpu().to(torch.float16)
-                        if self.args.probabilistic:
-                            output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popvarmap"][0][mask].cpu().to(torch.float16) 
+                    # if self.args.probabilistic:
+                    #     output_map_var[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popvarmap"][0][mask].cpu().to(torch.float16)
+                    # if self.boosted and full:
+                    #     output_map_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popdensemap"][0][mask].cpu().to(torch.float16)
+                    #     if self.args.probabilistic:
+                    #         output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popvarmap"][0][mask].cpu().to(torch.float16) 
 
                     if "scale" in output.keys():
                         output_scale_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale"][0][mask].cpu().to(torch.float16)
@@ -499,16 +496,15 @@ class Trainer:
                     output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
 
                 # average over the number of times each pixel was visited
-
                 # mask out values that are not visited of visited exactly once
                 div_mask = output_map_count > 1
                 output_map[div_mask] = output_map[div_mask] / output_map_count[div_mask]
-                if self.args.probabilistic:
-                    output_map_var[div_mask] = output_map_var[div_mask] / output_map_count[div_mask]
-                if self.boosted:
-                    output_map_raw[div_mask] = output_map_raw[div_mask] / output_map_count[div_mask]
-                    if self.args.probabilistic: 
-                        output_map_var_raw[div_mask] = output_map_var_raw[div_mask] / output_map_count[div_mask]
+                # if self.args.probabilistic:
+                #     output_map_var[div_mask] = output_map_var[div_mask] / output_map_count[div_mask]
+                # if self.boosted:
+                #     output_map_raw[div_mask] = output_map_raw[div_mask] / output_map_count[div_mask]
+                #     if self.args.probabilistic: 
+                #         output_map_var_raw[div_mask] = output_map_var_raw[div_mask] / output_map_count[div_mask]
 
                 if "scale" in output.keys():
                     output_scale_map[div_mask] = output_scale_map[div_mask] / output_map_count[div_mask]
@@ -517,12 +513,12 @@ class Trainer:
                 if save:
                     # save the output map
                     testdataloader.dataset.save(output_map, self.experiment_folder)
-                    if self.args.probabilistic:
-                        testdataloader.dataset.save(output_map_var, self.experiment_folder, tag="VAR_{}".format(testdataloader.dataset.region))
-                    if self.boosted and full:
-                        testdataloader.dataset.save(output_map_raw, self.experiment_folder, tag="RAW_{}".format(testdataloader.dataset.region))
-                        if self.args.probabilistic:
-                            testdataloader.dataset.save(output_map_var_raw, self.experiment_folder, tag="VAR_RAW_{}".format(testdataloader.dataset.region))
+                    # if self.args.probabilistic:
+                    #     testdataloader.dataset.save(output_map_var, self.experiment_folder, tag="VAR_{}".format(testdataloader.dataset.region))
+                    # if self.boosted and full:
+                    #     testdataloader.dataset.save(output_map_raw, self.experiment_folder, tag="RAW_{}".format(testdataloader.dataset.region))
+                    #     if self.args.probabilistic:
+                    #         testdataloader.dataset.save(output_map_var_raw, self.experiment_folder, tag="VAR_RAW_{}".format(testdataloader.dataset.region))
 
                     if "scale" in output.keys():
                         testdataloader.dataset.save(output_scale_map, self.experiment_folder, tag="SCALE_{}".format(testdataloader.dataset.region))
@@ -536,13 +532,13 @@ class Trainer:
                     self.target_test_stats = {**self.target_test_stats,
                                               **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="MainCensusPos_{}_{}".format(testdataloader.dataset.region, level))}
                     
-                    if self.boosted:
-                        census_pred_raw, census_gt_raw = testdataloader.dataset.convert_popmap_to_census(output_map_raw, gpu_mode=True, level=level)
-                        self.target_test_stats = {**self.target_test_stats,
-                                                  **get_test_metrics(census_pred_raw, census_gt_raw.float().cuda(), tag="CensusRaw_{}_{}".format(testdataloader.dataset.region, level))}
-                        built_up = census_gt_raw>10
-                        self.target_test_stats = {**self.target_test_stats,
-                                                  **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos_{}_{}".format(testdataloader.dataset.region, level))}
+                    # if self.boosted:
+                    #     census_pred_raw, census_gt_raw = testdataloader.dataset.convert_popmap_to_census(output_map_raw, gpu_mode=True, level=level)
+                    #     self.target_test_stats = {**self.target_test_stats,
+                    #                               **get_test_metrics(census_pred_raw, census_gt_raw.float().cuda(), tag="CensusRaw_{}_{}".format(testdataloader.dataset.region, level))}
+                    #     built_up = census_gt_raw>10
+                    #     self.target_test_stats = {**self.target_test_stats,
+                    #                               **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos_{}_{}".format(testdataloader.dataset.region, level))}
 
                     # create scatterplot and upload to wandb
                     scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist(), log_scale=True)
@@ -550,6 +546,8 @@ class Trainer:
                         self.target_test_stats["Scatter/Scatter_{}_{}".format(testdataloader.dataset.region, level)] = wandb.Image(scatterplot)
 
             wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}, **self.info}, self.info["iter"])
+
+            del output_map, output_map_count, output_scale_map
         
 
     @staticmethod
@@ -600,8 +598,9 @@ class Trainer:
 
         # get the target regions for testing
         # ascfill = True if reg in ["uga"] else False
+        need_asc = ["uga"]
         datasets = {
-            "test_target": [ Population_Dataset_target( reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, ascfill=reg in ["uga"], **input_defs) \
+            "test_target": [ Population_Dataset_target( reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, ascfill=reg in need_asc, **input_defs) \
                                 for reg in args.target_regions ] }
         dataloaders =  {
             "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=self.args.num_workers, shuffle=False, drop_last=False) \
@@ -623,7 +622,7 @@ class Trainer:
                 splitmode = 'train' if self.args.weak_validation else 'all'
                 weak_datasets.append( Population_Dataset_target(reg, mode="weaksup", split=splitmode, patchsize=None, overlap=None, max_samples=args.max_weak_samples,
                                                                 fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
-                                                                ascfill=True, train_level=lvl, max_pix=self.args.max_weak_pix, ascAug=args.ascAug, **input_defs)  )
+                                                                ascfill=reg in need_asc, train_level=lvl, max_pix=self.args.max_weak_pix, max_pix_box=self.args.max_pix_box, ascAug=args.ascAug, **input_defs)  )
             dataloaders["weak_target_dataset"] = ConcatDataset(weak_datasets)
             dataloaders["train"] = DataLoader(dataloaders["weak_target_dataset"], batch_size=weak_loader_batchsize, num_workers=self.args.num_workers, shuffle=True, collate_fn=Population_Dataset_collate_fn, drop_last=True)
             
@@ -632,7 +631,7 @@ class Trainer:
                 for reg, lvl in zip(args.target_regions_train, args.train_level):
                     weak_datasets_val.append(Population_Dataset_target(reg, mode="weaksup", split="val", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
                                                                     fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
-                                                                    ascfill=True, train_level=lvl, max_pix=self.args.max_weak_pix, **input_defs) )
+                                                                    ascfill=reg in need_asc, train_level=lvl, max_pix=self.args.max_weak_pix, max_pix_box=self.args.max_pix_box, **input_defs) )
                 dataloaders["weak_target_val"] = [ DataLoader(weak_datasets_val[i], batch_size=self.args.weak_val_batch_size, num_workers=self.args.num_workers, shuffle=False, collate_fn=Population_Dataset_collate_fn, drop_last=True)
                                                   for i in range(len(args.target_regions_train)) ]
 

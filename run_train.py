@@ -169,22 +169,13 @@ class Trainer:
 
         with tqdm(range(self.info["epoch"], self.args.num_epochs), leave=True) as tnr:
             tnr.set_postfix(training_loss=np.nan, validation_loss=np.nan, best_validation_loss=np.nan)
-            for _ in tnr:
-                # if self.args.supmode=="weaksup" and self.args.weak_validation:
-                #     self.validate_weak()
-                
+            for _ in tnr:               
                 # self.test_target(save=True)
-
 
                 self.train_epoch(tnr)
                 torch.cuda.empty_cache()
 
-                # in domain validation
-                # if (self.info["epoch"] + 1) % self.args.val_every_n_epochs == 0:
-                #     self.validate()
-                #     torch.cuda.empty_cache()
-
-                    # TODO weak validation
+                # weak validation
                 if (self.info["epoch"] + 1) % self.args.val_every_n_epochs == 0:
                     if self.args.supmode=="weaksup" and self.args.weak_validation:
                         self.validate_weak()
@@ -192,10 +183,6 @@ class Trainer:
 
                     # self.validate()
                     # torch.cuda.empty_cache()
-
-                    # if self.args.supmode=="weaksup":
-                    #     self.validate_weak()
-                    #     torch.cuda.empty_cache()
                 
                 if (self.info["epoch"] + 1) % (self.args.val_every_n_epochs) == 0:
                     self.test_target(save=True)

@@ -223,7 +223,7 @@ class Trainer:
                     test_stats_adj = {**test_stats_adj,
                                       **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="AdjCensusPos_{}_{}".format(testdataloader.dataset.region, level))}
                     
-                    print(test_stats_adj)
+                    # print(test_stats_adj)
                     self.target_test_stats = {**self.target_test_stats,
                                               **test_stats_adj}
 

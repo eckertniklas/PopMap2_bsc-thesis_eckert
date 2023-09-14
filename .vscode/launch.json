@@ -1592,21 +1592,22 @@
             "args": [
                 "--model", "POMELO_module",
                 "--head", "v3",
-                // "--grouped",
                 "--occupancymodel",
                 "--buildinginput",
                 "--useposembedding",
-                "--sentinelbuildings",
+                // "--sentinelbuildings",
+                "--empty_eps", "0.01",
                 "-dw","2",
                 "-S2",
                 "-NIR",
                 "-S1",
-                "-f", "8",
+                "-f", "4",
                 "-rse",
-                "-treg", "rwa", "rwa2022",
-                "--train_level", "coarse", "coarse",
+                "-treg", "rwa",
+                "--train_level", "coarse",
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1855_904/last_model.pth",
-                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_314_728/last_model.pth"
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_314_728/last_model.pth",
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_459_540/last_model.pth"
             ]
         },
         {

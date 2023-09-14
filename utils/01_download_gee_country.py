@@ -59,7 +59,7 @@ BUFFER = 60
 
 Sentinel1_start_date = '2020-07-03'
 Sentinel1_finish_date = '2020-08-30'
-orbit = 'DESCENDING' # Default
+# orbit = 'DESCENDING' # Default
 # orbit = 'Ascending' # for pri?
 
 def start(task):

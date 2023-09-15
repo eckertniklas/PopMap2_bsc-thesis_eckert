@@ -858,7 +858,7 @@
                 "--supmode", "weaksup",
                 "--lam_weak", "100", 
                 "--nomain", 
-                "--val_every_n_epochs", "1", 
+                "--val_every_n_epochs", "200", 
                 // "--weak_batch_size", "4",
                 "--weak_batch_size", "1",
                 // "--weak_merge_aug",

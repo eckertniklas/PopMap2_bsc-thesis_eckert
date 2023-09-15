@@ -96,8 +96,6 @@ def main(args):
         # Decide on a suitable chunk size (can be adjusted for your needs)
 
 
-
-
         chunk_size = 4096  # or any other reasonable value
 
         # Initialize temporary raster files and write zeros to them in chunks
@@ -220,7 +218,7 @@ def main(args):
                     if div_mask_chunk.sum() > 0:
                         data_chunk = tmp_src.read(1, window=window)
 
-                        if div_mask_chunk.max()>1:
+                        if count_chunk.max()>1:
                             # to gpu
                             data_chunk = torch.tensor(data_chunk, dtype=torch.float32).cuda()
 
@@ -239,8 +237,7 @@ def main(args):
                     if div_mask_chunk.sum() > 0:
                         data_chunk = tmp_src.read(1, window=window)
 
-                        if div_mask_chunk.max()>1:
-
+                        if count_chunk.max()>1: 
                             data_chunk[div_mask_chunk] = data_chunk[div_mask_chunk] / count_chunk[div_mask_chunk]
                         else:
                             pass

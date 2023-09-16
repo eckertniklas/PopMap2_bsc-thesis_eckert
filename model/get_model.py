@@ -74,4 +74,5 @@ def get_model_kwargs(args, model_name):
         kwargs['lempty_eps'] = args.lempty_eps
         kwargs['dropout'] = args.dropout
         kwargs['sparse_unet'] = args.sparse_unet
+        kwargs['buildinginput']  = args.buildinginput
     return kwargs

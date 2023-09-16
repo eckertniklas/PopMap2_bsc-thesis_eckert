@@ -32,7 +32,7 @@ class POMELO_module(nn.Module):
     def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", down=5,
                 occupancymodel=False, pretrained=False, dilation=1, replace7x7=True,
                 parent=None, experiment_folder=None, useposembedding=False, head="v1", grouped=False,
-                lempty_eps=0.0, dropout=0.0, sparse_unet=False):
+                lempty_eps=0.0, dropout=0.0, sparse_unet=False, buildinginput=True):
         super(POMELO_module, self).__init__()
         """
         Args:
@@ -56,6 +56,7 @@ class POMELO_module(nn.Module):
         self.down = down
         self.occupancymodel = occupancymodel
         self.useposembedding = useposembedding
+        self.buildinginput = buildinginput
         self.feature_extractor = feature_extractor
         self.head_name = head 
         this_input_dim = input_channels
@@ -127,9 +128,12 @@ class POMELO_module(nn.Module):
                 self.embedding_dim = feature_dim
                 head_input_dim += feature_dim
 
+        if buildinginput:
+            head_input_dim += 1
+
         if head=="v3":
             h = 64
-            head_input_dim += feature_dim + 1
+            head_input_dim += feature_dim
             head_input_dim -= feature_dim if this_input_dim==0 else 0
             self.head = nn.Sequential(
                 nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
@@ -140,7 +144,7 @@ class POMELO_module(nn.Module):
         
         elif head=="v4":
             h = 64
-            head_input_dim += feature_dim + 1
+            head_input_dim += feature_dim
             head_input_dim -= feature_dim if this_input_dim==0 else 0
             self.head = nn.Sequential(
                 nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
@@ -150,7 +154,7 @@ class POMELO_module(nn.Module):
 
         elif head=="v6":
             h = 128
-            head_input_dim += feature_dim + 1
+            head_input_dim += feature_dim
             head_input_dim -= feature_dim if this_input_dim==0 else 0
             self.head = nn.Sequential(
                 nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
@@ -251,6 +255,12 @@ class POMELO_module(nn.Module):
 
         # forward the parent model without gradient if exists
         middlefeatures = []
+
+        if self.buildinginput:
+            # append building counts to the middle features
+            # TODO: make option to create the building maps from the checkpoint, but not at training time....
+            middlefeatures.append(inputs["building_counts"])
+
         if self.parent is not None:
             # Forward the parent model
             with torch.no_grad():
@@ -318,27 +328,27 @@ class POMELO_module(nn.Module):
             # if self.head_name in ["v3", "v4", "v6"]:
 
             # append building counts to the middle features
-            middlefeatures.append(inputs["building_counts"])
+            # middlefeatures.append(inputs["building_counts"])
 
-            if self.occupancymodel:
-                
-                # prepare the input to the head
-                if self.useposembedding: 
-                    middlefeatures.append(pose)
+        if self.occupancymodel:
+            
+            # prepare the input to the head
+            if self.useposembedding: 
+                middlefeatures.append(pose)
 
-                headin = torch.cat(middlefeatures, dim=1)
-                
-                # perform sparse sampling and memory efficient forward pass
-                if sparse:
-                    out = self.sparse_forward(headin, sparsity_mask, self.head, out_channels=2)
-                else:
-                    out = self.head(headin)
-
+            headin = torch.cat(middlefeatures, dim=1)
+            
+            # perform sparse sampling and memory efficient forward pass
+            if sparse:
+                out = self.sparse_forward(headin, sparsity_mask, self.head, out_channels=2)
             else:
-                if self.useposembedding:
-                    middlefeatures.append(pose)
-                headin = torch.cat(middlefeatures, dim=1)
                 out = self.head(headin)
+
+        else:
+            if self.useposembedding:
+                middlefeatures.append(pose)
+            headin = torch.cat(middlefeatures, dim=1)
+            out = self.head(headin)
             # else:
             #     out = self.head(features)
 
@@ -346,7 +356,6 @@ class POMELO_module(nn.Module):
         if self.occupancymodel:
 
             # activation function
-            # popvarmap = nn.functional.softplus(out[:,1])
             scale = nn.functional.relu(out[:,0])
 
             # for raw
@@ -354,7 +363,13 @@ class POMELO_module(nn.Module):
                 
                 # save the scale
                 if sparse:
-                    aux["scale"] = scale[sparsity_mask]
+                    # aux["scale"] = scale[sparsity_mask]
+                    if sparse and self.sparse_unet: 
+                        aux["scale"] = torch.cat( [scale[subsample_mask_empty] * ratio,
+                                                   scale[building_sparsity_mask] ]  , dim=0)
+                    else:
+                        aux["scale"] = scale[sparsity_mask]
+
                     aux["empty_scale"] = (scale * (1-inputs["building_counts"][:,0]))[sparsity_mask]
                 else:
                     aux["scale"] = scale
@@ -368,7 +383,6 @@ class POMELO_module(nn.Module):
             popdensemap = nn.functional.relu(out[:,0])
             aux["scale"] = None
         
-
         # aggregate the population counts
         if "admin_mask" in inputs.keys():
             # make the following line work for both 2D and 3D
@@ -385,7 +399,6 @@ class POMELO_module(nn.Module):
             # popvar = (popvarmap * this_mask).sum((1,2))
         else:
             popcount = popdensemap.sum((1,2))
-
 
         return {"popcount": popcount, "popdensemap": popdensemap,
                 # "popvar": popvar ,"popvarmap": popvarmap, 

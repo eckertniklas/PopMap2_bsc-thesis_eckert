@@ -95,7 +95,6 @@ class Trainer:
         args.num_effective_param = self.model.num_params
         print("Model", args.model, "; #Effective Params:", args.num_effective_param)
 
-
         # wandb config
         wandb.init(project=args.wandb_project, dir=self.experiment_folder)
         wandb.config.update(self.args)
@@ -106,7 +105,6 @@ class Trainer:
 
         # set up optimizer and scheduler
         if args.optimizer == "Adam":
-            
             
             head_name = ['head.6.weight','head.6.bias']
 
@@ -140,7 +138,6 @@ class Trainer:
             self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
             # self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weightdecay)
 
-        
         if args.half:
             # self.model = self.model.float()
             self.scaler = GradScaler()

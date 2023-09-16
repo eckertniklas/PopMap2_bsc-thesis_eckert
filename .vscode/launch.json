@@ -737,12 +737,12 @@
                 "--supmode", "weaksup",
                 "--lam_weak", "100", 
                 "--nomain", 
-                "--val_every_n_epochs", "2", 
+                "--val_every_n_epochs", "1", 
                 // "--weak_batch_size", "4",
                 "--weak_batch_size", "4",
                 // "--weak_merge_aug",
-                "--occupancymodel",
-                "--buildinginput",
+                // "--occupancymodel",
+                // "--buildinginput",
                 "--useposembedding",
                 "--weightdecay_pos", "0.0",
                 "--weightdecay", "0.0",
@@ -867,7 +867,7 @@
                 "--useposembedding",
                 "--weightdecay_pos", "0.0",
                 "--weightdecay", "0.0",
-                "--weightdecay_unet", "0.00002",
+                "--weightdecay_unet", "0.0004",
                 "--sentinelbuildings",
                 "--train_level", "coarse",
                 "--pretrained",
@@ -1624,7 +1624,7 @@
                 "--occupancymodel",
                 "--buildinginput",
                 "--useposembedding",
-                // "--sentinelbuildings",
+                "--sentinelbuildings",
                 "--empty_eps", "0.01",
                 "-dw","2",
                 "-S2",
@@ -1637,7 +1637,8 @@
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1855_904/last_model.pth",
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1891_431/last_model.pth",
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_442_454/last_model.pth"
-                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_462_248/last_model.pth"
+                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_462_248/last_model.pth",
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_464_4/last_model.pth",
             ]
         },
         {

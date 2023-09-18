@@ -165,7 +165,7 @@ class CustomUNet(smp.Unet):
 
 
     def modify_dilation(self, net: nn.Module, dilation=2):
-        for name, module in net.named_modules():
+        for _, module in net.named_modules():
             if isinstance(module, nn.Conv2d):
                 module.dilation = (dilation, dilation)
                 kernel_size = module.kernel_size[0] if isinstance(module.kernel_size, tuple) else module.kernel_size

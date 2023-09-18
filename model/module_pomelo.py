@@ -269,35 +269,6 @@ class POMELO_module(nn.Module):
             # Concatenate the parent features with middle features of the current model
             middlefeatures.append(output_dict["scale"].unsqueeze(1))
             
-        # Embed the pose information
-        if self.useposembedding:
-        
-            # optimized for occupancy model
-            if self.occupancymodel:
-                if sparse: 
-
-                    # downsample the feature map
-                    lazy_pos = True
-                    if lazy_pos:
-                        pose = F.interpolate(inputs["positional_encoding"], size=(20, 20), mode='bilinear', align_corners=False)
-                        pose = self.embedder(pose)
-                        pose = F.interpolate(pose, size=(inputs["positional_encoding"].shape[2], inputs["positional_encoding"].shape[3]), mode='bilinear', align_corners=False)
-                    else:
-                        pose = self.sparse_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
-
-                else:
-                    pose = self.embedder(inputs["positional_encoding"])
-            else:
-                if sparse:
-                    lazy_pos = True
-                    if lazy_pos:
-                        pose = F.interpolate(inputs["positional_encoding"], size=(20, 20), mode='bilinear', align_corners=False)
-                        pose = self.embedder(pose)
-                        pose = F.interpolate(pose, size=(inputs["positional_encoding"].shape[2], inputs["positional_encoding"].shape[3]), mode='bilinear', align_corners=False)
-                    else:
-                        pose = self.sparse_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
-                else:
-                    pose = self.embedder(inputs["positional_encoding"])
 
         # Forward the main model
         if self.feature_extractor=="DDA":
@@ -341,30 +312,48 @@ class POMELO_module(nn.Module):
             # append building counts to the middle features
             # middlefeatures.append(inputs["building_counts"])
 
-        if self.occupancymodel:
-            
-            # prepare the input to the head
-            if self.useposembedding: 
-                middlefeatures.append(pose)
+        # Embed the pose information
+        if self.useposembedding:
+        
+            # optimized for occupancy model
+            if self.occupancymodel:
+                if sparse: 
 
-            headin = torch.cat(middlefeatures, dim=1)
-            
-            # perform sparse sampling and memory efficient forward pass
-            if sparse:
-                out = self.sparse_forward(headin, sparsity_mask, self.head, out_channels=2)
+                    # downsample the feature map
+                    lazy_pos = True
+                    if lazy_pos:
+                        pose = F.interpolate(inputs["positional_encoding"], size=(20, 20), mode='bilinear', align_corners=False)
+                        pose = self.embedder(pose)
+                        pose = F.interpolate(pose, size=(inputs["positional_encoding"].shape[2], inputs["positional_encoding"].shape[3]), mode='bilinear', align_corners=False)
+                    else:
+                        pose = self.sparse_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
+
+                else:
+                    pose = self.embedder(inputs["positional_encoding"])
             else:
-                out = self.head(headin)
+                if sparse:
+                    lazy_pos = True
+                    if lazy_pos:
+                        pose = F.interpolate(inputs["positional_encoding"], size=(20, 20), mode='bilinear', align_corners=False)
+                        pose = self.embedder(pose)
+                        pose = F.interpolate(pose, size=(inputs["positional_encoding"].shape[2], inputs["positional_encoding"].shape[3]), mode='bilinear', align_corners=False)
+                    else:
+                        pose = self.sparse_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
+                else:
+                    pose = self.embedder(inputs["positional_encoding"])
+                    
+        # prepare the input to the head
+        if self.useposembedding:
+            middlefeatures.append(pose)
 
+        headin = torch.cat(middlefeatures, dim=1)
+
+        # forward the head
+        if sparse:
+            out = self.sparse_forward(headin, sparsity_mask, self.head, out_channels=2)
         else:
-            if self.useposembedding:
-                middlefeatures.append(pose)
-            headin = torch.cat(middlefeatures, dim=1)
-            if sparse:
-                out = self.sparse_forward(headin, sparsity_mask, self.head, out_channels=2)
-            else:
-                out = self.head(headin)
-            # else:
-            #     out = self.head(features)
+            out = self.head(headin)
+
 
         # Population map and total count
         if self.occupancymodel:
@@ -376,14 +365,12 @@ class POMELO_module(nn.Module):
             if "building_counts" in inputs.keys(): 
                 
                 # save the scale
-                if sparse:
-                    # aux["scale"] = scale[sparsity_mask]
-                    if sparse and self.sparse_unet: 
-                        aux["scale"] = torch.cat( [(scale* ratio.view(ratio.shape[0],1,1))[subsample_mask_empty] , scale[building_sparsity_mask] ]  , dim=0)
-                        # aux["scale"] = torch.cat( [scale[subsample_mask_empty] * ratio, scale[building_sparsity_mask] ]  , dim=0)
-                    else:
-                        aux["scale"] = scale[sparsity_mask]
-
+                if sparse and self.sparse_unet:
+                    aux["scale"] = torch.cat( [(scale* ratio.view(ratio.shape[0],1,1))[subsample_mask_empty] ,
+                                                   scale[building_sparsity_mask] ]  , dim=0)
+                        
+                elif sparse:
+                    aux["scale"] = scale[sparsity_mask]
                     aux["empty_scale"] = (scale * (1-inputs["building_counts"][:,0]))[sparsity_mask]
                 else:
                     aux["scale"] = scale
@@ -392,13 +379,13 @@ class POMELO_module(nn.Module):
                 # Get the population density map
                 popdensemap = scale * inputs["building_counts"][:,0]
             else: 
-                raise ValueError("building_counts not in inputs.keys()")
+                raise ValueError("building_counts not in inputs.keys(), but occupancy model is True")
         else:
             popdensemap = nn.functional.relu(out[:,0])
             aux["scale"] = None
-            aux["empty_scale"] = torch.tensor([1.0], device=popdensemap.device)
+            aux["empty_scale"] = None
         
-        # aggregate the population counts
+        # aggregate the population counts over the administrative region
         if "admin_mask" in inputs.keys():
             # make the following line work for both 2D and 3D
             if self.sparse_unet and sparse:

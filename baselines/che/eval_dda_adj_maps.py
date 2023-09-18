@@ -100,7 +100,8 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
     
     # define GT dataset
     disaggregation_level = "coarse4"
-    disaggregation_level = "coarse4synt400"
+    # disaggregation_level = "coarse4synt400"
+    # disaggregation_level = "coarse4synt1150"
     print("Disaggregation level: ", disaggregation_level)
     dataset = Population_Dataset_target("che", train_level=disaggregation_level)
 

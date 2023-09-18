@@ -70,7 +70,7 @@ parser.add_argument("-cor", "--CORAL", action='store_true', help="")
 parser.add_argument("-lc", "--lam_coral", help='', type=float, default=1.0)
 parser.add_argument("-mmd", "--MMD", action='store_true', help="")
 parser.add_argument("-lmmd", "--lam_mmd", help='', type=float, default=1.0)
-parser.add_argument("-lim1", "--limit1", type=int, default=14000000, help="")
+parser.add_argument("-lim1", "--limit1", type=int, default=15000000, help="")
 parser.add_argument("-lim2", "--limit2", type=int, default=18000000, help="")
 parser.add_argument("-lim3", "--limit3", type=int, default=22000000, help="")
 

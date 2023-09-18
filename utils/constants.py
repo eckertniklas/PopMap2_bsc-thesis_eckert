@@ -193,6 +193,10 @@ datalocations = {
             'boundary': "boundaries_coarse4synt400.tif",
             'census': "census_coarse4synt400.csv",
         },
+        'coarse4synt1150': {
+            'boundary': "boundaries_coarse4synt1150.tif",
+            'census': "census_coarse4synt1150.csv",
+        },
         'coarse3': {
             'boundary': "boundaries_coarse3.tif",
             'census': "census_coarse3.csv",

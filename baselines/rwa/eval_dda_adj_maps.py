@@ -148,8 +148,10 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
         test_metrics_meta_adj = get_test_metrics(census_pred_adj, census_gt.float().cuda() )
         print(test_metrics_meta_adj)
 
-        scatterplot_adj = scatter_plot3(census_pred_adj.tolist(), census_gt.tolist())
-        scatterplot_adj.save(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
+        scatter = True
+        if scatter:
+            scatterplot_adj = scatter_plot3(census_pred_adj.tolist(), census_gt.tolist())
+            scatterplot_adj.save(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
 
         print("---------------------------------")
 

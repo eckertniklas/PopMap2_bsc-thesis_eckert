@@ -1495,7 +1495,7 @@
                 "--weightdecay_unet", "0.00001", 
                 "--sentinelbuildings", 
                 "--pretrained", 
-                "--train_level", "coarse4synt400",
+                "--train_level", "coarse4synt",
                 "--limit1", "19000000",
                 "--limit2", "25000000",
                 "--limit3", "35000000",
@@ -1697,6 +1697,36 @@
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1855_904/last_model.pth",
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1891_431/last_model.pth"
                 "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_2119_928/last_model.pth"
+            ]
+        },
+        {
+            "name": "eval, AFG",
+            "type": "python",
+            "request": "launch",
+            "program": "run_eval.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--model", "POMELO_module",
+                "--head", "v3",
+                // "--grouped",
+                "--occupancymodel",
+                "--buildinginput",
+                "--useposembedding",
+                "--sentinelbuildings",
+                "-dw","2",
+                "-S2",
+                "-NIR",
+                "-S1",
+                "-f", "4",
+                "-rse",
+                "-treg", "afg", 
+                "--train_level", "coarse",
+                // "--fourseasons",
+                "--empty_eps", "0.01",
+                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1855_904/last_model.pth",
+                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1891_431/last_model.pth"
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_2139_452/last_model.pth"
             ]
         },
         {

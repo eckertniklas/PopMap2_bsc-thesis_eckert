@@ -99,8 +99,10 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
 
     
     # define GT dataset
-    # dataset = Population_Dataset_target("che", train_level="coarse4")
-    dataset = Population_Dataset_target("che", train_level="coarse4synt200")
+    disaggregation_level = "coarse4"
+    disaggregation_level = "coarse4synt400"
+    print("Disaggregation level: ", disaggregation_level)
+    dataset = Population_Dataset_target("che", train_level=disaggregation_level)
 
     # adjust map with the coarse census
     hr_pop_map_adj = dataset.adjust_map_to_census(hr_pop_map.clone()/255)
@@ -133,6 +135,8 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
     # levels = ["finezurich", "finezurich2", "coarse", "fine"]
     levels = ["fine", "finezurich2", "coarse"]
     # levels = ["fine", "coarse", "finezurich", "finezurich2"]
+    
+    scatter = False
 
     for level in levels:
         print("Evaluating level: ", level)
@@ -144,16 +148,18 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
         print("Empirical global bias: ", empirical_global_bias)
         print(test_metrics_meta)
 
-        scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
-        scatterplot.save(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
+        if scatter:
+            scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
+            scatterplot.save(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
         print("-------------------------------")
         print("Adjusted metrics:")
         census_pred_adj, census_gt = dataset.convert_popmap_to_census(hr_pop_map_adj, gpu_mode=True, level=level)
         test_metrics_meta_adj = get_test_metrics(census_pred_adj, census_gt.float().cuda() )
         print(test_metrics_meta_adj)
 
-        scatterplot_adj = scatter_plot3(census_pred_adj.tolist(), census_gt.tolist())
-        scatterplot_adj.save(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
+        if scatter:
+            scatterplot_adj = scatter_plot3(census_pred_adj.tolist(), census_gt.tolist())
+            scatterplot_adj.save(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
 
         print("---------------------------------")
 

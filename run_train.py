@@ -441,6 +441,12 @@ class Trainer:
             wandb.log({**{k + '/val': v for k, v in self.valweak_stats.items()}, **self.info}, self.info["iter"])
 
     def test_target(self, save=False, full=True):
+
+        # if afganistan or uganda is in the test set, we need to use the large test function
+        if any([el in self.args.target_regions for el in ["afg", "uga"]]):
+            self.test_target_large(save=save, full=full)
+            return
+
         # Test on target domain
         self.model.eval()
         self.test_stats = defaultdict(float)
@@ -455,13 +461,6 @@ class Trainer:
                 output_scale_map = torch.zeros((h, w), dtype=torch.float16)
                 output_map_count = torch.zeros((h, w), dtype=torch.int8)
 
-                # if self.args.probabilistic:
-                #     output_map_var = torch.zeros((h, w), dtype=torch.float16)
-                # if self.boosted and full:
-                #     output_map_raw = torch.zeros((h, w), dtype=torch.float16)
-                #     if self.args.probabilistic:
-                #         output_map_var_raw = torch.zeros((h, w), dtype=torch.float16)
-
                 for sample in tqdm(testdataloader, leave=False):
                     sample = to_cuda_inplace(sample)
                     sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput,
@@ -474,13 +473,6 @@ class Trainer:
                     # get the output with a forward pass
                     output = self.model(sample, padding=False)
                     output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu().to(torch.float16)
-                    # if self.args.probabilistic:
-                    #     output_map_var[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popvarmap"][0][mask].cpu().to(torch.float16)
-                    # if self.boosted and full:
-                    #     output_map_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popdensemap"][0][mask].cpu().to(torch.float16)
-                    #     if self.args.probabilistic:
-                    #         output_map_var_raw[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["intermediate"]["popvarmap"][0][mask].cpu().to(torch.float16) 
-
                     if "scale" in output.keys() and output["scale"] is not None:
                         output_scale_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale"][0][mask].cpu().to(torch.float16)
 
@@ -490,12 +482,6 @@ class Trainer:
                 # mask out values that are not visited of visited exactly once
                 div_mask = output_map_count > 1
                 output_map[div_mask] = output_map[div_mask] / output_map_count[div_mask]
-                # if self.args.probabilistic:
-                #     output_map_var[div_mask] = output_map_var[div_mask] / output_map_count[div_mask]
-                # if self.boosted:
-                #     output_map_raw[div_mask] = output_map_raw[div_mask] / output_map_count[div_mask]
-                #     if self.args.probabilistic: 
-                #         output_map_var_raw[div_mask] = output_map_var_raw[div_mask] / output_map_count[div_mask]
 
                 if "scale" in output.keys():
                     output_scale_map[div_mask] = output_scale_map[div_mask] / output_map_count[div_mask]
@@ -504,13 +490,6 @@ class Trainer:
                 if save:
                     # save the output map
                     testdataloader.dataset.save(output_map, self.experiment_folder)
-                    # if self.args.probabilistic:
-                    #     testdataloader.dataset.save(output_map_var, self.experiment_folder, tag="VAR_{}".format(testdataloader.dataset.region))
-                    # if self.boosted and full:
-                    #     testdataloader.dataset.save(output_map_raw, self.experiment_folder, tag="RAW_{}".format(testdataloader.dataset.region))
-                    #     if self.args.probabilistic:
-                    #         testdataloader.dataset.save(output_map_var_raw, self.experiment_folder, tag="VAR_RAW_{}".format(testdataloader.dataset.region))
-
                     if "scale" in output.keys():
                         testdataloader.dataset.save(output_scale_map, self.experiment_folder, tag="SCALE_{}".format(testdataloader.dataset.region))
                 
@@ -523,14 +502,6 @@ class Trainer:
                     self.target_test_stats = {**self.target_test_stats,
                                               **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="MainCensusPos_{}_{}".format(testdataloader.dataset.region, level))}
                     
-                    # if self.boosted:
-                    #     census_pred_raw, census_gt_raw = testdataloader.dataset.convert_popmap_to_census(output_map_raw, gpu_mode=True, level=level)
-                    #     self.target_test_stats = {**self.target_test_stats,
-                    #                               **get_test_metrics(census_pred_raw, census_gt_raw.float().cuda(), tag="CensusRaw_{}_{}".format(testdataloader.dataset.region, level))}
-                    #     built_up = census_gt_raw>10
-                    #     self.target_test_stats = {**self.target_test_stats,
-                    #                               **get_test_metrics(census_pred_raw[built_up], census_gt_raw[built_up].float().cuda(), tag="CensusRawPos_{}_{}".format(testdataloader.dataset.region, level))}
-
                     # create scatterplot and upload to wandb
                     scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist(), log_scale=True)
                     if scatterplot is not None:
@@ -619,8 +590,8 @@ class Trainer:
                                 output_map_count[mask.cpu().numpy()] += 1
                                 tmp_count_dst.write(output_map_count, 1, window=window)
 
-                                if i == 400:
-                                    break
+                                # if i == 400:
+                                #     break
 
 
                 # save predictions to file 
@@ -667,7 +638,6 @@ class Trainer:
                                         data_chunk = torch.tensor(data_chunk, dtype=torch.float32).cuda()
                                         data_chunk_scale = torch.tensor(tmp_scale_src.read(1, window=window), dtype=torch.float32).cuda()
 
-                                        # data_chunk[div_mask_chunk] = data_chunk[div_mask_chunk] / count_chunk[div_mask_chunk]
                                         data_chunk[div_mask_chunk] /= count_chunk[div_mask_chunk]
                                         data_chunk_scale[div_mask_chunk] /= count_chunk[div_mask_chunk]
 
@@ -693,7 +663,6 @@ class Trainer:
                                         data_chunk_scale[div_mask_chunk] = data_chunk_scale[div_mask_chunk] / count_chunk[div_mask_chunk]
                                     else:
                                         pass
-                                    # data_chunk[div_mask_chunk] /= count_chunk[div_mask_chunk]
                                     
                                     # Write the chunk to the final file
                                     data_chunk = (data_chunk*2**16).astype(np.int16)/2**16

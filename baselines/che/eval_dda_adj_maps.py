@@ -99,7 +99,8 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
 
     
     # define GT dataset
-    dataset = Population_Dataset_target("che", train_level="coarse4")
+    # dataset = Population_Dataset_target("che", train_level="coarse4")
+    dataset = Population_Dataset_target("che", train_level="coarse4synt200")
 
     # adjust map with the coarse census
     hr_pop_map_adj = dataset.adjust_map_to_census(hr_pop_map.clone()/255)
@@ -130,8 +131,8 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
     # levels = ["fine", "fineTRACTCE", "fineBLOCKCE", "coarse"]
     # levels = ["coarse"]
     # levels = ["finezurich", "finezurich2", "coarse", "fine"]
-    # levels = ["fine", "finezurich2", "coarse"]
-    levels = ["fine", "coarse", "finezurich", "finezurich2"]
+    levels = ["fine", "finezurich2", "coarse"]
+    # levels = ["fine", "coarse", "finezurich", "finezurich2"]
 
     for level in levels:
         print("Evaluating level: ", level)

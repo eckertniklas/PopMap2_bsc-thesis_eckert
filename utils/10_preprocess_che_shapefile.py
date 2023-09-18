@@ -598,6 +598,7 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_f
         
     # load shapefile
     boundaries = { 
+        "boundaries_coarse4synt100": "/scratch2/metzgern/HAC/data/PopMapData/raw/geoboundaries3d/swissboundaries3d_2021-01_2056_5728.shp/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp",
         "boundaries_coarse4synt200": "/scratch2/metzgern/HAC/data/PopMapData/raw/geoboundaries3d/swissboundaries3d_2021-01_2056_5728.shp/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp",
         "boundaries_coarse4synt400": "/scratch2/metzgern/HAC/data/PopMapData/raw/geoboundaries3d/swissboundaries3d_2021-01_2056_5728.shp/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp",
         "boundaries_coarse4": "/scratch2/metzgern/HAC/data/PopMapData/raw/geoboundaries3d/swissboundaries3d_2021-01_2056_5728.shp/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp",
@@ -607,6 +608,7 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_f
     }
     census_names = {
         "boundaries_coarse4": "census_coarse4",
+        "boundaries_coarse4synt100": "census_coarse4synt100",
         "boundaries_coarse4synt200": "census_coarse4synt200",
         "boundaries_coarse4synt400": "census_coarse4synt400",
         # "boundaries_fine3": "census_coarse3",
@@ -627,6 +629,10 @@ def rasterize_csv(csv_filename, source_popNN_file, source_popBi_file, template_f
         elif bname=="boundaries_coarse4synt400":
             # simplify the shapefiles such that only 400 samples remain
             regionsdf = simplify_shapefile(regionsdf, n=400)
+        
+        elif bname=="boundaries_coarse4synt100":
+            # simplify the shapefiles such that only 100 samples remain
+            regionsdf = simplify_shapefile(regionsdf, n=100)
 
 
         # add index, that starts at 1

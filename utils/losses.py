@@ -39,11 +39,13 @@ def get_loss(output, gt, scale=None, empty_scale=None, loss=["l1_loss"], lam=[1.
     if output["popdensemap"].dtype != torch.float32:
         output["popdensemap"] = output["popdensemap"].float()
 
-    if output["scale"].dtype != torch.float32:
-        output["scale"] = output["scale"].float()
+    if output["scale"] is not None:
+        if output["scale"].dtype != torch.float32:
+            output["scale"] = output["scale"].float()
     
-    if output["empty_scale"].dtype != torch.float32:
-        output["empty_scale"] = output["empty_scale"].float()
+    if output["empty_scale"] is not None:
+        if output["empty_scale"].dtype != torch.float32:
+            output["empty_scale"] = output["empty_scale"].float()
         
     # prepare vars1.0
     y_pred = output["popcount"][gt["source"]]

@@ -287,6 +287,17 @@ class POMELO_module(nn.Module):
 
                 else:
                     pose = self.embedder(inputs["positional_encoding"])
+            else:
+                if sparse:
+                    lazy_pos = True
+                    if lazy_pos:
+                        pose = F.interpolate(inputs["positional_encoding"], size=(20, 20), mode='bilinear', align_corners=False)
+                        pose = self.embedder(pose)
+                        pose = F.interpolate(pose, size=(inputs["positional_encoding"].shape[2], inputs["positional_encoding"].shape[3]), mode='bilinear', align_corners=False)
+                    else:
+                        pose = self.sparse_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
+                else:
+                    pose = self.embedder(inputs["positional_encoding"])
 
         # Forward the main model
         if self.feature_extractor=="DDA":
@@ -348,7 +359,10 @@ class POMELO_module(nn.Module):
             if self.useposembedding:
                 middlefeatures.append(pose)
             headin = torch.cat(middlefeatures, dim=1)
-            out = self.head(headin)
+            if sparse:
+                out = self.sparse_forward(headin, sparsity_mask, self.head, out_channels=2)
+            else:
+                out = self.head(headin)
             # else:
             #     out = self.head(features)
 
@@ -365,8 +379,8 @@ class POMELO_module(nn.Module):
                 if sparse:
                     # aux["scale"] = scale[sparsity_mask]
                     if sparse and self.sparse_unet: 
-                        aux["scale"] = torch.cat( [scale[subsample_mask_empty] * ratio,
-                                                   scale[building_sparsity_mask] ]  , dim=0)
+                        aux["scale"] = torch.cat( [(scale* ratio.view(ratio.shape[0],1,1))[subsample_mask_empty] , scale[building_sparsity_mask] ]  , dim=0)
+                        # aux["scale"] = torch.cat( [scale[subsample_mask_empty] * ratio, scale[building_sparsity_mask] ]  , dim=0)
                     else:
                         aux["scale"] = scale[sparsity_mask]
 
@@ -382,6 +396,7 @@ class POMELO_module(nn.Module):
         else:
             popdensemap = nn.functional.relu(out[:,0])
             aux["scale"] = None
+            aux["empty_scale"] = torch.tensor([1.0], device=popdensemap.device)
         
         # aggregate the population counts
         if "admin_mask" in inputs.keys():

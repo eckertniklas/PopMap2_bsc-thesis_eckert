@@ -13,8 +13,8 @@ img_cols = 100  # patch width
 
 # inference patch size
 # inference_patch_size = 1024
-inference_patch_size = 2048
-# inference_patch_size = 4096
+# inference_patch_size = 2048
+inference_patch_size = 4096
 overlap = 128
 
 osm_features = 56  # number of osm based features
@@ -180,6 +180,14 @@ datalocations = {
         'coarse4': {
             'boundary': "boundaries_coarse4.tif",
             'census': "census_coarse4.csv",
+        },
+        'coarse4synt200': {
+            'boundary': "boundaries_coarse4synt200.tif",
+            'census': "census_coarse4synt200.csv",
+        },
+        'coarse4synt400': {
+            'boundary': "boundaries_coarse4synt400.tif",
+            'census': "census_coarse4synt400.csv",
         },
         'coarse3': {
             'boundary': "boundaries_coarse3.tif",

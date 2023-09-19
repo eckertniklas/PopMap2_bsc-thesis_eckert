@@ -9,6 +9,8 @@ from pathlib import Path
 
 from ..utils import experiment_manager
 
+from utils.plot import plot_2dmatrix
+from tqdm import tqdm
 
 def create_network(cfg):
     return DualStreamUNet(cfg) if cfg.MODEL.TYPE == 'dualstreamunet' else UNet(cfg)
@@ -164,6 +166,7 @@ class UNet(nn.Module):
 
         return out
 
+
 class DualStreamUNet(nn.Module):
 
     def __init__(self, cfg):
@@ -192,27 +195,31 @@ class DualStreamUNet(nn.Module):
         #Discriminator
         self.disc = ownDiscriminator(in_channels=out_dim, out_channels=2)
 
-    def forward(self, x_fusion, alpha=0, encoder_no_grad=False, unet_no_grad=False):
+        self.patchsize = 512 # self.sar_streamself.sar_streamfor patchwise inference
 
-        if unet_no_grad:
-            with torch.no_grad():
-                # sar
-                x_sar = x_fusion[:, :self.sar_in, ]
-                features_sar = self.sar_stream(x_sar)
+    def forward(self, x_fusion, alpha=0, encoder_no_grad=False, unet_no_grad=False, return_features=False):
 
-                # optical
-                x_optical = x_fusion[:, self.sar_in:, ]
-                features_optical = self.optical_stream(x_optical)
-        else:
+        # if unet_no_grad:
+        #     with torch.no_grad():
+        #         # sar
+        #         # x_sar = x_fusion[:, :self.sar_in, ]
+        #         features_sar = self.sar_stream(x_fusion[:, :self.sar_in, ])
+
+        #         # optical
+        #         # x_optical = x_fusion[:, self.sar_in:, ]
+        #         features_optical = self.optical_stream(x_fusion[:, self.sar_in:, ])
+        # else:
             # sar
-            x_sar = x_fusion[:, :self.sar_in, ]
-            features_sar = self.sar_stream(x_sar, encoder_no_grad=encoder_no_grad)
+            # x_sar = x_fusion[:, :self.sar_in, ]
+        features_sar = self.sar_stream(x_fusion[:, :self.sar_in, ], encoder_no_grad=encoder_no_grad)
 
-            # optical
-            x_optical = x_fusion[:, self.sar_in:, ]
-            features_optical = self.optical_stream(x_optical, encoder_no_grad=encoder_no_grad)
+        # optical
+        # x_optical = x_fusion[:, self.sar_in:, ]
+        features_optical = self.optical_stream(x_fusion[:, self.sar_in:, ], encoder_no_grad=encoder_no_grad)
 
         features_fusion = torch.cat((features_sar, features_optical), dim=1)
+        if return_features:
+            return features_fusion
         logits_fusion = self.fusion_out_conv(features_fusion)
 
         #### get features before outConv 
@@ -229,21 +236,76 @@ class DualStreamUNet(nn.Module):
         logits_sar = self.sar_out_conv(features_sar)
         logits_optical = self.optical_out_conv(features_optical)
 
-        return logits_sar, logits_optical, logits_fusion, logits_disc_sar, logits_disc_optical
+        if return_features:
+            return logits_sar, logits_optical, logits_fusion, logits_disc_sar, logits_disc_optical, features_fusion
+        else:
+            return logits_sar, logits_optical, logits_fusion, logits_disc_sar, logits_disc_optical
 
     def fusion_features(self, x_fusion):
 
         # sar
-        x_sar = x_fusion[:, :self.sar_in, ]
-        features_sar = self.sar_stream(x_sar)
+        # x_sar = x_fusion[:, :self.sar_in, ]
+        features_sar = self.sar_stream(x_fusion[:, :self.sar_in, ])
 
         # optical
-        x_optical = x_fusion[:, self.sar_in:, ]
-        features_optical = self.optical_stream(x_optical)
+        # x_optical = x_fusion[:, self.sar_in:, ]
+        features_optical = self.optical_stream(x_fusion[:, self.sar_in:, ])
 
         features_fusion = torch.cat((features_sar, features_optical), dim=1)
         return features_fusion
 
+
+    def sparse_forward(self, x: torch.tensor, sparsity_mask, alpha=0, return_features=True, unet_no_grad=False, encoder_no_grad=False) -> torch.Tensor:
+        """
+        patchwise forward pass
+        """
+
+        # self.check_input_shape(x)
+        # assert not return_features, "return_features is not supported for sparse_forward"
+
+        # pad the input tensor to be divisible by the patchsize
+        bs,_,h,w = x.shape
+        pad_h = self.patchsize - h%self.patchsize
+        pad_w = self.patchsize - w%self.patchsize
+        x = F.pad(x, (0,pad_w,0,pad_h), mode='constant', value=0)
+        sparsity_mask = F.pad(sparsity_mask, (0,pad_w,0,pad_h), mode='constant', value=0)
+
+        # initialize output
+        bs,_,hnew,wnew = x.shape
+        out = torch.zeros((bs,self.sar_stream.up_seq.up2.conv.conv[3].out_channels*2,hnew,wnew), device=x.device)
+        
+        overlap = 16  # Size of the overlapping region on each edge
+        stride = self.patchsize - 2*overlap  # Assuming a stride of 32; you can adjust this as per your requirement 
+
+        # divide the input tensor x into a grid and iterate over patches
+        for i in range(0, hnew, stride):
+            for j in range(0, wnew, stride):
+                # Compute actual patch boundaries, considering overlap and image edges
+                i1 = max(i - overlap, 0)
+                i2 = min(i + self.patchsize + overlap, hnew)
+                j1 = max(j - overlap, 0)
+                j2 = min(j + self.patchsize + overlap, wnew)
+
+                mask_patch = sparsity_mask[:, i1:i2, j1:j2]
+                active_idxs = torch.nonzero(torch.sum(mask_patch, dim=(1, 2)) > 0)
+
+                if active_idxs.nelement() > 0:
+                    x_patch = x[active_idxs[:, 0], :, i1:i2, j1:j2]
+
+                    # Forward pass
+                    out_patch = self.forward(x_patch, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=False, return_features=True)
+                    # out_patch = self.forward(x_patch, return_features=True, encoder_no_grad=encoder_no_grad)[0]
+
+                    # Add the patch to the output tensor
+                    i1_n = i1 + overlap if i1 != 0 else i1
+                    i2_n = i2 - overlap if i2 != h else i2
+                    j1_n = j1 + overlap if j1 != 0 else j1
+                    j2_n = j2 - overlap if j2 != w else j2
+
+                    out[active_idxs[:, 0], :, i1_n:i2_n, j1_n:j2_n] = out_patch[:, :, i1_n - i1:i2_n - i1, j1_n - j1:j2_n - j1]
+
+        return out[:, :, :h, :w]
+    
 
 # sub-parts of the U-Net model
 class DoubleConv(nn.Module):
@@ -254,9 +316,11 @@ class DoubleConv(nn.Module):
         self.conv = nn.Sequential(
             nn.Conv2d(in_ch, out_ch, 3, padding=1),
             nn.BatchNorm2d(out_ch),
+            # nn.Identity(),
             nn.ReLU(inplace=True),
             nn.Conv2d(out_ch, out_ch, 3, padding=1),
             nn.BatchNorm2d(out_ch),
+            # nn.Identity(),
             nn.ReLU(inplace=True)
         )
 

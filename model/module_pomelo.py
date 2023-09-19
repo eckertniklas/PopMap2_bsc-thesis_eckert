@@ -108,6 +108,32 @@ class POMELO_module(nn.Module):
         else:
             # create the parent file
             self.parent = None
+        
+        
+        # Build the main model
+        if feature_extractor=="DDA":
+                # get model
+                MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
+                CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
+                PATHS = Namespace(OUTPUT="/scratch2/metzgern/HAC/data/DDAdata/outputsDDA")
+                DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
+                TRAINER = Namespace(LR=1e5)
+                cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS,
+                                DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_new")
+
+                ## load weights from checkpoint
+                self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
+                self.unetmodel.num_params = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
+                unet_out = 64*2
+        else:
+            if this_input_dim>0:
+                self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 
+                                            down=self.down, dilation=dilation, replace7x7=replace7x7, pretrained=pretrained,
+                                            grouped=grouped, dropout=dropout)
+                unet_out = feature_dim
+            else:
+                self.unetmodel = None
+
 
         if useposembedding:
             if head=="v3":
@@ -133,7 +159,7 @@ class POMELO_module(nn.Module):
 
         if head=="v3":
             h = 64
-            head_input_dim += feature_dim
+            head_input_dim += unet_out
             head_input_dim -= feature_dim if this_input_dim==0 else 0
             self.head = nn.Sequential(
                 nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
@@ -144,7 +170,7 @@ class POMELO_module(nn.Module):
         
         elif head=="v4":
             h = 64
-            head_input_dim += feature_dim
+            head_input_dim += unet_out
             head_input_dim -= feature_dim if this_input_dim==0 else 0
             self.head = nn.Sequential(
                 nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
@@ -154,7 +180,7 @@ class POMELO_module(nn.Module):
 
         elif head=="v6":
             h = 128
-            head_input_dim += feature_dim
+            head_input_dim += unet_out
             head_input_dim -= feature_dim if this_input_dim==0 else 0
             self.head = nn.Sequential(
                 nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
@@ -164,26 +190,6 @@ class POMELO_module(nn.Module):
             )
 
 
-        # Build the main model
-        if feature_extractor=="DDA":
-                # get model
-                MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
-                CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
-                PATHS = Namespace(OUTPUT="/scratch2/metzgern/HAC/data/DDAdata/outputsDDA")
-                DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
-                TRAINER = Namespace(LR=1e5)
-                cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS,
-                                DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_new")
-
-                ## load weights from checkpoint
-                self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
-        else:
-            if this_input_dim>0:
-                self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 
-                                            down=self.down, dilation=dilation, replace7x7=replace7x7, pretrained=pretrained,
-                                            grouped=grouped, dropout=dropout)
-            else:
-                self.unetmodel = None
 
         # lift the bias of the head to avoid the risk of dying ReLU
         self.head[-1].bias.data = 0.75 * torch.ones(2)
@@ -246,7 +252,6 @@ class POMELO_module(nn.Module):
                 sparsity_mask[:, xindices.unsqueeze(1), yindices] = 1
 
                 # clip mask to the administrative region
-                # TODO: Put this back in !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 sparsity_mask *= (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))
 
                 if sparsity_mask.sum()==0:
@@ -272,22 +277,36 @@ class POMELO_module(nn.Module):
             
 
         # Forward the main model
-        if self.feature_extractor=="DDA":
+        if self.unetmodel is not None: 
             X, (px1,px2,py1,py2) = self.add_padding(X, padding)
-            X = torch.cat([X[:, 4:6], # S1
-                                  torch.flip(X[:, :3],dims=(1,)), # S2_RGB
-                                  X[:, 3:4]], # S2_NIR
-                                  dim=1)
-            
-            _, _, X, _, _ = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
+            if self.feature_extractor=="DDA":
+                X = torch.cat([X[:, 4:6], # S1
+                                    torch.flip(X[:, :3],dims=(1,)), # S2_RGB
+                                    X[:, 3:4]], # S2_NIR
+                                    dim=1)
+                
+                # unet_no_grad = True
+                # if unet_no_grad:
+                if True:
+                    with torch.no_grad():
+                        # self.sparse_unet = True
+                        # if True:
+                        if self.sparse_unet:
+                            features = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad,
+                                                                     return_features=True)
+                        else:
+                            features = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad,
+                                                      return_features=True)
+                else:
+                    if self.sparse_unet:
+                        features = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
+                    else:
+                        features = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
 
-            # repeat along dim 1
-            out = X.repeat(1, 2, 1, 1)
-            out = self.revert_padding(out, (px1,px2,py1,py2))
+                # repeat along dim 1
+                # out = X.repeat(1, 2, 1, 1)
 
-        else:
-            if self.unetmodel is not None: 
-                X, (px1,px2,py1,py2) = self.add_padding(X, padding)
+            else:
                 if unet_no_grad:
                     with torch.no_grad():
                         if self.sparse_unet and sparse:
@@ -300,39 +319,26 @@ class POMELO_module(nn.Module):
                     else:
                         features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
 
-                # revert padding
-                features = self.revert_padding(features, (px1,px2,py1,py2))
-                middlefeatures.append(features)
+            # revert padding
+            features = self.revert_padding(features, (px1,px2,py1,py2))
+            middlefeatures.append(features)
 
         # Embed the pose information
         if self.useposembedding:
         
-            # optimized for occupancy model
-            if self.occupancymodel:
-                if sparse: 
-
-                    # downsample the feature map
-                    lazy_pos = True
-                    if lazy_pos:
-                        pose = F.interpolate(inputs["positional_encoding"], size=(20, 20), mode='bilinear', align_corners=False)
-                        pose = self.embedder(pose)
-                        pose = F.interpolate(pose, size=(inputs["positional_encoding"].shape[2], inputs["positional_encoding"].shape[3]), mode='bilinear', align_corners=False)
-                    else:
-                        pose = self.sparse_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
-
+            lazy_pos = True
+            if sparse: 
+                # downsample the feature map, and only forward the few anchor points
+                if lazy_pos:
+                    pose = F.interpolate(inputs["positional_encoding"], size=(20, 20), mode='bilinear', align_corners=False)
+                    pose = self.embedder(pose)
+                    pose = F.interpolate(pose, size=(inputs["positional_encoding"].shape[2], inputs["positional_encoding"].shape[3]), mode='bilinear', align_corners=False)
                 else:
-                    pose = self.embedder(inputs["positional_encoding"])
+                    pose = self.sparse_module_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
+
             else:
-                if sparse:
-                    lazy_pos = True
-                    if lazy_pos:
-                        pose = F.interpolate(inputs["positional_encoding"], size=(20, 20), mode='bilinear', align_corners=False)
-                        pose = self.embedder(pose)
-                        pose = F.interpolate(pose, size=(inputs["positional_encoding"].shape[2], inputs["positional_encoding"].shape[3]), mode='bilinear', align_corners=False)
-                    else:
-                        pose = self.sparse_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
-                else:
-                    pose = self.embedder(inputs["positional_encoding"])
+                pose = self.embedder(inputs["positional_encoding"])
+
                     
         # prepare the input to the head
         if self.useposembedding:
@@ -342,15 +348,15 @@ class POMELO_module(nn.Module):
 
         # forward the head
         if sparse:
-            out = self.sparse_forward(headin, sparsity_mask, self.head, out_channels=2)
+            out = self.sparse_module_forward(headin, sparsity_mask, self.head, out_channels=2)[:,0]
         else:
-            out = self.head(headin)
+            out = self.head(headin)[:,0]
 
         # Population map and total count
         if self.occupancymodel:
 
             # activation function
-            scale = nn.functional.relu(out[:,0])
+            scale = nn.functional.relu(out)
 
             # for raw
             if "building_counts" in inputs.keys(): 
@@ -358,8 +364,8 @@ class POMELO_module(nn.Module):
                 # save the scale
                 if sparse and self.sparse_unet:
                     aux["scale"] = torch.cat( [(scale* ratio.view(ratio.shape[0],1,1))[subsample_mask_empty] ,
-                                                   scale[building_sparsity_mask] ]  , dim=0)
-                        
+                                                   scale[building_sparsity_mask] ]  , dim=0)                        
+                    aux["empty_scale"] = None
                 elif sparse:
                     aux["scale"] = scale[sparsity_mask]
                     aux["empty_scale"] = (scale * (1-inputs["building_counts"][:,0]))[sparsity_mask]
@@ -372,7 +378,7 @@ class POMELO_module(nn.Module):
             else: 
                 raise ValueError("building_counts not in inputs.keys(), but occupancy model is True")
         else:
-            popdensemap = nn.functional.relu(out[:,0])
+            popdensemap = nn.functional.relu(out)
             aux["scale"] = None
             aux["empty_scale"] = None
         
@@ -395,212 +401,7 @@ class POMELO_module(nn.Module):
                 }
 
 
-
-
-
-
-
-
-
-# OLD FORWARD
-
-    # def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True,
-    #             encoder_no_grad=False, unet_no_grad=False, sparse=False):
-    #     """
-    #     Forward pass of the model
-    #     Assumptions:
-    #         - inputs["input"] is the input image (Concatenation of Sentinel-1 and/or Sentinel-2)
-    #         - inputs["input"].shape = [batch_size, input_channels, height, width]
-    #     """
-
-    #     X = inputs["input"]
-
-    #     if self.lempty_eps>0:
-    #         inputs["building_counts"][:,0] = inputs["building_counts"][:,0] + self.lempty_eps
-
-    #     if sparse:
-    #         # create sparsity mask
-    #         sub = 60
-    #         sparsity_mask = (inputs["building_counts"][:,0]>0) * (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))
-    #         xindices = torch.ones(sparsity_mask.shape[1]).multinomial(num_samples=min(sub,sparsity_mask.shape[1]), replacement=False).sort()[0]
-    #         yindices = torch.ones(sparsity_mask.shape[2]).multinomial(num_samples=min(sub,sparsity_mask.shape[2]), replacement=False).sort()[0]
-    #         sparsity_mask[:, xindices.unsqueeze(1), yindices] = 1
-
-    #     aux = {}
-
-    #     # forward the parent model without gradient if exists
-    #     middlefeatures = []
-    #     if self.parent is not None:
-    #         # Forward the parent model
-    #         with torch.no_grad():
-    #             output_dict = self.parent(inputs, padding=False, return_features=False, unet_no_grad=unet_no_grad, sparse=sparse)
-
-    #         # Concatenate the parent features with middle features of the current model
-    #         middlefeatures.append(output_dict["scale"].unsqueeze(1))
-            
-    #     # Embed the pose information
-    #     if self.useposembedding:
-        
-    #         # optimized for occupancy model
-    #         if self.occupancymodel:
-    #             if sparse: 
-
-    #                 # downsample the feature map
-    #                 lazy_pos = True
-    #                 if lazy_pos:
-    #                     pose = F.interpolate(inputs["positional_encoding"], size=(20, 20), mode='bilinear', align_corners=False)
-    #                     pose = self.embedder(pose)
-    #                     pose = F.interpolate(pose, size=(inputs["positional_encoding"].shape[2], inputs["positional_encoding"].shape[3]), mode='bilinear', align_corners=False)
-    #                 else:
-    #                     pose = self.sparse_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
-
-    #             else:
-    #                 pose = self.embedder(inputs["positional_encoding"])
-
-    #         # Concatenate the pose embedding to the input data
-    #         if self.head_name in ["v3", "v4", "v6"]:
-    #             X = X
-    #             # X = X[:,0:-1] # remove the building footprint from the variables
-    #         else:
-    #             X = torch.cat([X, pose], dim=1)
-
-    #     else:
-    #         if self.head_name in ["v3", "v4","v6"]:
-    #             # X = X[:,0:-1] # remove the building footprint from the variables
-    #             X = X
-    #         else:
-    #             X = X
-
-    #     # Add padding
-    #     # X, (px1,px2,py1,py2) = self.add_padding(X, padding) # refactored to later
-
-    #     # Forward the main model
-    #     if self.feature_extractor=="DDA":
-    #         X, (px1,px2,py1,py2) = self.add_padding(X, padding)
-    #         X = torch.cat([X[:, 4:6], # S1
-    #                               torch.flip(X[:, :3],dims=(1,)), # S2_RGB
-    #                               X[:, 3:4]], # S2_NIR
-    #                               dim=1)
-            
-    #         _, _, X, _, _ = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
-
-    #         # repeat along dim 1
-    #         out = X.repeat(1, 2, 1, 1)
-    #         out = self.revert_padding(out, (px1,px2,py1,py2))
-
-    #     else:
-    #         if self.unetmodel is not None: 
-    #             X, (px1,px2,py1,py2) = self.add_padding(X, padding)
-    #             if unet_no_grad:
-    #                 with torch.no_grad():
-    #                     features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
-    #             else:
-    #                 features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
-
-    #             # revert padding
-    #             features = self.revert_padding(features, (px1,px2,py1,py2))
-    #             middlefeatures.append(features)
-
-    #             # aux["features"] = features
-    #             # aux["decoder_features"] = decoder_features
-
-    #         # Forward the head
-    #         if self.head_name in ["v3", "v4", "v6"]:
-
-    #             # append building counts to the middle features
-    #             middlefeatures.append(inputs["building_counts"])
-
-    #             if self.occupancymodel:
-                    
-    #                 # prepare the input to the head
-    #                 if self.useposembedding: 
-    #                     middlefeatures.append(pose)
-
-    #                 headin = torch.cat(middlefeatures, dim=1)
-                    
-    #                 # perform sparse sampling and memory efficient forward pass
-    #                 if sparse:
-    #                     out = self.sparse_forward(headin, sparsity_mask, self.head, out_channels=2)
-    #                 else:
-    #                     out = self.head(headin)
-
-    #             else:
-    #                 if self.useposembedding:
-    #                     middlefeatures.append(pose)
-    #                 headin = torch.cat(middlefeatures, dim=1)
-    #                 out = self.head(headin)
-    #         else:
-    #             out = self.head(features)
-
-    #     # Population map and total count
-    #     if self.occupancymodel:
-
-    #         # activation function
-    #         # popvarmap = nn.functional.softplus(out[:,1])
-    #         scale = nn.functional.relu(out[:,0])
-
-    #         # for raw
-    #         if "building_counts" in inputs.keys(): 
-                
-    #             # save the scale
-    #             if sparse:
-    #                 aux["scale"] = scale[sparsity_mask]
-    #                 aux["empty_scale"] = (scale * (1-inputs["building_counts"][:,0]))[sparsity_mask]
-    #             else:
-    #                 aux["scale"] = scale
-    #                 aux["empty_scale"] = scale * (1-inputs["building_counts"][:,0])
-
-    #             # Get the population density map
-    #             popdensemap = scale * inputs["building_counts"][:,0]
-    #         else: 
-    #             raise ValueError("building_counts not in inputs.keys()")
-    #     else:
-    #         # popdensemap_raw = nn.functional.relu(out_raw[:,0])
-    #         # popvarmap_raw = nn.functional.softplus(out_raw[:,1])
-    #         popdensemap = nn.functional.relu(out[:,0])
-    #         # popvarmap = nn.functional.softplus(out[:,1])
-    #         # aux["scale"] = popdensemap.clone().cpu().detach()
-    #         aux["scale"] = None
-        
-
-    #     # aggregate the population counts
-    #     if "admin_mask" in inputs.keys():
-    #         # make the following line work for both 2D and 3D
-    #         this_mask = inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1)
-    #         # popcount_raw = (popdensemap_raw * this_mask).sum((1,2))
-    #         # if popdensemap.dtype==torch.float16:
-    #         #     popcount = (popdensemap * this_mask).sum((1,2)).half()
-    #         # else:
-    #         #     popcount = (popdensemap * this_mask).sum((1,2))
-
-    #         popcount = (popdensemap * this_mask).sum((1,2))
-            
-    #         # popvar_raw = (popvarmap_raw * this_mask).sum((1,2))
-    #         # popvar = (popvarmap * this_mask).sum((1,2))
-    #     else:
-    #         # popcount_raw = popdensemap_raw.sum((1,2))
-    #         popcount = popdensemap.sum((1,2))
-    #         # popvar_raw = popvarmap_raw.sum((1,2))
-    #         # popvar = popvarmap.sum((1,2))
-
-
-    #     return {"popcount": popcount, "popdensemap": popdensemap,
-    #             # "popvar": popvar ,"popvarmap": popvarmap, 
-    #             # "builtdensemap": builtdensemap, "builtcount": builtcount,
-    #             # "builtupmap": builtupmap,
-    #             # "intermediate": {"popcount": popcount_raw, "popdensemap": popdensemap_raw, "popvar": popvar_raw,
-    #             # "popvarmap": popvarmap_raw, "domain": None, "decoder_features": None}, 
-    #             **aux,
-    #             }
-    
-
-
-
-
-
-
-
-    def sparse_forward(self, inp: torch.Tensor, mask: torch.Tensor,
+    def sparse_module_forward(self, inp: torch.Tensor, mask: torch.Tensor,
                        module: callable, out_channels=2) -> torch.Tensor:
         """
         Description:

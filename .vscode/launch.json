@@ -735,7 +735,7 @@
                 "--seed", "1612",
                 "-gc", "0.01",
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1577_622/last_model.pth",
-                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_2200_573/last_model.pth",
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_2201_422/last_model.pth",
                 "--supmode", "weaksup",
                 "--lam_weak", "100", 
                 "--nomain", 

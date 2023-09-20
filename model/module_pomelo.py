@@ -316,7 +316,7 @@ class POMELO_module(nn.Module):
                     else:
                         features = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
 
-                if encoder_no_grad:
+                if unet_no_grad:
                     with torch.no_grad():
                         features = self.unetmodel.outputconv(features)
                 else:

@@ -296,17 +296,17 @@ class POMELO_module(nn.Module):
                                     X[:, 3:4]], # S2_NIR
                                     dim=1)
                 
-                unet_no_grad = True
+                # unet_no_grad = True
                 encoder_no_grad = True
-                if unet_no_grad:
+                if encoder_no_grad:
                 # if True:
                     with torch.no_grad():
                         # self.sparse_unet = True
                         # if True:
                         self.unetmodel.eval()
                         if self.sparse_unet and sparse:
-                            features = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad,
-                                                                     return_features=True)
+                            features = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=True, unet_no_grad=True, return_features=True)
+                            # features = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, return_features=True)
                         else:
                             features = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad,
                                                       return_features=True)
@@ -317,6 +317,7 @@ class POMELO_module(nn.Module):
                         features = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
 
                 if unet_no_grad:
+                # if True:
                     with torch.no_grad():
                         features = self.unetmodel.outputconv(features)
                 else:

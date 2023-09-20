@@ -125,10 +125,17 @@ class POMELO_module(nn.Module):
                 ## load weights from checkpoint
                 self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
                 self.unetmodel.num_params = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
-                unet_out = 64*2
+                # unet_out = 64*2
 
-                # self.unetmodel.outputconv = nn.Conv2d(64*2, 16, kernel_size=3, padding=1)
-                # unet_out = 16
+                self.unetmodel.outputconv = nn.Sequential(
+                    nn.Conv2d(64*2, 16, kernel_size=7, padding=3), nn.ReLU(inplace=True),
+                    nn.Conv2d(16, 16, kernel_size=7, padding=3), nn.ReLU(inplace=True)
+                )
+                unet_out = 16
+
+                num_params_outputconv = sum(p.numel() for p in self.unetmodel.outputconv.parameters() if p.requires_grad)
+
+                print("trainable DDA Outputconv: ", num_params_outputconv)
         else:
             if this_input_dim>0:
                 self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 
@@ -192,7 +199,6 @@ class POMELO_module(nn.Module):
                 nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
                 nn.Conv2d(h, 2, kernel_size=1, padding=0)
             )
-
 
 
         # lift the bias of the head to avoid the risk of dying ReLU
@@ -310,7 +316,11 @@ class POMELO_module(nn.Module):
                     else:
                         features = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
 
-                # features = self.unetmodel.outputconv(features)
+                if encoder_no_grad:
+                    with torch.no_grad():
+                        features = self.unetmodel.outputconv(features)
+                else:
+                    features = self.unetmodel.outputconv(features)
                 # repeat along dim 1
                 # out = X.repeat(1, 2, 1, 1)
 

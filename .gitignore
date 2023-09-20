@@ -6,3 +6,4 @@ vis
 *__pycache__
 euleroutputs/
 wandb/
+model.DDA_model/checkpoints/

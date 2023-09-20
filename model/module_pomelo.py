@@ -116,6 +116,7 @@ class POMELO_module(nn.Module):
                 MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
                 CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
                 PATHS = Namespace(OUTPUT="/scratch2/metzgern/HAC/data/DDAdata/outputsDDA")
+                PATHS = Namespace(OUTPUT="/scratch2/metzgern/HAC/data/DDAdata/outputsDDA")
                 DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
                 TRAINER = Namespace(LR=1e5)
                 cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS,
@@ -125,6 +126,9 @@ class POMELO_module(nn.Module):
                 self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
                 self.unetmodel.num_params = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
                 unet_out = 64*2
+
+                # self.unetmodel.outputconv = nn.Conv2d(64*2, 16, kernel_size=3, padding=1)
+                # unet_out = 16
         else:
             if this_input_dim>0:
                 self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 
@@ -256,6 +260,7 @@ class POMELO_module(nn.Module):
 
                 if sparsity_mask.sum()==0:
                     sparsity_mask = (inputs["admin_mask"]==inputs["census_idx"].view(-1,1,1))
+
         
         aux = {}
 
@@ -285,24 +290,27 @@ class POMELO_module(nn.Module):
                                     X[:, 3:4]], # S2_NIR
                                     dim=1)
                 
-                # unet_no_grad = True
-                # if unet_no_grad:
-                if True:
+                unet_no_grad = True
+                encoder_no_grad = True
+                if unet_no_grad:
+                # if True:
                     with torch.no_grad():
                         # self.sparse_unet = True
                         # if True:
-                        if self.sparse_unet:
+                        self.unetmodel.eval()
+                        if self.sparse_unet and sparse:
                             features = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad,
                                                                      return_features=True)
                         else:
                             features = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad,
                                                       return_features=True)
                 else:
-                    if self.sparse_unet:
+                    if self.sparse_unet and sparse:
                         features = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
                     else:
                         features = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
 
+                # features = self.unetmodel.outputconv(features)
                 # repeat along dim 1
                 # out = X.repeat(1, 2, 1, 1)
 
@@ -320,6 +328,7 @@ class POMELO_module(nn.Module):
                         features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
 
             # revert padding
+            # a = features[:,::2] + features[:,1::2]
             features = self.revert_padding(features, (px1,px2,py1,py2))
             middlefeatures.append(features)
 

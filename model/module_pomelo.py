@@ -114,7 +114,7 @@ class POMELO_module(nn.Module):
         if feature_extractor=="DDA":
                 # get model
                 # MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
-                MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[16, 128,] )
+                MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[8, 128,] )
                 CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
                 # PATHS = Namespace(OUTPUT="/scratch2/metzgern/HAC/data/DDAdata/outputsDDA")
                 PATHS = Namespace(OUTPUT="model/DDA_model/checkpoints/")
@@ -122,7 +122,7 @@ class POMELO_module(nn.Module):
                 TRAINER = Namespace(LR=1e5)
                 cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS,
                                 # DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_new")
-                                DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_newAug16")
+                                DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_newAug8")
 
                 ## load weights from checkpoint
                 self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
@@ -130,10 +130,10 @@ class POMELO_module(nn.Module):
                 # unet_out = 64*2
 
                 self.unetmodel.outputconv = nn.Sequential(
-                    nn.Conv2d(16*2, 16, kernel_size=7, padding=3), nn.ReLU(inplace=True),
+                    nn.Conv2d(8*2, 16, kernel_size=7, padding=3), nn.ReLU(inplace=True),
                     nn.Conv2d(16, 16, kernel_size=7, padding=3), nn.ReLU(inplace=True)
                 )
-                unet_out = 16
+                unet_out = 8*2
 
                 num_params_outputconv = sum(p.numel() for p in self.unetmodel.outputconv.parameters() if p.requires_grad)
                 print("trainable DDA Outputconv: ", num_params_outputconv)

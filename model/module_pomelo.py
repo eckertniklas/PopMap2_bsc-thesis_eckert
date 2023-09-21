@@ -130,14 +130,15 @@ class POMELO_module(nn.Module):
                 # unet_out = 64*2
 
                 self.unetmodel.outputconv = nn.Sequential(
-                    nn.Conv2d(64*2, 16, kernel_size=7, padding=3), nn.ReLU(inplace=True),
+                    nn.Conv2d(16*2, 16, kernel_size=7, padding=3), nn.ReLU(inplace=True),
                     nn.Conv2d(16, 16, kernel_size=7, padding=3), nn.ReLU(inplace=True)
                 )
                 unet_out = 16
 
                 num_params_outputconv = sum(p.numel() for p in self.unetmodel.outputconv.parameters() if p.requires_grad)
-
                 print("trainable DDA Outputconv: ", num_params_outputconv)
+
+                self.unetmodel.disc = None
         else:
             if this_input_dim>0:
                 self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 

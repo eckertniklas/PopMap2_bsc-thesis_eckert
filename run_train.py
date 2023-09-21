@@ -171,7 +171,7 @@ class Trainer:
             tnr.set_postfix(training_loss=np.nan, validation_loss=np.nan, best_validation_loss=np.nan)
             for _ in tnr:               
                 # self.test_target_large(save=True)
-                self.test_target(save=True)
+                # self.test_target(save=True)
 
                 self.train_epoch(tnr)
                 torch.cuda.empty_cache()

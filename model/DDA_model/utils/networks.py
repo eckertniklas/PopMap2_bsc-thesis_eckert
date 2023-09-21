@@ -197,7 +197,7 @@ class DualStreamUNet(nn.Module):
 
         self.patchsize = 512 # self.sar_streamself.sar_streamfor patchwise inference
 
-    def forward(self, x_fusion, alpha=0, encoder_no_grad=False, unet_no_grad=False, return_features=False):
+    def forward(self, x_fusion, alpha=0, encoder_no_grad=False, return_features=False):
 
         # if unet_no_grad:
         #     with torch.no_grad():
@@ -255,7 +255,7 @@ class DualStreamUNet(nn.Module):
         return features_fusion
 
 
-    def sparse_forward(self, x: torch.tensor, sparsity_mask, alpha=0, return_features=True, unet_no_grad=False, encoder_no_grad=False) -> torch.Tensor:
+    def sparse_forward(self, x: torch.tensor, sparsity_mask, alpha=0, return_features=True, encoder_no_grad=False) -> torch.Tensor:
         """
         patchwise forward pass
         """
@@ -293,7 +293,7 @@ class DualStreamUNet(nn.Module):
                     x_patch = x[active_idxs[:, 0], :, i1:i2, j1:j2]
 
                     # Forward pass
-                    out_patch = self.forward(x_patch, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=False, return_features=True)
+                    out_patch = self.forward(x_patch, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True)
                     # out_patch = self.forward(x_patch, return_features=True, encoder_no_grad=encoder_no_grad)[0]
 
                     # Add the patch to the output tensor

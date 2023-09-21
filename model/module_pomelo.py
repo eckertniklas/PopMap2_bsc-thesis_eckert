@@ -1,4 +1,3 @@
-
  
 import torch.nn as nn
 import torch
@@ -301,30 +300,29 @@ class POMELO_module(nn.Module):
                 
                 # unet_no_grad = True
                 # encoder_no_grad = True
-                if encoder_no_grad:
+                if unet_no_grad:
                 # if True:
                     with torch.no_grad():
                         # self.sparse_unet = True
                         # if True:
                         self.unetmodel.eval()
                         if self.sparse_unet and sparse:
-                            features = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=True, unet_no_grad=True, return_features=True)
+                            X = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True)
                             # features = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, return_features=True)
                         else:
-                            features = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad,
-                                                      return_features=True)
+                            X = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True)
                 else:
                     if self.sparse_unet and sparse:
-                        features = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
+                        X = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad)
                     else:
-                        features = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad)
+                        X = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad)
 
                 if unet_no_grad:
                 # if True:
                     with torch.no_grad():
-                        features = self.unetmodel.outputconv(features)
+                        X = self.unetmodel.outputconv(X)
                 else:
-                    features = self.unetmodel.outputconv(features)
+                    X = self.unetmodel.outputconv(X)
                 # repeat along dim 1
                 # out = X.repeat(1, 2, 1, 1)
 
@@ -332,19 +330,19 @@ class POMELO_module(nn.Module):
                 if unet_no_grad:
                     with torch.no_grad():
                         if self.sparse_unet and sparse:
-                            features = self.unetmodel.sparse_forward(X,  return_features=False, encoder_no_grad=encoder_no_grad, sparsity_mask=sparsity_mask)
+                            X = self.unetmodel.sparse_forward(X,  return_features=False, encoder_no_grad=encoder_no_grad, sparsity_mask=sparsity_mask)
                         else:
-                            features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
+                            X, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
                 else:
                     if self.sparse_unet and sparse:
-                        features = self.unetmodel.sparse_forward(X,  return_features=False, encoder_no_grad=encoder_no_grad, sparsity_mask=sparsity_mask)
+                        X = self.unetmodel.sparse_forward(X,  return_features=False, encoder_no_grad=encoder_no_grad, sparsity_mask=sparsity_mask)
                     else:
-                        features, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
+                        X, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
 
             # revert padding
             # a = features[:,::2] + features[:,1::2]
-            features = self.revert_padding(features, (px1,px2,py1,py2))
-            middlefeatures.append(features)
+            X = self.revert_padding(X, (px1,px2,py1,py2))
+            middlefeatures.append(X)
 
         # Embed the pose information
         if self.useposembedding:

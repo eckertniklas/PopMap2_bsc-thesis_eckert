@@ -300,7 +300,7 @@ class POMELO_module(nn.Module):
                                     dim=1)
                 
                 # unet_no_grad = True
-                encoder_no_grad = True
+                # encoder_no_grad = True
                 if encoder_no_grad:
                 # if True:
                     with torch.no_grad():

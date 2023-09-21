@@ -313,9 +313,9 @@ class POMELO_module(nn.Module):
                             X = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True)
                 else:
                     if self.sparse_unet and sparse:
-                        X = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad)
+                        X = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True)
                     else:
-                        X = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad)
+                        X = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True)
 
                 if unet_no_grad:
                 # if True:

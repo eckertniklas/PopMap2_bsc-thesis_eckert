@@ -12,8 +12,8 @@ img_rows = 100  # patch height
 img_cols = 100  # patch width
 
 # inference patch size
-inference_patch_size = 1024
-# inference_patch_size = 2048
+# inference_patch_size = 1024
+inference_patch_size = 2048
 # inference_patch_size = 4096
 overlap = 128
 

@@ -125,19 +125,37 @@ class POMELO_module(nn.Module):
 
                 ## load weights from checkpoint
                 self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
-                self.unetmodel.num_params = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
                 # unet_out = 64*2
 
-                self.unetmodel.outputconv = nn.Sequential(
-                    nn.Conv2d(8*2, 16, kernel_size=7, padding=3), nn.ReLU(inplace=True),
-                    nn.Conv2d(16, 16, kernel_size=7, padding=3), nn.ReLU(inplace=True)
-                )
+                # self.unetmodel.outputconv = nn.Sequential(
+                #     nn.Conv2d(8*2, 16, kernel_size=7, padding=3), nn.ReLU(inplace=True),
+                #     nn.Conv2d(16, 16, kernel_size=7, padding=3), nn.ReLU(inplace=True)
+                # )
                 unet_out = 8*2
 
-                num_params_outputconv = sum(p.numel() for p in self.unetmodel.outputconv.parameters() if p.requires_grad)
-                print("trainable DDA Outputconv: ", num_params_outputconv)
+                # num_params_outputconv = sum(p.numel() for p in self.unetmodel.outputconv.parameters() if p.requires_grad)
+                # print("trainable DDA Outputconv: ", num_params_outputconv)
+
+                num_params_sar = sum(p.numel() for p in self.unetmodel.sar_stream.parameters() if p.requires_grad)
+                print("trainable DDA SAR: ", num_params_sar)
+
+                num_params_opt = sum(p.numel() for p in self.unetmodel.optical_stream.parameters() if p.requires_grad)
+                print("trainable DDA OPT: ", num_params_opt)
+
+                # num_params_sar_out = sum(p.numel() for p in self.unetmodel.sar_out_conv.parameters() if p.requires_grad)
+                # print("trainable DDA SAR out: ", num_params_sar_out)
+
+                # num_params_opt_out = sum(p.numel() for p in self.unetmodel.optical_out_conv.parameters() if p.requires_grad)
+                # print("trainable DDA OPT out: ", num_params_opt_out)
+
+                # num_params_fusioin_out = sum(p.numel() for p in self.unetmodel.fusion_out_conv.parameters() if p.requires_grad)
+                # print("trainable DDA Fusion out: ", num_params_fusioin_out)
+
+                # num_params_disc = sum(p.numel() for p in self.unetmodel.disc.parameters() if p.requires_grad)
+                # print("trainable DDA Disc: ", num_params_disc)
 
                 self.unetmodel.disc = None
+                self.unetmodel.num_params = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
         else:
             if this_input_dim>0:
                 self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 
@@ -317,12 +335,12 @@ class POMELO_module(nn.Module):
                     else:
                         X = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True)
 
-                if unet_no_grad:
-                # if True:
-                    with torch.no_grad():
-                        X = self.unetmodel.outputconv(X)
-                else:
-                    X = self.unetmodel.outputconv(X)
+                # if unet_no_grad:
+                # # if True:
+                #     with torch.no_grad():
+                #         X = self.unetmodel.outputconv(X)
+                # else:
+                #     X = self.unetmodel.outputconv(X)
                 # repeat along dim 1
                 # out = X.repeat(1, 2, 1, 1)
 

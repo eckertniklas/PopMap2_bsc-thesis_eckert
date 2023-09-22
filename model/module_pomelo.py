@@ -113,7 +113,8 @@ class POMELO_module(nn.Module):
         if feature_extractor=="DDA":
                 # get model
                 # MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
-                MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[8, 128,] )
+                # MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[8, 128,] )
+                MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[8, 16,] )
                 CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
                 # PATHS = Namespace(OUTPUT="/scratch2/metzgern/HAC/data/DDAdata/outputsDDA")
                 PATHS = Namespace(OUTPUT="model/DDA_model/checkpoints/")
@@ -121,7 +122,7 @@ class POMELO_module(nn.Module):
                 TRAINER = Namespace(LR=1e5)
                 cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS,
                                 # DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_new")
-                                DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_newAug8")
+                                DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_newAug8_16")
 
                 ## load weights from checkpoint
                 self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)

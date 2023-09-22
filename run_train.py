@@ -136,14 +136,9 @@ class Trainer:
                 
         elif args.optimizer == "SGD":
             self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
-            # self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weightdecay)
 
         if args.half:
-            # self.model = self.model.float()
             self.scaler = GradScaler()
-            # print(next(self.model.parameters()).dtype)  # Should output torch.float32
-
-            # model, optimizer = amp.initialize(self.model, self.optimizer, opt_level="O1")
 
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
         # self.scheduler = CustomLRScheduler(self.optimizer, drop_epochs=[3, 5, 10, 15, 20, 25, 30, 40, 50, 70, 90, 110, 150, ], gamma=0.75)

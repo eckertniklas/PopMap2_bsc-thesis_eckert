@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 from PIL import Image
 
-import matplotlib
-matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
+# import matplotlib
+# matplotlib.use('TkAgg')
+# import matplotlib.pyplot as plt
 
 
 def plot_2dmatrix(matrix, fig=1, vmin=None, vmax=None):

@@ -216,6 +216,8 @@ class Trainer:
         dataloader = self.dataloaders['train'] 
         self.optimizer.zero_grad()
 
+        # num_buildings, num_people = 0, 0
+
         with tqdm(dataloader, leave=False, total=len(dataloader)) as inner_tnr:
             inner_tnr.set_postfix(training_loss=np.nan)
 
@@ -229,11 +231,17 @@ class Trainer:
                 #  check if sample is weakly target supervised or source supervised 
                 if self.args.supmode=="weaksup":
                     
+
                     # forward pass and loss computation
                     # sample_weak = to_cuda_inplace(sample, self.args.half, spare=["y", "source"]) 
                     sample_weak = to_cuda_inplace(sample) 
                     sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput,
                                                                       segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
+                    
+                    # this_mask = sample_weak["admin_mask"]==sample_weak["census_idx"].view(-1,1,1)
+                    # num_buildings += (sample_weak["building_counts"] * this_mask).sum()
+                    # num_people += sample_weak["y"].sum()
+                    # print("Disaggregation factor",  (num_people/num_buildings).item())
                     
                     # check if the input is to large
                     if sample_weak["input"] is not None:

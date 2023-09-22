@@ -716,7 +716,7 @@
                 "-l", "log_l1_loss", 
                 "-la", "1.0",
                 "--empty_eps", "0.01",
-                "-sreg", "0.05",
+                "-sreg", "0.01",
                 "-dw","2", 
                 "-S2",
                 "-NIR",
@@ -745,18 +745,19 @@
                 "--occupancymodel",
                 "--buildinginput",
                 // "--useposembedding",
-                "--weightdecay_pos", "0.001",
-                "--weightdecay", "0.001",
-                "--weightdecay_unet", "0.005",
+                // "--weightdecay_pos", "0.001",
+                // "--weightdecay", "0.001",
+                // "--weightdecay_unet", "0.005",
                 "--sentinelbuildings",
                 "--train_level", "coarse",
                 "--pretrained",
-                "--limit1", "5500000",
-                "--limit2", "7000000",
+                "--limit1", "9000000",
+                "--limit2", "9000000",
                 "--limit3", "13000000",
+                "--biasinit", "2.39"
                 // "--dropout", "0.5",
                 // "--addgaussiannoise",
-                "--sparse_unet"
+                // "--sparse_unet"
             ]
         },
         {

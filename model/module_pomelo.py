@@ -31,7 +31,7 @@ class POMELO_module(nn.Module):
     def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", down=5,
                 occupancymodel=False, pretrained=False, dilation=1, replace7x7=True,
                 parent=None, experiment_folder=None, useposembedding=False, head="v1", grouped=False,
-                lempty_eps=0.0, dropout=0.0, sparse_unet=False, buildinginput=True):
+                lempty_eps=0.0, dropout=0.0, sparse_unet=False, buildinginput=True, biasinit=0.75):
         super(POMELO_module, self).__init__()
         """
         Args:
@@ -125,7 +125,8 @@ class POMELO_module(nn.Module):
                                 DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_newAug8_16")
 
                 ## load weights from checkpoint
-                self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
+                # self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
+                self.unetmodel, _, _ = load_checkpoint(epoch=30, cfg=cfg, device="cuda", no_disc=True)
                 # unet_out = 64*2
 
                 # self.unetmodel.outputconv = nn.Sequential(
@@ -223,7 +224,7 @@ class POMELO_module(nn.Module):
 
 
         # lift the bias of the head to avoid the risk of dying ReLU
-        self.head[-1].bias.data = 0.75 * torch.ones(2)
+        self.head[-1].bias.data = biasinit * torch.ones(2)
 
         # print size of the embedder and head network
         self.num_params = 0

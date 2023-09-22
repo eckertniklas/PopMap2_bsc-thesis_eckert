@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 from PIL import Image
 
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
+
 
 def plot_2dmatrix(matrix, fig=1, vmin=None, vmax=None):
     if torch.is_tensor(matrix):
@@ -19,12 +23,12 @@ def plot_2dmatrix(matrix, fig=1, vmin=None, vmax=None):
     if matrix.shape[0]==3:
         matrix = matrix.transpose((1,2,0))
 
-    figure(fig)
-    matshow(matrix, interpolation='nearest', vmin=vmin, vmax=vmax)
-    grid(True)
-    colorbar()
-    savefig('plot_outputs/last_plot.png')
-
+    plt.figure(fig)
+    plt.matshow(matrix, interpolation='nearest', vmin=vmin, vmax=vmax)
+    plt.grid(True)
+    plt.colorbar()
+    plt.savefig('plot_outputs/last_plot.png')
+    plt.show()
 
 
 def plot_and_save(img, mask=None, vmax=None, vmin=None, idx=None,

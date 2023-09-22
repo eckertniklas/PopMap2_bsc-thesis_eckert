@@ -75,4 +75,5 @@ def get_model_kwargs(args, model_name):
         kwargs['dropout'] = args.dropout
         kwargs['sparse_unet'] = args.sparse_unet
         kwargs['buildinginput']  = args.buildinginput
+        kwargs['biasinit'] = args.biasinit
     return kwargs

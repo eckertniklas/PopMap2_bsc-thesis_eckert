@@ -27,6 +27,7 @@ parser.add_argument('-wvb', '--weak_val_batch_size', help='', type=int, default=
 parser.add_argument('-f', '--feature_dim', help='', type=int, default=32)
 parser.add_argument('-pret', '--pretrained', help='', action='store_true')
 parser.add_argument("-m", "--model", help='', type=str, default="JacobsUNet")
+parser.add_argument("-binit", "--biasinit", help='', type=float, default=0.75)
 parser.add_argument("-sunet", "--sparse_unet", help='',action='store_true')
 parser.add_argument("-gr", "--grouped", help='', action='store_true')
 parser.add_argument('-par', '--parent', type=str, help=' ', default=None)
@@ -47,7 +48,7 @@ parser.add_argument('-smo', '--supmode', type=str, help="'unsup', 'weaksup'", de
 parser.add_argument("-nomain", "--nomain", action='store_true', help="no optimization on the So2 dataset")
 parser.add_argument("-no_opt", "--no_opt", action='store_true', help="no optimization")
 
-#Training
+# Training
 parser.add_argument('-e', '--num_epochs', help='', type=int, default=20)
 parser.add_argument('-lr', '--learning_rate', help='', type=float, default=1e-4)
 parser.add_argument("-exZH", "--excludeZH", action='store_true', help="")
@@ -77,7 +78,7 @@ parser.add_argument("-lim3", "--limit3", type=int, default=22000000, help="")
 parser.add_argument("-head", "--head", default="v1", help="")
 
 parser.add_argument('-wd', '--weightdecay', help='', type=float, default=0.0)
-parser.add_argument('-wdp', '--weightdecay_pos', help='', type=float, default=0.01)
+parser.add_argument('-wdp', '--weightdecay_pos', help='', type=float, default=0.0)
 parser.add_argument('-wdu', '--weightdecay_unet', help='', type=float, default=0.0)
 parser.add_argument('-ls', '--lassoreg', help='Lasso style regularization of the preds.', type=float, default=0.0)
 parser.add_argument('-tv', '--tv', help='Total variation regularization of the preds.', type=float, default=0.0)

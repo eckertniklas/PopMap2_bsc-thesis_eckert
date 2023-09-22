@@ -197,6 +197,14 @@ class DualStreamUNet(nn.Module):
 
         self.patchsize = 512 # self.sar_streamself.sar_streamfor patchwise inference
 
+    def freeze_bn_layers(self):
+        for _, layer in self.named_modules():
+            if isinstance(layer, nn.BatchNorm2d):
+                layer.eval()
+                for param in layer.parameters():
+                    param.requires_grad = False
+
+
     def forward(self, x_fusion, alpha=0, encoder_no_grad=False, return_features=False):
 
         # if unet_no_grad:

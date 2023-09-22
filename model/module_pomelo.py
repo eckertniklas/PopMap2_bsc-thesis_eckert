@@ -313,6 +313,7 @@ class POMELO_module(nn.Module):
         if self.unetmodel is not None: 
             X, (px1,px2,py1,py2) = self.add_padding(X, padding)
             if self.feature_extractor=="DDA":
+                self.unetmodel.freeze_bn_layers()
                 X = torch.cat([X[:, 4:6], # S1
                                     torch.flip(X[:, :3],dims=(1,)), # S2_RGB
                                     X[:, 3:4]], # S2_NIR

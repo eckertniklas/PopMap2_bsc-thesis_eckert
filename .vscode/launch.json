@@ -838,6 +838,7 @@
                 "-lr", "1e-4", 
                 "--model", "POMELO_module", 
                 "--head", "v3",  
+                "--feature_extractor", "DDA",
                 "-l", "log_l1_loss", 
                 "-la", "1.0",
                 "--empty_eps", "0.01",
@@ -870,20 +871,23 @@
                 // "--weak_merge_aug",
                 "--occupancymodel",
                 "--buildinginput",
-                "--useposembedding",
+                // "--useposembedding",
                 "--weightdecay_pos", "0.0",
-                "--weightdecay", "0.0",
+                "--weightdecay", "0.0004",
                 "--weightdecay_unet", "0.0004",
                 "--sentinelbuildings",
                 "--train_level", "coarse",
                 "--pretrained",
-                "--limit1", "19000000",
+                "--limit1", "13000000",
                 "--limit2", "25000000",
                 "--limit3", "35000000",
+                // "--no_opt",
+                "--sparse_unet",
                 // "--dropout", "0.5",
                 // "--addgaussiannoise",
                 "--max_weak_pix", "35000000",
-                "--max_pix_box", "35000000"
+                "--max_pix_box", "35000000",
+                "--biasinit", "0.7938"
             ]
         },
         {
@@ -947,7 +951,7 @@
                 "--occupancymodel",
                 "--buildinginput",
                 // "--segmentationinput",
-                "--useposembedding",
+                // "--useposembedding",
                 "--weightdecay_pos", "0.0",
                 "--weightdecay", "0.0",
                 "--weightdecay_unet", "0.000001",
@@ -1496,7 +1500,7 @@
                 "--limit1", "9000000",
                 "--limit2", "9000000",
                 "--limit3", "13000000",
-                "--biasinit", "2.39",
+                "--biasinit", "0.2634",
                 "--no_opt"
             ]
         },

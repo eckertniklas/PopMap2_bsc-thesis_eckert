@@ -345,7 +345,6 @@ class POMELO_module(nn.Module):
                 # else:
                 #     X = self.unetmodel.outputconv(X)
                 # repeat along dim 1
-                # out = X.repeat(1, 2, 1, 1)
 
             else:
                 if unet_no_grad:
@@ -361,7 +360,6 @@ class POMELO_module(nn.Module):
                         X, _ = self.unetmodel(X, return_features=return_features, encoder_no_grad=encoder_no_grad)
 
             # revert padding
-            # a = features[:,::2] + features[:,1::2]
             X = self.revert_padding(X, (px1,px2,py1,py2))
             middlefeatures.append(X)
 

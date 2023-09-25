@@ -185,6 +185,9 @@ class Trainer:
                     # torch.cuda.empty_cache()
                 
                 if (self.info["epoch"] + 1) % (self.args.val_every_n_epochs) == 0:
+                    # if "afg" in self.args.target_regions:
+                    #     self.test_target_large(save=True)
+                    # else:
                     self.test_target(save=True)
                     torch.cuda.empty_cache()
 
@@ -216,7 +219,7 @@ class Trainer:
         dataloader = self.dataloaders['train'] 
         self.optimizer.zero_grad()
 
-        num_buildings, num_people = 0, 0
+        # num_buildings, num_people = 0, 0
 
         with tqdm(dataloader, leave=False, total=len(dataloader)) as inner_tnr:
             inner_tnr.set_postfix(training_loss=np.nan)
@@ -355,7 +358,8 @@ class Trainer:
                     raise Exception("detected Inf loss..")
                 
                 # backprop
-                if self.info["epoch"] > 0 or not self.args.no_opt:
+                # if self.info["epoch"] > 0 or not self.args.no_opt:
+                if not self.args.no_opt:
                     if self.args.half:
                         self.scaler.scale(optim_loss).backward()
                         # if torch.isnan(output_weak["scale"].grad).any():
@@ -374,13 +378,16 @@ class Trainer:
                         else:
                             self.optimizer.step()
                             self.optimizer.zero_grad()
-                    optim_loss = optim_loss.detach()
-                    if output_weak is not None:
-                        output_weak = detach_tensors_in_dict(output_weak)
-                        del output_weak
-                    torch.cuda.empty_cache()
-                    del sample 
-                    gc.collect()
+
+                # clear memory and detach tensors
+                optim_loss = optim_loss.detach()
+                if output_weak is not None:
+                    output_weak = detach_tensors_in_dict(output_weak)
+                    del output_weak
+                del sample 
+                gc.collect()
+                
+                torch.cuda.empty_cache()
 
                 # update info
                 self.info["iter"] += 1 

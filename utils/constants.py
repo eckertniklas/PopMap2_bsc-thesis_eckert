@@ -126,8 +126,8 @@ datalocations = {
             'census': "census_coarseTRACTCE20.csv",
         },
         'coarse': {
-            'boundary': "boundaries_COUNTYFP20.tif",
-            'census': "census_COUNTYFP20.csv",
+            'boundary': "boundaries_coarseTRACTCE20.tif",
+            'census': "census_coarseTRACTCE20.csv",
         }
     },
     'rwa': {

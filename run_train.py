@@ -216,7 +216,7 @@ class Trainer:
         dataloader = self.dataloaders['train'] 
         self.optimizer.zero_grad()
 
-        # num_buildings, num_people = 0, 0
+        num_buildings, num_people = 0, 0
 
         with tqdm(dataloader, leave=False, total=len(dataloader)) as inner_tnr:
             inner_tnr.set_postfix(training_loss=np.nan)

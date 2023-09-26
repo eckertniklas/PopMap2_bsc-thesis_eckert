@@ -134,7 +134,7 @@ class POMELO_module(nn.Module):
             TRAINER = Namespace(LR=1e5)
             cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS,
                             # DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_new")
-                            DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_newAug{stage1feats}_{stage2feats}")
+                            DATALOADER=DATALOADER, TRAINER=TRAINER, NAME=f"fusionda_newAug{stage1feats}_{stage2feats}")
 
             ## load weights from checkpoint
             # self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
@@ -466,7 +466,7 @@ class POMELO_module(nn.Module):
         # a = module(inp_flat[:, mask_flat])
 
         # initialize the output
-        out_flat = torch.zeros((out_channels, batch_size*height*width,1), device=a.device, dtype=a.dtype)
+        out_flat = torch.zeros((out_channels, batch_size*height*width,1), device=inp.device, dtype=inp.dtype)
 
         # form together
         # out_flat[ :, mask_flat] = module(inp_flat_masked)

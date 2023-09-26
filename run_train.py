@@ -245,6 +245,7 @@ class Trainer:
                     # num_buildings += (sample_weak["building_counts"] * this_mask).sum()
                     # num_people += sample_weak["y"].sum()
                     # print("Disaggregation factor",  (num_people/num_buildings).item())
+                    # continue
                     
                     # check if the input is to large
                     if sample_weak["input"] is not None:

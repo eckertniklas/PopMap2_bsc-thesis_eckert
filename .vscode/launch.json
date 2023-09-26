@@ -843,7 +843,7 @@
                 "-la", "1.0",
                 "--empty_eps", "0.01",
                 "--sparse_unet",
-                "-sreg", "0.01",
+                "-sreg", "0.05",
                 "-dw","2", 
                 "-S2",
                 "-NIR",
@@ -1707,10 +1707,11 @@
             "args": [
                 "--model", "POMELO_module",
                 "--head", "v3",
+                "--feature_extractor", "DDA",
                 // "--grouped",
                 "--occupancymodel",
                 "--buildinginput",
-                "--useposembedding",
+                // "--useposembedding",
                 "--sentinelbuildings",
                 "-dw","2",
                 "-S2",
@@ -1723,8 +1724,8 @@
                 // "--fourseasons",
                 "--empty_eps", "0.01",
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1855_904/last_model.pth",
-                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1891_431/last_model.pth"
-                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_2139_452/last_model.pth"
+                "--resume", "/scratch3/metzgern/HAC/POMELOv2_results/So2Sat/experiment_2277_983/last_model.pth"
+                // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_2139_452/last_model.pth"
             ]
         },
         {

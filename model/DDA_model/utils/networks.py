@@ -205,27 +205,22 @@ class DualStreamUNet(nn.Module):
                     param.requires_grad = False
 
 
-    def forward(self, x_fusion, alpha=0, encoder_no_grad=False, return_features=False):
+    def forward(self, x_fusion, alpha=0, encoder_no_grad=False, return_features=False, S1=True, S2=True):
 
-        # if unet_no_grad:
-        #     with torch.no_grad():
-        #         # sar
-        #         # x_sar = x_fusion[:, :self.sar_in, ]
-        #         features_sar = self.sar_stream(x_fusion[:, :self.sar_in, ])
+        features = []
 
-        #         # optical
-        #         # x_optical = x_fusion[:, self.sar_in:, ]
-        #         features_optical = self.optical_stream(x_fusion[:, self.sar_in:, ])
-        # else:
-            # sar
-            # x_sar = x_fusion[:, :self.sar_in, ]
-        features_sar = self.sar_stream(x_fusion[:, :self.sar_in, ], encoder_no_grad=encoder_no_grad)
+        # sar
+        if S1:
+            features_sar = self.sar_stream(x_fusion[:, :self.sar_in, ], encoder_no_grad=encoder_no_grad)
+            features.append(features_sar)
 
         # optical
-        # x_optical = x_fusion[:, self.sar_in:, ]
-        features_optical = self.optical_stream(x_fusion[:, self.sar_in:, ], encoder_no_grad=encoder_no_grad)
+        if S2:
+            features_optical = self.optical_stream(x_fusion[:, self.sar_in:, ], encoder_no_grad=encoder_no_grad)
+            features.append(features_optical)
 
-        features_fusion = torch.cat((features_sar, features_optical), dim=1)
+        # features_fusion = torch.cat((features_sar, features_optical), dim=1)
+        features_fusion = torch.cat(features, dim=1)
         if return_features:
             return features_fusion
         logits_fusion = self.fusion_out_conv(features_fusion)
@@ -263,7 +258,7 @@ class DualStreamUNet(nn.Module):
         return features_fusion
 
 
-    def sparse_forward(self, x: torch.tensor, sparsity_mask, alpha=0, return_features=True, encoder_no_grad=False) -> torch.Tensor:
+    def sparse_forward(self, x: torch.tensor, sparsity_mask, alpha=0, return_features=True, encoder_no_grad=False, S1=True, S2=True) -> torch.Tensor:
         """
         patchwise forward pass
         """
@@ -301,7 +296,7 @@ class DualStreamUNet(nn.Module):
                     x_patch = x[active_idxs[:, 0], :, i1:i2, j1:j2]
 
                     # Forward pass
-                    out_patch = self.forward(x_patch, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True)
+                    out_patch = self.forward(x_patch, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True, S1=S1, S2=S2)
                     # out_patch = self.forward(x_patch, return_features=True, encoder_no_grad=encoder_no_grad)[0]
 
                     # Add the patch to the output tensor

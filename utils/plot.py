@@ -11,7 +11,7 @@ from PIL import Image
 # import matplotlib.pyplot as plt
 
 
-def plot_2dmatrix(matrix, fig=1, vmin=None, vmax=None):
+def plot_2dmatrix(matrix, fig=1, vmin=None, vmax=None, show=False):
     if torch.is_tensor(matrix):
         if matrix.is_cuda:
             matrix = matrix.cpu()
@@ -28,7 +28,8 @@ def plot_2dmatrix(matrix, fig=1, vmin=None, vmax=None):
     plt.grid(True)
     plt.colorbar()
     plt.savefig('plot_outputs/last_plot.png')
-    plt.show()
+    if show:
+        plt.show()
 
 
 def plot_and_save(img, mask=None, vmax=None, vmin=None, idx=None,

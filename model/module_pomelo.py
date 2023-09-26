@@ -108,56 +108,49 @@ class POMELO_module(nn.Module):
             # create the parent file
             self.parent = None
         
+        self.S1, self.S2 = True, True
+        if input_channels==0:
+            self.S1, self.S2 = False, False
+        elif input_channels==2:
+            self.S1, self.S2 = True, False
+        elif input_channels==4:
+            self.S1, self.S2 = False, True
         
         # Build the main model
-        if feature_extractor=="DDA":
-                # get model
-                # MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
-                # MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[8, 128,] )
-                MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[8, 16,] )
-                CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
-                # PATHS = Namespace(OUTPUT="/scratch2/metzgern/HAC/data/DDAdata/outputsDDA")
-                PATHS = Namespace(OUTPUT="model/DDA_model/checkpoints/")
-                DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
-                TRAINER = Namespace(LR=1e5)
-                cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS,
-                                # DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_new")
-                                DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_newAug8_16")
+        if not self.S1 and not self.S2:
+            self.unetmodel = None
+            unet_out = 0
+        elif feature_extractor=="DDA":
+            # get model
+            # MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
+            # MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[8, 128,] )
+            stage1feats = 8
+            stage2feats = 16
+            MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[stage1feats, stage2feats,] )
+            CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
+            # PATHS = Namespace(OUTPUT="/scratch2/metzgern/HAC/data/DDAdata/outputsDDA")
+            PATHS = Namespace(OUTPUT="model/DDA_model/checkpoints/")
+            DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
+            TRAINER = Namespace(LR=1e5)
+            cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS,
+                            # DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_new")
+                            DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_newAug{stage1feats}_{stage2feats}")
 
-                ## load weights from checkpoint
-                # self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
-                self.unetmodel, _, _ = load_checkpoint(epoch=30, cfg=cfg, device="cuda", no_disc=True)
-                # unet_out = 64*2
+            ## load weights from checkpoint
+            # self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
+            self.unetmodel, _, _ = load_checkpoint(epoch=30, cfg=cfg, device="cuda", no_disc=True)
+            # unet_out = 64*2
 
-                # self.unetmodel.outputconv = nn.Sequential(
-                #     nn.Conv2d(8*2, 16, kernel_size=7, padding=3), nn.ReLU(inplace=True),
-                #     nn.Conv2d(16, 16, kernel_size=7, padding=3), nn.ReLU(inplace=True)
-                # )
-                unet_out = 8*2
+            unet_out = 8*2
+            unet_out = self.S1*8 + self.S2*8
+            num_params_sar = sum(p.numel() for p in self.unetmodel.sar_stream.parameters() if p.requires_grad)
+            print("trainable DDA SAR: ", num_params_sar)
 
-                # num_params_outputconv = sum(p.numel() for p in self.unetmodel.outputconv.parameters() if p.requires_grad)
-                # print("trainable DDA Outputconv: ", num_params_outputconv)
+            num_params_opt = sum(p.numel() for p in self.unetmodel.optical_stream.parameters() if p.requires_grad)
+            print("trainable DDA OPT: ", num_params_opt)
 
-                num_params_sar = sum(p.numel() for p in self.unetmodel.sar_stream.parameters() if p.requires_grad)
-                print("trainable DDA SAR: ", num_params_sar)
-
-                num_params_opt = sum(p.numel() for p in self.unetmodel.optical_stream.parameters() if p.requires_grad)
-                print("trainable DDA OPT: ", num_params_opt)
-
-                # num_params_sar_out = sum(p.numel() for p in self.unetmodel.sar_out_conv.parameters() if p.requires_grad)
-                # print("trainable DDA SAR out: ", num_params_sar_out)
-
-                # num_params_opt_out = sum(p.numel() for p in self.unetmodel.optical_out_conv.parameters() if p.requires_grad)
-                # print("trainable DDA OPT out: ", num_params_opt_out)
-
-                # num_params_fusioin_out = sum(p.numel() for p in self.unetmodel.fusion_out_conv.parameters() if p.requires_grad)
-                # print("trainable DDA Fusion out: ", num_params_fusioin_out)
-
-                # num_params_disc = sum(p.numel() for p in self.unetmodel.disc.parameters() if p.requires_grad)
-                # print("trainable DDA Disc: ", num_params_disc)
-
-                self.unetmodel.disc = None
-                self.unetmodel.num_params = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
+            self.unetmodel.disc = None
+            self.unetmodel.num_params = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
         else:
             if this_input_dim>0:
                 self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 
@@ -466,19 +459,19 @@ class POMELO_module(nn.Module):
         mask_flat = mask.view(-1)
         
         # apply mask to the input
-        inp_flat_masked = inp_flat[:, mask_flat]
+        # inp_flat_masked = inp_flat[:, mask_flat]
 
-        
         # perform the forward pass with the module
-        a = module(inp_flat_masked)
+        # a = module(inp_flat_masked)
+        # a = module(inp_flat[:, mask_flat])
 
         # initialize the output
-        # out_flat = torch.zeros((out_channels, batch_size*height*width,1), device=inp.device, dtype=inp.dtype)
         out_flat = torch.zeros((out_channels, batch_size*height*width,1), device=a.device, dtype=a.dtype)
 
         # form together
         # out_flat[ :, mask_flat] = module(inp_flat_masked)
-        out_flat[ :, mask_flat] = a
+        # out_flat[ :, mask_flat] = a
+        out_flat[ :, mask_flat] = module(inp_flat[:, mask_flat])
         
         # reshape the output
         out = out_flat.view(out_channels, batch_size, height, width).permute(1,0,2,3)

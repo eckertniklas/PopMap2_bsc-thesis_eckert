@@ -32,6 +32,7 @@ parser.add_argument('-tlevel', '--train_level', nargs='+', default=["fine"] )
 parser.add_argument('-eeps', '--empty_eps', default=0.0, type=float, help="")
 parser.add_argument("-dro", "--dropout", help='', type=float, default=0.0)
 parser.add_argument("-sunet", "--sparse_unet", help='',action='store_true')
+parser.add_argument("-binit", "--biasinit", help='', type=float, default=0.75)
 
 #Training
 parser.add_argument("-clasif", "--classifier", default="v8", help="")

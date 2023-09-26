@@ -139,10 +139,18 @@ class POMELO_module(nn.Module):
             ## load weights from checkpoint
             # self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
             self.unetmodel, _, _ = load_checkpoint(epoch=30, cfg=cfg, device="cuda", no_disc=True)
-            # unet_out = 64*2
 
-            unet_out = 8*2
-            unet_out = self.S1*8 + self.S2*8
+            if not pretrained:
+                # initialize weights randomly
+                for m in self.unetmodel.modules():
+                    if isinstance(m, nn.Conv2d):
+                        nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                    elif isinstance(m, nn.BatchNorm2d):
+                        nn.init.constant_(m.weight, 1)
+                        nn.init.constant_(m.bias, 0)
+                        
+            # unet_out = 8*2
+            unet_out = self.S1*stage1feats + self.S2*stage1feats
             num_params_sar = sum(p.numel() for p in self.unetmodel.sar_stream.parameters() if p.requires_grad)
             print("trainable DDA SAR: ", num_params_sar)
 
@@ -307,10 +315,23 @@ class POMELO_module(nn.Module):
             X, (px1,px2,py1,py2) = self.add_padding(X, padding)
             if self.feature_extractor=="DDA":
                 self.unetmodel.freeze_bn_layers()
-                X = torch.cat([X[:, 4:6], # S1
-                                    torch.flip(X[:, :3],dims=(1,)), # S2_RGB
-                                    X[:, 3:4]], # S2_NIR
-                                    dim=1)
+                if self.S1 and self.S2:
+                    X = torch.cat([
+                        X[:, 4:6], # S1
+                        torch.flip(X[:, :3],dims=(1,)), # S2_RGB
+                        X[:, 3:4]], # S2_NIR
+                    dim=1)
+                elif self.S1 and not self.S2:
+                    X = torch.cat([
+                        X, # S1
+                        torch.zeros(X.shape[0], 4, X.shape[2], X.shape[3], device=X.device)], # S2
+                    dim=1)
+                elif not self.S1 and self.S2:
+                    X = torch.cat([
+                        torch.zeros(X.shape[0], 2, X.shape[2], X.shape[3], device=X.device), # S1
+                        torch.flip(X[:, :3],dims=(1,)), # S2_RGB
+                        X[:, 3:4]], # S2_NIR
+                    dim=1)
                 
                 # unet_no_grad = True
                 # encoder_no_grad = True
@@ -321,15 +342,15 @@ class POMELO_module(nn.Module):
                         # if True:
                         self.unetmodel.eval()
                         if self.sparse_unet and sparse:
-                            X = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True)
+                            X = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True, S1=self.S1, S2=self.S2)
                             # features = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, return_features=True)
                         else:
-                            X = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True)
+                            X = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True, S1=self.S1, S2=self.S2)
                 else:
                     if self.sparse_unet and sparse:
-                        X = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True)
+                        X = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True, S1=self.S1, S2=self.S2)
                     else:
-                        X = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True)
+                        X = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True, S1=self.S1, S2=self.S2)
 
                 # if unet_no_grad:
                 # # if True:

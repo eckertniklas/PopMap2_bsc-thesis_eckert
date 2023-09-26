@@ -2,9 +2,7 @@ import configargparse
 
 parser = configargparse.ArgumentParser()
 parser.add_argument('-c', '--config', is_config_file=True, help='Path to the config file', type=str)
-parser.add_argument('-r', '--resume', type=str, help='if argument is given, skript will continue training '
-                                                            'given model\
-                                                            ; argument should be name of the model to be trained')
+parser.add_argument('-r', '--resume', nargs='+', help='argument should be name of the model to be trained')
 parser.add_argument("-treg", "--target_regions", nargs='+', default=["pri2017"], help="the target domains")
 parser.add_argument("-S1", "--Sentinel1", action='store_true', help="")
 parser.add_argument("-S2", "--Sentinel2", action='store_true', help="")

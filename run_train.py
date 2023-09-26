@@ -522,7 +522,6 @@ class Trainer:
             wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}, **self.info}, self.info["iter"])
 
             del output_map, output_map_count, output_scale_map
-        
 
     def test_target_large(self, save=False, full=True):
         # Test on target domain
@@ -533,39 +532,24 @@ class Trainer:
             self.target_test_stats = defaultdict(float)
             for testdataloader in self.dataloaders["test_target"]:
 
-                # inputialize the output map
-                chunk_size = 4096  # or any other reasonable value
                 tmp_output_map_file = os.path.join(self.experiment_folder, 'tmp_output_map.tif')
                 tmp_output_map_count_file = os.path.join(self.experiment_folder, 'tmp_output_map_count.tif')
                 tmp_output_map_scale_file = os.path.join(self.experiment_folder, 'tmp_output_map_scale.tif')
-                metadata1 = testdataloader.dataset._meta
-                metadata1.update({'compress': 'PACKBITS', 'dtype': 'float32'})
 
-                # Initialize temporary raster files and write zeros to them in chunks
-                with rasterio.open(tmp_output_map_file, 'w', **metadata1) as tmp_dst:
-                    
-                    # Create an array of zeros with the shape of the chunk
-                    zeros_chunk = np.zeros((chunk_size, chunk_size), dtype=metadata1['dtype'])
-                    
-                    # Chunked writing of zeros to the raster files
-                    for i in tqdm(range(0, metadata1['height'], chunk_size)):
-                        for j in tqdm(range(0, metadata1['width'], chunk_size), leave=False, disable=True):
-                            # Adjust the shape of the chunk for edge cases
-                            if i + chunk_size > metadata1['height'] or j + chunk_size > metadata1['width']:
-                                current_zeros_chunk = np.zeros((min(chunk_size, metadata1['height'] - i), 
-                                                        min(chunk_size, metadata1['width'] - j)), 
-                                                    dtype=metadata1['dtype'])
-                            else:
-                                current_zeros_chunk = zeros_chunk
-                            
-                            window = Window(j, i, current_zeros_chunk.shape[1], current_zeros_chunk.shape[0])
-                            tmp_dst.write(current_zeros_chunk, 1, window=window) 
+                metadata1 = testdataloader.dataset._meta.copy()
+                metadata1.update({'compress': 'PACKBITS', 'dtype': 'float32', "BIGTIFF": 'YES'})
+                
+                print("Initializing raster files")
+                self.initialize_raster_large(os.path.join(self.experiment_folder, "tmp_output_map.tif"), metadata1)
+                self.initialize_raster_large(os.path.join(self.experiment_folder, "tmp_output_map_count.tif"), metadata1)
+                # self.initialize_raster_large(os.path.join(self.experiment_folder, "tmp_output_map_scale.tif"), metadata1)
+                # inputialize the output map
 
-                # Copy the initialized file to create the second file
-                copyfile(tmp_output_map_file, tmp_output_map_count_file)
+                # # Copy the initialized file to create the second file
+                # copyfile(tmp_output_map_file, tmp_output_map_count_file)
                 copyfile(tmp_output_map_file, tmp_output_map_scale_file)
 
-
+                # metadata_count.update({'compress': "lzw"})
                 # # Initialize temporary raster files
                 with rasterio.open(tmp_output_map_file, 'r+', **metadata1) as tmp_dst:
                     with rasterio.open(tmp_output_map_count_file, 'r+', **metadata1) as tmp_count_dst:
@@ -587,30 +571,47 @@ class Trainer:
                                 xl, yl, xu, yu = xl, yl, xl+ips, yl+ips
                                 window = Window(yl, xl, yu-yl, xu-xl)
 
-                                # Read existing values, sum new values (accounting for mask), and write back
-                                existing_values = tmp_dst.read(1, window=window).astype(np.float32)
-                                existing_values[mask.cpu()] += output["popdensemap"][0][mask].cpu().numpy().astype(np.float32) # might want to perform this operation on the GPU
-                                tmp_dst.write(existing_values, 1, window=window)
-
-                                if "scale" in output.keys():
-                                    existing_values_scale = tmp_scale_dst.read(1, window=window).astype(np.float32)
-                                    existing_values_scale[mask.cpu()] += output["scale"][0][mask].cpu().numpy().astype(np.float32) # might want to perform this operation on the GPU
-                                    tmp_scale_dst.write(existing_values_scale, 1, window=window)
-
                                 # Read existing values, sum new values (accounting for mask), and write back for the inference count tracker
-                                output_map_count = tmp_count_dst.read(1, window=window).astype(np.int32) 
+                                output_map_count = tmp_count_dst.read(1, window=window)#.astype(np.float32) 
                                 output_map_count[mask.cpu().numpy()] += 1
                                 tmp_count_dst.write(output_map_count, 1, window=window)
 
+                                counts = output_map_count[mask.cpu().numpy()]
+                                has_existing_values = (counts > 1).any()
+
+                                # Read existing values, sum new values (accounting for mask), and write back
+                                if has_existing_values:
+                                    existing_values = tmp_dst.read(1, window=window).astype(np.float32)
+                                    new_data = output["popdensemap"][0][mask].cpu().numpy().astype(np.float32)
+                                    old_counts = counts - 1
+                                    existing_values[mask.cpu()] = (existing_values[mask.cpu()] * old_counts + new_data) / counts
+                                else:
+                                    existing_values = np.zeros((ips, ips), dtype=np.float32)
+                                    existing_values[mask.cpu()] = output["popdensemap"][0][mask].cpu().numpy().astype(np.float32) 
+                                tmp_dst.write(existing_values, 1, window=window)
+
+                                no_scale = True
+                                if "scale" in output.keys() and not no_scale:
+
+                                    if has_existing_values:
+                                        existing_values_scale = tmp_scale_dst.read(1, window=window).astype(np.float32)
+                                        new_data = output["scale"][0][mask].cpu().numpy().astype(np.float32)
+                                        old_counts = counts - 1
+                                        existing_values_scale[mask.cpu()] = (existing_values_scale[mask.cpu()] * old_counts + new_data) / counts
+                                    else:
+                                        existing_values_scale = np.zeros((ips, ips), dtype=np.float32)
+                                        existing_values_scale[mask.cpu()] = output["scale"][0][mask].cpu().numpy().astype(np.float32)
+                                    tmp_scale_dst.write(existing_values_scale, 1, window=window)
+
                                 # if i == 400:
                                 #     break
-
 
                 # save predictions to file 
                 metadata = testdataloader.dataset.metadata()
                 metadata.update({"count": 1,
                                 "dtype": "float32",
-                                "compress": "lzw" })
+                                "compress": "lzw",
+                                "BIGTIFF": "YES"})
                                 # "compress": "PACKBITS" })
                 # average predictions
                 gpu_mode = False
@@ -619,75 +620,177 @@ class Trainer:
                 outputmap_file = os.path.join(self.experiment_folder, '{}_predictions.tif'.format(reg))
                 outputmap_scale = os.path.join(self.experiment_folder, '{}_predictionsSCALE.tif'.format(reg))
                 # Read the temporary maps in chunks, average and write to the final output map
-                with rasterio.open(tmp_output_map_file, 'r') as tmp_src, \
-                    rasterio.open(tmp_output_map_count_file, 'r') as tmp_count_src, \
-                    rasterio.open(tmp_output_map_scale_file, 'r') as tmp_scale_src, \
-                    rasterio.open(outputmap_file, 'w', **metadata) as dst, \
-                    rasterio.open(outputmap_scale, 'w', **metadata) as dst_scale:
+                
+                
+                copyfile(tmp_output_map_file, outputmap_file)
+                copyfile(tmp_output_map_scale_file, outputmap_scale)
 
-                    h,w = tmp_src.shape
 
-                    for i in tqdm(range(0, h, chunk_size)):
-                        for j in tqdm(range(0, w, chunk_size), leave=False, disable=False):
-                            # Adjust the shape of the chunk for edge cases
-                            chunk_height = min(chunk_size, h - i)
-                            chunk_width = min(chunk_size, w - j)
+
+    # def test_target_large(self, save=False, full=True):
+    #     # Test on target domain
+    #     self.model.eval()
+    #     self.test_stats = defaultdict(float)
+
+    #     with torch.no_grad(): 
+    #         self.target_test_stats = defaultdict(float)
+    #         for testdataloader in self.dataloaders["test_target"]:
+
+    #             # inputialize the output map
+    #             chunk_size = 4096  # or any other reasonable value
+    #             tmp_output_map_file = os.path.join(self.experiment_folder, 'tmp_output_map.tif')
+    #             tmp_output_map_count_file = os.path.join(self.experiment_folder, 'tmp_output_map_count.tif')
+    #             tmp_output_map_scale_file = os.path.join(self.experiment_folder, 'tmp_output_map_scale.tif')
+    #             metadata1 = testdataloader.dataset._meta
+    #             metadata1.update({'compress': 'PACKBITS', 'dtype': 'float32'})
+
+    #             # Initialize temporary raster files and write zeros to them in chunks
+    #             with rasterio.open(tmp_output_map_file, 'w', **metadata1) as tmp_dst:
+                    
+    #                 # Create an array of zeros with the shape of the chunk
+    #                 zeros_chunk = np.zeros((chunk_size, chunk_size), dtype=metadata1['dtype'])
+                    
+    #                 # Chunked writing of zeros to the raster files
+    #                 for i in tqdm(range(0, metadata1['height'], chunk_size)):
+    #                     for j in tqdm(range(0, metadata1['width'], chunk_size), leave=False, disable=True):
+    #                         # Adjust the shape of the chunk for edge cases
+    #                         if i + chunk_size > metadata1['height'] or j + chunk_size > metadata1['width']:
+    #                             current_zeros_chunk = np.zeros((min(chunk_size, metadata1['height'] - i), 
+    #                                                     min(chunk_size, metadata1['width'] - j)), 
+    #                                                 dtype=metadata1['dtype'])
+    #                         else:
+    #                             current_zeros_chunk = zeros_chunk
                             
-                            # Read chunks
-                            window = Window(j, i, chunk_width, chunk_height)
+    #                         window = Window(j, i, current_zeros_chunk.shape[1], current_zeros_chunk.shape[0])
+    #                         tmp_dst.write(current_zeros_chunk, 1, window=window) 
+
+    #             # Copy the initialized file to create the second file
+    #             copyfile(tmp_output_map_file, tmp_output_map_count_file)
+    #             copyfile(tmp_output_map_file, tmp_output_map_scale_file)
+
+
+    #             # # Initialize temporary raster files
+    #             with rasterio.open(tmp_output_map_file, 'r+', **metadata1) as tmp_dst:
+    #                 with rasterio.open(tmp_output_map_count_file, 'r+', **metadata1) as tmp_count_dst:
+    #                     with rasterio.open(tmp_output_map_scale_file, 'r+', **metadata1) as tmp_scale_dst:
+    #                         # Iterate over the chunks of the testdataloader
+    #                         for i, sample in tqdm(enumerate(testdataloader), leave=False, total=len(testdataloader)):
+    #                             sample = to_cuda_inplace(sample)
+    #                             sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput,
+    #                                                                         segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
+
+    #                             # get the valid coordinates
+    #                             xl,yl = [val.item() for val in sample["img_coords"]]
+    #                             mask = sample["mask"][0].bool()
+
+    #                             # get the output with a forward pass
+    #                             output = self.model(sample, padding=False)
                                 
-                            count_chunk = tmp_count_src.read(1, window=window)
+    #                             # Save current predictions to temporary file
+    #                             xl, yl, xu, yu = xl, yl, xl+ips, yl+ips
+    #                             window = Window(yl, xl, yu-yl, xu-xl)
+
+    #                             # Read existing values, sum new values (accounting for mask), and write back
+    #                             existing_values = tmp_dst.read(1, window=window).astype(np.float32)
+    #                             existing_values[mask.cpu()] += output["popdensemap"][0][mask].cpu().numpy().astype(np.float32) # might want to perform this operation on the GPU
+    #                             tmp_dst.write(existing_values, 1, window=window)
+
+    #                             if "scale" in output.keys():
+    #                                 existing_values_scale = tmp_scale_dst.read(1, window=window).astype(np.float32)
+    #                                 existing_values_scale[mask.cpu()] += output["scale"][0][mask].cpu().numpy().astype(np.float32) # might want to perform this operation on the GPU
+    #                                 tmp_scale_dst.write(existing_values_scale, 1, window=window)
+
+    #                             # Read existing values, sum new values (accounting for mask), and write back for the inference count tracker
+    #                             output_map_count = tmp_count_dst.read(1, window=window).astype(np.int32) 
+    #                             output_map_count[mask.cpu().numpy()] += 1
+    #                             tmp_count_dst.write(output_map_count, 1, window=window)
+
+    #                             # if i == 400:
+    #                             #     break
+
+
+    #             # save predictions to file 
+    #             metadata = testdataloader.dataset.metadata()
+    #             metadata.update({"count": 1,
+    #                             "dtype": "float32",
+    #                             "compress": "lzw" })
+    #                             # "compress": "PACKBITS" })
+    #             # average predictions
+    #             gpu_mode = False
+    #             # gpu_mode = True
+    #             reg = testdataloader.dataset.region
+    #             outputmap_file = os.path.join(self.experiment_folder, '{}_predictions.tif'.format(reg))
+    #             outputmap_scale = os.path.join(self.experiment_folder, '{}_predictionsSCALE.tif'.format(reg))
+    #             # Read the temporary maps in chunks, average and write to the final output map
+    #             with rasterio.open(tmp_output_map_file, 'r') as tmp_src, \
+    #                 rasterio.open(tmp_output_map_count_file, 'r') as tmp_count_src, \
+    #                 rasterio.open(tmp_output_map_scale_file, 'r') as tmp_scale_src, \
+    #                 rasterio.open(outputmap_file, 'w', **metadata) as dst, \
+    #                 rasterio.open(outputmap_scale, 'w', **metadata) as dst_scale:
+
+    #                 h,w = tmp_src.shape
+
+    #                 for i in tqdm(range(0, h, chunk_size)):
+    #                     for j in tqdm(range(0, w, chunk_size), leave=False, disable=False):
+    #                         # Adjust the shape of the chunk for edge cases
+    #                         chunk_height = min(chunk_size, h - i)
+    #                         chunk_width = min(chunk_size, w - j)
+                            
+    #                         # Read chunks
+    #                         window = Window(j, i, chunk_width, chunk_height)
                                 
-                            # Average the data chunk
-                            if gpu_mode:
-                                count_chunk = torch.tensor(count_chunk, dtype=torch.float32).cuda()
-                                div_mask_chunk = count_chunk > 0
-                                if div_mask_chunk.sum() > 0:
-                                    data_chunk = tmp_src.read(1, window=window)
+    #                         count_chunk = tmp_count_src.read(1, window=window)
+                                
+    #                         # Average the data chunk
+    #                         if gpu_mode:
+    #                             count_chunk = torch.tensor(count_chunk, dtype=torch.float32).cuda()
+    #                             div_mask_chunk = count_chunk > 0
+    #                             if div_mask_chunk.sum() > 0:
+    #                                 data_chunk = tmp_src.read(1, window=window)
 
-                                    if count_chunk.max()>1:
-                                        # to gpu
-                                        data_chunk = torch.tensor(data_chunk, dtype=torch.float32).cuda()
-                                        data_chunk_scale = torch.tensor(tmp_scale_src.read(1, window=window), dtype=torch.float32).cuda()
+    #                                 if count_chunk.max()>1:
+    #                                     # to gpu
+    #                                     data_chunk = torch.tensor(data_chunk, dtype=torch.float32).cuda()
+    #                                     data_chunk_scale = torch.tensor(tmp_scale_src.read(1, window=window), dtype=torch.float32).cuda()
 
-                                        data_chunk[div_mask_chunk] /= count_chunk[div_mask_chunk]
-                                        data_chunk_scale[div_mask_chunk] /= count_chunk[div_mask_chunk]
+    #                                     data_chunk[div_mask_chunk] /= count_chunk[div_mask_chunk]
+    #                                     data_chunk_scale[div_mask_chunk] /= count_chunk[div_mask_chunk]
 
-                                        # back to cpu numpy
-                                        data_chunk = data_chunk.cpu().numpy()
-                                        data_chunk_scale = data_chunk_scale.cpu().numpy()
-                                    else:
-                                        pass
+    #                                     # back to cpu numpy
+    #                                     data_chunk = data_chunk.cpu().numpy()
+    #                                     data_chunk_scale = data_chunk_scale.cpu().numpy()
+    #                                 else:
+    #                                     pass
 
-                                    # Write the chunk to the final file
-                                    dst.write((data_chunk), 1, window=window)
-                                    dst_scale.write((data_chunk_scale), 1, window=window)
+    #                                 # Write the chunk to the final file
+    #                                 dst.write((data_chunk), 1, window=window)
+    #                                 dst_scale.write((data_chunk_scale), 1, window=window)
 
-                            else:
-                                div_mask_chunk = count_chunk > 0
-                                if div_mask_chunk.sum() > 0:
-                                    data_chunk = tmp_src.read(1, window=window)
-                                    data_chunk_scale = tmp_scale_src.read(1, window=window)
+    #                         else:
+    #                             div_mask_chunk = count_chunk > 0
+    #                             if div_mask_chunk.sum() > 0:
+    #                                 data_chunk = tmp_src.read(1, window=window)
+    #                                 data_chunk_scale = tmp_scale_src.read(1, window=window)
 
-                                    if count_chunk.max()>1:
+    #                                 if count_chunk.max()>1:
 
-                                        data_chunk[div_mask_chunk] = data_chunk[div_mask_chunk] / count_chunk[div_mask_chunk]
-                                        data_chunk_scale[div_mask_chunk] = data_chunk_scale[div_mask_chunk] / count_chunk[div_mask_chunk]
-                                    else:
-                                        pass
+    #                                     data_chunk[div_mask_chunk] = data_chunk[div_mask_chunk] / count_chunk[div_mask_chunk]
+    #                                     data_chunk_scale[div_mask_chunk] = data_chunk_scale[div_mask_chunk] / count_chunk[div_mask_chunk]
+    #                                 else:
+    #                                     pass
                                     
-                                    # Write the chunk to the final file
-                                    data_chunk = (data_chunk*2**16).astype(np.int16)/2**16
-                                    dst.write((data_chunk), 1, window=window)
+    #                                 # Write the chunk to the final file
+    #                                 data_chunk = (data_chunk*2**16).astype(np.int16)/2**16
+    #                                 dst.write((data_chunk), 1, window=window)
 
-                                    # round to make compression more efficient
-                                    # data_chunk_scale = int(data_chunk_scale*2**16)/2**16
-                                    data_chunk_scale = (data_chunk_scale*2**16).astype(np.int16)/2**16
-                                    dst_scale.write((data_chunk_scale).astype(np.float32), 1, window=window)
+    #                                 # round to make compression more efficient
+    #                                 # data_chunk_scale = int(data_chunk_scale*2**16)/2**16
+    #                                 data_chunk_scale = (data_chunk_scale*2**16).astype(np.int16)/2**16
+    #                                 dst_scale.write((data_chunk_scale).astype(np.float32), 1, window=window)
 
-            del output_map_count, existing_values, existing_values_scale
-            os.remove(tmp_output_map_file)
-            os.remove(tmp_output_map_count_file)
+    #         del output_map_count, existing_values, existing_values_scale
+    #         os.remove(tmp_output_map_file)
+    #         os.remove(tmp_output_map_count_file)
 
     @staticmethod
     def get_dataloaders(self, args): 

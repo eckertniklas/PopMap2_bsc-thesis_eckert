@@ -18,9 +18,9 @@ def plot_2dmatrix(matrix, fig=1, vmin=None, vmax=None, show=False):
         if matrix.requires_grad:
             matrix = matrix.detach()
         matrix = matrix.numpy()
-    if matrix.shape[0]==1:
+    if matrix.shape[0]==1 and len(matrix.shape)==3:
         matrix = matrix[0]
-    if matrix.shape[0]==3:
+    if matrix.shape[0]==3 and len(matrix.shape)==3:
         matrix = matrix.transpose((1,2,0))
 
     plt.figure(fig)

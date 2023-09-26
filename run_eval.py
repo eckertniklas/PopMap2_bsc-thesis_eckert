@@ -437,4 +437,4 @@ if __name__ == '__main__':
     since = time.time() 
     trainer.test_target(save=True)
     time_elapsed = time.time() - since
-    print('Training completed in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+    print('Evaluating completed in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))

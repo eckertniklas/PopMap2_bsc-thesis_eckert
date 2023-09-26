@@ -1595,6 +1595,7 @@
             "args": [
                 "--model", "POMELO_module",
                 "--head", "v3",
+                "--feature_extractor", "DDA",
                 "--occupancymodel",
                 "--buildinginput",
                 "--useposembedding",
@@ -1655,8 +1656,8 @@
             "justMyCode": true,
             "args": [
                 "--model", "POMELO_module",
+                "--feature_extractor", "DDA",
                 "--head", "v3",
-                // "--grouped",
                 "--occupancymodel",
                 "--buildinginput",
                 "--useposembedding",
@@ -1686,18 +1687,18 @@
             "justMyCode": true,
             "args": [
                 "--model", "POMELO_module",
+                "--feature_extractor", "DDA",
                 "--head", "v3",
-                // "--grouped",
                 "--occupancymodel",
                 "--buildinginput",
-                "--useposembedding",
+                // "--useposembedding",
                 "--sentinelbuildings",
                 "--empty_eps", "0.01",
                 "-dw","2",
                 "-S2",
                 "-NIR",
                 "-S1",
-                "-f", "8",
+                "-f", "4",
                 "-rse",
                 "-treg", "che", 
                 "--train_level", "coarse4", 
@@ -1705,7 +1706,7 @@
                 "--empty_eps", "0.01",
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1855_904/last_model.pth",
                 // "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1891_431/last_model.pth"
-                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_386_648/last_model.pth"
+                "--resume", "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_613_488/last_model.pth"
             ]
         },
         {
@@ -1717,8 +1718,8 @@
             "justMyCode": true,
             "args": [
                 "--model", "POMELO_module",
+                "--feature_extractor", "DDA",
                 "--head", "v3",
-                // "--grouped",
                 "--occupancymodel",
                 "--buildinginput",
                 "--useposembedding",
@@ -1747,9 +1748,8 @@
             "justMyCode": true,
             "args": [
                 "--model", "POMELO_module",
-                "--head", "v3",
                 "--feature_extractor", "DDA",
-                // "--grouped",
+                "--head", "v3",
                 "--occupancymodel",
                 "--buildinginput",
                 // "--useposembedding",

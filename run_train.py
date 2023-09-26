@@ -159,8 +159,8 @@ class Trainer:
         """
         Main training loop
         """
-        self.pred_buffer = NumberList()
-        self.target_buffer = NumberList()
+        self.pred_buffer = NumberList(300)
+        self.target_buffer = NumberList(300)
 
         with tqdm(range(self.info["epoch"], self.args.num_epochs), leave=True) as tnr:
             tnr.set_postfix(training_loss=np.nan, validation_loss=np.nan, best_validation_loss=np.nan)
@@ -252,13 +252,6 @@ class Trainer:
                         num_pix = sample_weak["input"].shape[0]*sample_weak["input"].shape[2]*sample_weak["input"].shape[3]
                     else:
                         num_pix = 0
-
-                    # limit1, limit2, limit3 = 10000000, 12500000, 15000000
-                    # limit1, limit2, limit3 = 7000000,  1000000, 15000000
-                    # limit1, limit2, limit3 = 14000000,  18000000, 22000000
-                    # limit1, limit2, limit3 = 22000000,  44000000, 44000000
-                    # limit1, limit2, limit3 = 16000000,  2500000, 2500000
-                    # limit1, limit2, limit3 =    4000000,  500000, 12000000
 
                     encoder_no_grad, unet_no_grad = False, False 
                     if num_pix > self.args.limit1:
@@ -614,7 +607,7 @@ class Trainer:
                                 "BIGTIFF": "YES"})
                                 # "compress": "PACKBITS" })
                 # average predictions
-                gpu_mode = False
+                # gpu_mode = False
                 # gpu_mode = True
                 reg = testdataloader.dataset.region
                 outputmap_file = os.path.join(self.experiment_folder, '{}_predictions.tif'.format(reg))
@@ -624,6 +617,10 @@ class Trainer:
                 
                 copyfile(tmp_output_map_file, outputmap_file)
                 copyfile(tmp_output_map_scale_file, outputmap_scale)
+
+                # remove temporary files
+                os.remove(tmp_output_map_file)
+                os.remove(tmp_output_map_count_file)
 
 
 

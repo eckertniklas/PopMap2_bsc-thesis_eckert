@@ -13,8 +13,8 @@ img_cols = 100  # patch width
 
 # inference patch size
 # inference_patch_size = 1024
-# inference_patch_size = 2048
-inference_patch_size = 4096
+inference_patch_size = 2048
+# inference_patch_size = 4096
 overlap = 128
 
 osm_features = 56  # number of osm based features
@@ -240,6 +240,18 @@ testlevels = {
     'che': ["finezurich2", "coarse4"],
     'afg': ["coarse"]
 }
+
+testlevels = {
+    'pricp2': ["fine", "fineTRACTCE"],
+    # 'rwa': ["coarse"]
+    'rwa': ["fine100", "fine200", "fine400", "fine1000", "coarse"],
+    'rwa2022': ["coarse"],
+    'uga': ["coarse"],
+    # 'che': ["fine", "finezurich2", "coarse4"],
+    'che': ["fine", "finezurich2", "coarse4"],
+    'afg': ["coarse"]
+}
+
 
 # inicies to skip while training
 skip_indices = {

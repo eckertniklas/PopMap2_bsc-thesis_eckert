@@ -261,7 +261,8 @@ class Population_Dataset_target(Dataset):
         # load the google buildings
         if self.sentinelbuildings:
             # load sentinel buildings
-            self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA2_44C.tif")
+            # self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA2_44C.tif")
+            self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA2_44C_8.tif")
             self.gbuildings_segmentation_file = ''
             self.sbuildings = True
             self.gbuildings = False

@@ -38,12 +38,14 @@ def main(args):
     ips = 2048
     
     input_defs = {'S1': True, 'S2': True, 'VIIRS': False, 'NIR': True}
-    dataset = Population_Dataset_target(args.region, patchsize=ips, overlap=overlap, fourseasons=False,
+    dataset = Population_Dataset_target(args.region, patchsize=ips, overlap=overlap, fourseasons=True,
                                         sentinelbuildings=False, ascfill=False, **input_defs)
-    dataloader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=False, drop_last=False)
+    dataloader = DataLoader(dataset, batch_size=1, num_workers=8, shuffle=False, drop_last=False)
 
     # get model
-    MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
+    stage1feats = 8
+    stage2feats = 16
+    MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[stage1feats, stage2feats,] )
     # CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.0)
     CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
     # PATHS = Namespace(OUTPUT="/scratch2/metzgern/HAC/data/DDAdata/outputs")
@@ -51,10 +53,12 @@ def main(args):
     DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
     TRAINER = Namespace(LR=1e5)
     cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS,
-                    DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_new")
+                    # DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_new")
+                    DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_newAug8_16")
 
     ## load weights from checkpoint
-    net, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
+    # net, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
+    net, _, _ = load_checkpoint(epoch=30, cfg=cfg, device="cuda", no_disc=True)
 
     # get dataset stats
     dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
@@ -125,7 +129,7 @@ def main(args):
     del dataloader
 
     # write files in small chunks to not run out of memory
-    with rasterio.open(os.path.join(region_root, "buildingsDDA2_44C.tif"), 'w', **metadata) as dst:
+    with rasterio.open(os.path.join(region_root, "buildingsDDA2_44C_8.tif"), 'w', **metadata) as dst:
         for i in tqdm(range(0, output_map.shape[0], chunk_size)):
             for j in range(0, output_map.shape[1], chunk_size):
                 # extract the chunk from the output_map
@@ -143,7 +147,7 @@ def main(args):
     metadata.update({"compress": "none"})
 
 
-    with rasterio.open(os.path.join(region_root, "buildingsDDA2_44C_nocompression.tif"), 'w', **metadata) as dst:
+    with rasterio.open(os.path.join(region_root, "buildingsDDA2_44C_8nocompression.tif"), 'w', **metadata) as dst:
         for i in tqdm(range(0, output_map.shape[0], chunk_size)):
             for j in range(0, output_map.shape[1], chunk_size):
                 # extract the chunk from the output_map
@@ -158,7 +162,7 @@ def main(args):
 
     # no compression deflated
     metadata.update({"compress": "deflate"})
-    with rasterio.open(os.path.join(region_root, "buildingsDDA2_44C_deflate.tif"), 'w', **metadata) as dst:
+    with rasterio.open(os.path.join(region_root, "buildingsDDA2_44C_8deflate.tif"), 'w', **metadata) as dst:
         for i in tqdm(range(0, output_map.shape[0], chunk_size)):
             for j in range(0, output_map.shape[1], chunk_size):
                 # extract the chunk from the output_map

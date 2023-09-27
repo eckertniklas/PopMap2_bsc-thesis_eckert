@@ -66,6 +66,7 @@ class Trainer:
         # set up experiment folder
         self.experiment_folder, self.args.expN, self.args.randN = new_log(os.path.join(args.save_dir, "So2Sat"), args)
         self.args.experiment_folder = self.experiment_folder
+        print("Experiment folder:", self.experiment_folder)
         
         # seed everything
         seed_all(args.seed)

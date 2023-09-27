@@ -236,6 +236,60 @@ class POMELO_module(nn.Module):
         self.num_params += sum(p.numel() for p in self.head.parameters() if p.requires_grad)
         self.num_params += self.unetmodel.num_params if self.unetmodel is not None else 0
 
+    def define_urban_extractor(self):
+        """
+        Define the urban extractor if not already defined
+        """
+        
+        if not hasattr(self, "urban_extractor"):
+            MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
+            CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
+            PATHS = Namespace(OUTPUT="model/DDA_model/checkpoints/")
+            DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
+            TRAINER = Namespace(LR=1e5)
+            cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS, DATALOADER=DATALOADER, TRAINER=TRAINER, NAME=f"fusionda_newAug")
+            self.building_extractor, _, _ = load_checkpoint(epoch=30, cfg=cfg, device="cuda", no_disc=True)
+            self.building_extractor = self.building_extractor.cuda()
+
+
+
+    def create_building_score(self, inputs):
+        """
+        input:
+            - inputs: dictionary with the input data
+        output:
+            - score: building score
+        """
+
+        # initialize the neural network, load from checkpoint
+        self.define_urban_extractor()
+
+        # forward the neural network
+        with torch.no_grad():
+            if self.S1 and self.S2:
+                X = torch.cat([
+                    X[:, 4:6], # S1
+                    torch.flip(X[:, :3],dims=(1,)), # S2_RGB
+                    X[:, 3:4]], # S2_NIR
+                dim=1)
+            elif self.S1 and not self.S2:
+                X = torch.cat([
+                    X, # S1
+                    torch.zeros(X.shape[0], 4, X.shape[2], X.shape[3], device=X.device)], # S2
+                dim=1)
+            elif not self.S1 and self.S2:
+                X = torch.cat([
+                    torch.zeros(X.shape[0], 2, X.shape[2], X.shape[3], device=X.device), # S1
+                    torch.flip(X[:, :3],dims=(1,)), # S2_RGB
+                    X[:, 3:4]], # S2_NIR
+                dim=1)
+            
+            # forward the model
+            _, _, logits_fusion, _, _ = self.building_extractor(X, alpha=0, return_features=False, S1=self.S1, S2=self.S2)
+            score = torch.sigmoid(logits_fusion)
+
+        return score
+
 
 # NEW FORWARD
     def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True,
@@ -248,6 +302,11 @@ class POMELO_module(nn.Module):
         """
 
         X = inputs["input"]
+
+        if "building_counts" not in inputs.keys():
+            # create building score, if not available in the dataset
+            inputs["building_counts"] = self.create_building_score(inputs)
+            raise NotImplementedError
 
         if self.lempty_eps>0:
             inputs["building_counts"][:,0] = inputs["building_counts"][:,0] + self.lempty_eps
@@ -336,10 +395,7 @@ class POMELO_module(nn.Module):
                 # unet_no_grad = True
                 # encoder_no_grad = True
                 if unet_no_grad:
-                # if True:
                     with torch.no_grad():
-                        # self.sparse_unet = True
-                        # if True:
                         self.unetmodel.eval()
                         if self.sparse_unet and sparse:
                             X = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True, S1=self.S1, S2=self.S2)
@@ -351,14 +407,6 @@ class POMELO_module(nn.Module):
                         X = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True, S1=self.S1, S2=self.S2)
                     else:
                         X = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True, S1=self.S1, S2=self.S2)
-
-                # if unet_no_grad:
-                # # if True:
-                #     with torch.no_grad():
-                #         X = self.unetmodel.outputconv(X)
-                # else:
-                #     X = self.unetmodel.outputconv(X)
-                # repeat along dim 1
 
             else:
                 if unet_no_grad:
@@ -393,9 +441,6 @@ class POMELO_module(nn.Module):
             else:
                 pose = self.embedder(inputs["positional_encoding"])
 
-                    
-        # prepare the input to the head
-        if self.useposembedding:
             middlefeatures.append(pose)
 
         headin = torch.cat(middlefeatures, dim=1)
@@ -409,10 +454,9 @@ class POMELO_module(nn.Module):
         # Population map and total count
         if self.occupancymodel:
 
-            # activation function
+            # activation function for the population map is a ReLU to avoid negative values
             scale = nn.functional.relu(out)
 
-            # for raw
             if "building_counts" in inputs.keys(): 
                 
                 # save the scale

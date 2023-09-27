@@ -41,6 +41,8 @@ class Trainer:
         # set up experiment folder
         self.args.experiment_folder = os.path.join("/",os.path.join(*args.resume[0].split("/")[:-1]), "eval_outputs_ensemble_{}_members_{}".format(time.strftime("%Y%m%d-%H%M%S"), len(args.resume)))
         self.experiment_folder = self.args.experiment_folder
+        print("Experiment folder:", self.experiment_folder)
+
 
         if not os.path.exists(self.experiment_folder):
             os.makedirs(self.experiment_folder)

@@ -236,59 +236,7 @@ class POMELO_module(nn.Module):
         self.num_params += sum(p.numel() for p in self.head.parameters() if p.requires_grad)
         self.num_params += self.unetmodel.num_params if self.unetmodel is not None else 0
 
-    def define_urban_extractor(self):
-        """
-        Define the urban extractor if not already defined
-        """
-        
-        if not hasattr(self, "urban_extractor"):
-            MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
-            CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
-            PATHS = Namespace(OUTPUT="model/DDA_model/checkpoints/")
-            DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
-            TRAINER = Namespace(LR=1e5)
-            cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS, DATALOADER=DATALOADER, TRAINER=TRAINER, NAME=f"fusionda_newAug")
-            self.building_extractor, _, _ = load_checkpoint(epoch=30, cfg=cfg, device="cuda", no_disc=True)
-            self.building_extractor = self.building_extractor.cuda()
 
-
-
-    def create_building_score(self, inputs):
-        """
-        input:
-            - inputs: dictionary with the input data
-        output:
-            - score: building score
-        """
-
-        # initialize the neural network, load from checkpoint
-        self.define_urban_extractor()
-
-        # forward the neural network
-        with torch.no_grad():
-            if self.S1 and self.S2:
-                X = torch.cat([
-                    X[:, 4:6], # S1
-                    torch.flip(X[:, :3],dims=(1,)), # S2_RGB
-                    X[:, 3:4]], # S2_NIR
-                dim=1)
-            elif self.S1 and not self.S2:
-                X = torch.cat([
-                    X, # S1
-                    torch.zeros(X.shape[0], 4, X.shape[2], X.shape[3], device=X.device)], # S2
-                dim=1)
-            elif not self.S1 and self.S2:
-                X = torch.cat([
-                    torch.zeros(X.shape[0], 2, X.shape[2], X.shape[3], device=X.device), # S1
-                    torch.flip(X[:, :3],dims=(1,)), # S2_RGB
-                    X[:, 3:4]], # S2_NIR
-                dim=1)
-            
-            # forward the model
-            _, _, logits_fusion, _, _ = self.building_extractor(X, alpha=0, return_features=False, S1=self.S1, S2=self.S2)
-            score = torch.sigmoid(logits_fusion)
-
-        return score
 
 
 # NEW FORWARD
@@ -589,3 +537,59 @@ class POMELO_module(nn.Module):
         if py1 is not None or py2 is not None:
             data = data[:,:,:,py1:-py2]
         return data
+
+
+    def define_urban_extractor(self):
+        """
+        Define the urban extractor if not already defined
+        """
+        
+        if not hasattr(self, "urban_extractor"):
+            MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
+            CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
+            PATHS = Namespace(OUTPUT="model/DDA_model/checkpoints/")
+            DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
+            TRAINER = Namespace(LR=1e5)
+            cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS, DATALOADER=DATALOADER, TRAINER=TRAINER, NAME=f"fusionda_newAug")
+            self.building_extractor, _, _ = load_checkpoint(epoch=30, cfg=cfg, device="cuda", no_disc=True)
+            self.building_extractor = self.building_extractor.cuda()
+
+
+
+    def create_building_score(self, inputs):
+        """
+        input:
+            - inputs: dictionary with the input data
+        output:
+            - score: building score
+        """
+
+        # initialize the neural network, load from checkpoint
+        self.define_urban_extractor()
+
+        # forward the neural network
+        with torch.no_grad():
+            if self.S1 and self.S2:
+                X = torch.cat([
+                    X[:, 4:6], # S1
+                    torch.flip(X[:, :3],dims=(1,)), # S2_RGB
+                    X[:, 3:4]], # S2_NIR
+                dim=1)
+            elif self.S1 and not self.S2:
+                X = torch.cat([
+                    X, # S1
+                    torch.zeros(X.shape[0], 4, X.shape[2], X.shape[3], device=X.device)], # S2
+                dim=1)
+            elif not self.S1 and self.S2:
+                X = torch.cat([
+                    torch.zeros(X.shape[0], 2, X.shape[2], X.shape[3], device=X.device), # S1
+                    torch.flip(X[:, :3],dims=(1,)), # S2_RGB
+                    X[:, 3:4]], # S2_NIR
+                dim=1)
+            
+            # forward the model
+            _, _, logits_fusion, _, _ = self.building_extractor(X, alpha=0, return_features=False, S1=self.S1, S2=self.S2)
+            score = torch.sigmoid(logits_fusion)
+
+        return score
+    

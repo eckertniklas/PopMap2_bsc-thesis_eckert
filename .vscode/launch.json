@@ -829,7 +829,6 @@
                 "--max_pix_box", "35000000",
                 "--biasinit", "0.7319"
             ]
-            ]
         },
         {
             "name": "train, Stage 1, afg",

@@ -241,7 +241,7 @@ testlevels = {
     'afg': ["coarse"]
 }
 
-testlevels = {
+testlevels_eval = {
     'pricp2': ["fine", "fineTRACTCE"],
     # 'rwa': ["coarse"]
     'rwa': ["fine100", "fine200", "fine400", "fine1000", "coarse"],

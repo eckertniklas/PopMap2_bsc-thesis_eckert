@@ -24,7 +24,7 @@ from utils.utils import load_json, apply_transformations_and_normalize, apply_no
 from utils.constants import config_path
 
 from utils.plot import plot_2dmatrix, plot_and_save, scatter_plot3
-from utils.constants import  overlap, testlevels
+from utils.constants import  overlap, testlevels, testlevels_eval
 from utils.constants import inference_patch_size as ips
 
 import nvidia_smi
@@ -190,7 +190,7 @@ class Trainer:
                 
                 # convert populationmap to census
                 gpu_mode = True
-                for level in testlevels[testdataloader.dataset.region]:
+                for level in testlevels_eval[testdataloader.dataset.region]:
                     print("-"*50)
                     print("Evaluating level: ", level)
                     # convert map to census
@@ -220,7 +220,7 @@ class Trainer:
                 if save:
                     testdataloader.dataset.save(output_map_adj, self.experiment_folder, tag="ADJ_{}".format(testdataloader.dataset.region))
 
-                for level in testlevels[testdataloader.dataset.region]:
+                for level in testlevels_eval[testdataloader.dataset.region]:
                     # convert map to census
                     census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map_adj, gpu_mode=gpu_mode, level=level, details_to=os.path.join(self.experiment_folder, "{}_{}_adj".format(testdataloader.dataset.region, level)))
                     test_stats_adj = get_test_metrics(census_pred, census_gt.float().cuda(), tag="AdjCensus_{}_{}".format(testdataloader.dataset.region, level))

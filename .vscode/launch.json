@@ -752,7 +752,7 @@
                 "--limit1", "9000000",
                 "--limit2", "9000000",
                 "--limit3", "13000000",
-                "--biasinit", "2.39"
+                "--biasinit", "0.9407"
                 // "--dropout", "0.5",
                 // "--addgaussiannoise",
                 // "--sparse_unet"

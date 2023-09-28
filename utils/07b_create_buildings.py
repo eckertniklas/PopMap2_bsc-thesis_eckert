@@ -43,6 +43,9 @@ def main(args):
     dataloader = DataLoader(dataset, batch_size=1, num_workers=12, shuffle=False, drop_last=False)
 
     # get model
+    stage1feats = 8
+    stage2feats = 16
+    MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[stage1feats, stage2feats,] )
     MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
     # CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.0)
     CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
@@ -51,10 +54,12 @@ def main(args):
     DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
     TRAINER = Namespace(LR=1e5)
     cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS,
-                    DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_new")
+                    # DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_new")
+                    DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_newAug8_16")
 
     ## load weights from checkpoint
-    net, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
+    # net, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
+    net, _, _ = load_checkpoint(epoch=30, cfg=cfg, device="cuda", no_disc=True)
 
     # get dataset stats
     dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
@@ -198,7 +203,7 @@ def main(args):
     # Read the temporary maps in chunks, average and write to the final output map
     with rasterio.open(tmp_output_map_file, 'r') as tmp_src, \
         rasterio.open(tmp_output_map_count_file, 'r') as tmp_count_src, \
-        rasterio.open(os.path.join(region_root, "buildingsDDA2_44C.tif"), 'w', **metadata) as dst:
+        rasterio.open(os.path.join(region_root, "buildingsDDA2_44C_8.tif"), 'w', **metadata) as dst:
 
         for i in tqdm(range(0, h, chunk_size)):
             for j in tqdm(range(0, w, chunk_size), leave=False, disable=False):

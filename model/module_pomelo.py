@@ -471,19 +471,10 @@ class POMELO_module(nn.Module):
         # flatten mask
         mask_flat = mask.view(-1)
         
-        # apply mask to the input
-        # inp_flat_masked = inp_flat[:, mask_flat]
-
-        # perform the forward pass with the module
-        # a = module(inp_flat_masked)
-        # a = module(inp_flat[:, mask_flat])
-
         # initialize the output
         out_flat = torch.zeros((out_channels, batch_size*height*width,1), device=inp.device, dtype=inp.dtype)
 
-        # form together
-        # out_flat[ :, mask_flat] = module(inp_flat_masked)
-        # out_flat[ :, mask_flat] = a
+        # form together the output
         out_flat[ :, mask_flat] = module(inp_flat[:, mask_flat])
         
         # reshape the output
@@ -539,7 +530,7 @@ class POMELO_module(nn.Module):
         return data
 
 
-    def define_urban_extractor(self):
+    def define_urban_extractor(self) -> None:
         """
         Define the urban extractor if not already defined
         """
@@ -556,7 +547,7 @@ class POMELO_module(nn.Module):
 
 
 
-    def create_building_score(self, inputs):
+    def create_building_score(self, inputs: dict) -> torch.Tensor:
         """
         input:
             - inputs: dictionary with the input data
@@ -566,6 +557,11 @@ class POMELO_module(nn.Module):
 
         # initialize the neural network, load from checkpoint
         self.define_urban_extractor()
+        self.building_extractor.eval()
+        self.unetmodel.freeze_bn_layers()
+ 
+        # add padding
+        X, (px1,px2,py1,py2) = self.add_padding(inputs["input"], True)
 
         # forward the neural network
         with torch.no_grad():
@@ -590,6 +586,9 @@ class POMELO_module(nn.Module):
             # forward the model
             _, _, logits_fusion, _, _ = self.building_extractor(X, alpha=0, return_features=False, S1=self.S1, S2=self.S2)
             score = torch.sigmoid(logits_fusion)
+
+        # revert padding
+        score = self.revert_padding(score, (px1,px2,py1,py2))
 
         return score
     

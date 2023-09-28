@@ -37,9 +37,10 @@ def main(args):
     # ips = 4096
     ips = 2048
     
+    need_asc = ["uga"]
     input_defs = {'S1': True, 'S2': True, 'VIIRS': False, 'NIR': True}
     dataset = Population_Dataset_target(args.region, patchsize=ips, overlap=overlap, fourseasons=True,
-                                        sentinelbuildings=False, ascfill=False, **input_defs)
+                                        sentinelbuildings=False, ascfill=args.region in need_asc, **input_defs)
     dataloader = DataLoader(dataset, batch_size=1, num_workers=8, shuffle=False, drop_last=False)
 
     # get model

@@ -251,9 +251,11 @@ class POMELO_module(nn.Module):
 
         X = inputs["input"]
 
-        if "building_counts" not in inputs.keys():
+        force_building_score = True
+        if "building_counts" not in inputs.keys() or force_building_score:
             # create building score, if not available in the dataset
-            inputs["building_counts"] = self.create_building_score(inputs)
+            a = self.create_building_score(inputs)
+            inputs["building_counts"] = a
             # raise NotImplementedError
 
         if self.lempty_eps>0:
@@ -535,13 +537,14 @@ class POMELO_module(nn.Module):
         Define the urban extractor if not already defined
         """
         
-        if not hasattr(self, "urban_extractor"):
-            MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
+        if not hasattr(self, "building_extractor"):
+            print("Loading urban extractor")
+            MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[8, 16,] )
             CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
             PATHS = Namespace(OUTPUT="model/DDA_model/checkpoints/")
             DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
             TRAINER = Namespace(LR=1e5)
-            cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS, DATALOADER=DATALOADER, TRAINER=TRAINER, NAME=f"fusionda_newAug")
+            cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS, DATALOADER=DATALOADER, TRAINER=TRAINER, NAME=f"fusionda_newAug8_16")
             self.building_extractor, _, _ = load_checkpoint(epoch=30, cfg=cfg, device="cuda", no_disc=True)
             self.building_extractor = self.building_extractor.cuda()
 

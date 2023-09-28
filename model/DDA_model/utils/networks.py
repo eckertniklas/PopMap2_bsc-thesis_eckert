@@ -114,7 +114,7 @@ class UNet(nn.Module):
 
             layer = Down(in_dim, out_dim, DoubleConv)
 
-            print(f'down{idx + 1}: in {in_dim}, out {out_dim}')
+            # print(f'down{idx + 1}: in {in_dim}, out {out_dim}')
             down_dict[f'down{idx + 1}'] = layer
             up_topo.append(out_dim)
         self.down_seq = nn.ModuleDict(down_dict)
@@ -129,7 +129,7 @@ class UNet(nn.Module):
 
             layer = Up(in_dim, out_dim, DoubleConv)
 
-            print(f'up{idx + 1}: in {in_dim}, out {out_dim}')
+            # print(f'up{idx + 1}: in {in_dim}, out {out_dim}')
             up_dict[f'up{idx + 1}'] = layer
 
         self.up_seq = nn.ModuleDict(up_dict)

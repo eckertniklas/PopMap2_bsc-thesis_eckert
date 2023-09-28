@@ -254,7 +254,7 @@ class POMELO_module(nn.Module):
         if "building_counts" not in inputs.keys():
             # create building score, if not available in the dataset
             inputs["building_counts"] = self.create_building_score(inputs)
-            raise NotImplementedError
+            # raise NotImplementedError
 
         if self.lempty_eps>0:
             inputs["building_counts"][:,0] = inputs["building_counts"][:,0] + self.lempty_eps

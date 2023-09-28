@@ -26,7 +26,7 @@ from utils.constants import pop_map_root_large, pop_map_root
 
 
 # chunk size
-chunk_size = 1000
+chunk_size = 500
 
 def main(args):
 

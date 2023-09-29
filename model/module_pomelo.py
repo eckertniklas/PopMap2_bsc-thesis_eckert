@@ -31,7 +31,8 @@ class POMELO_module(nn.Module):
     def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", down=5,
                 occupancymodel=False, pretrained=False, dilation=1, replace7x7=True,
                 parent=None, experiment_folder=None, useposembedding=False, head="v1", grouped=False,
-                lempty_eps=0.0, dropout=0.0, sparse_unet=False, buildinginput=True, biasinit=0.75):
+                lempty_eps=0.0, dropout=0.0, sparse_unet=False, buildinginput=True, biasinit=0.75,
+                sentinelbuildings=True):
         super(POMELO_module, self).__init__()
         """
         Args:
@@ -57,10 +58,14 @@ class POMELO_module(nn.Module):
         self.useposembedding = useposembedding
         self.buildinginput = buildinginput
         self.feature_extractor = feature_extractor
-        self.head_name = head 
-        this_input_dim = input_channels
-        head_input_dim = 0
         self.sparse_unet = sparse_unet
+        self.sentinelbuildings = sentinelbuildings
+
+        self.head_name = head 
+        head_input_dim = 0
+
+        this_input_dim = input_channels
+        
         if lempty_eps>0:
             self.lempty_eps = torch.nn.Parameter(torch.tensor(lempty_eps), requires_grad=True)
         else:
@@ -121,9 +126,7 @@ class POMELO_module(nn.Module):
             self.unetmodel = None
             unet_out = 0
         elif feature_extractor=="DDA":
-            # get model
-            # MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[64, 128,] )
-            # MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[8, 128,] )
+            # get pretrained building extractor model from checkpoint
             stage1feats = 8
             stage2feats = 16
             MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[stage1feats, stage2feats,] )
@@ -223,7 +226,6 @@ class POMELO_module(nn.Module):
                 nn.Conv2d(h, 2, kernel_size=1, padding=0)
             )
 
-
         # lift the bias of the head to avoid the risk of dying ReLU
         self.head[-1].bias.data = biasinit * torch.ones(2)
 
@@ -236,6 +238,8 @@ class POMELO_module(nn.Module):
         self.num_params += sum(p.numel() for p in self.head.parameters() if p.requires_grad)
         self.num_params += self.unetmodel.num_params if self.unetmodel is not None else 0
 
+        # define urban extractor
+        self.define_urban_extractor()
 
 
 
@@ -251,12 +255,9 @@ class POMELO_module(nn.Module):
 
         X = inputs["input"]
 
-        force_building_score = True
-        if "building_counts" not in inputs.keys() or force_building_score:
-            # create building score, if not available in the dataset
-            a = self.create_building_score(inputs)
-            inputs["building_counts"] = a
-            # raise NotImplementedError
+        # create building score, if not available in the dataset
+        if "building_counts" not in inputs.keys() or self.sentinelbuildings:
+            inputs["building_counts"]  = self.create_building_score(inputs)
 
         if self.lempty_eps>0:
             inputs["building_counts"][:,0] = inputs["building_counts"][:,0] + self.lempty_eps
@@ -265,6 +266,7 @@ class POMELO_module(nn.Module):
             # create sparsity mask 
 
             if self.sparse_unet:
+                # building_sparsity_mask = (inputs["building_counts"][:,0]>0.0001) 
                 building_sparsity_mask = (inputs["building_counts"][:,0]>0.010001) 
                 sub = 250
                 xindices = torch.ones(building_sparsity_mask.shape[1]).multinomial(num_samples=min(sub,building_sparsity_mask.shape[1]), replacement=False).sort()[0]

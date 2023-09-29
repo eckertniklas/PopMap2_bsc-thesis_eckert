@@ -94,8 +94,8 @@ class Trainer:
         
         # Test on target domain
         save_scatter = save_scatter
-        for i in range(len(self.model)):
-            self.model[i].eval()
+        for j in range(len(self.model)):
+            self.model[j].eval()
         # self.model.eval()
         self.test_stats = defaultdict(float)
         # self.model.train()
@@ -110,14 +110,14 @@ class Trainer:
                 output_scale_map = torch.zeros((h, w), dtype=torch.float16)
                 output_map_count = torch.zeros((h, w), dtype=torch.int8)
 
-                if len(self.model) > 1:
-                    output_STD_map = torch.zeros((h, w), dtype=torch.float16)
-                    output_scale_STD_map = torch.zeros((h, w), dtype=torch.float16)
+                # if len(self.model) > 1:
+                output_map_squared = torch.zeros((h, w), dtype=torch.float32)
+                # output_STD_map = torch.zeros((h, w), dtype=torch.float32)
+                output_scale_map_squared = torch.zeros((h, w), dtype=torch.float32)
+                # output_scale_STD_map = torch.zeros((h, w), dtype=torch.float32)
 
                 for sample in tqdm(testdataloader, leave=True):
                     sample = to_cuda_inplace(sample)
-                    # sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput,
-                    #     segmentationinput=self.args.segmentationinput)
                     sample = apply_transformations_and_normalize(sample,  transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput,
                                                                       segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
 
@@ -126,69 +126,78 @@ class Trainer:
                     mask = sample["mask"][0].bool()
 
                     # get the output with a forward pass
-                    popdense = torch.zeros((len(self.model), ips, ips), dtype=torch.float16)
-                    scale = torch.zeros((len(self.model), ips, ips), dtype=torch.float16)
+                    popdense = torch.zeros((len(self.model), ips, ips), dtype=torch.float16, device="cuda")
+                    scale = torch.zeros((len(self.model), ips, ips), dtype=torch.float16, device="cuda")
+                    popdense_squared = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
+                    scale_squared = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
                     for i, model in enumerate(self.model):
                         this_output = model(sample, padding=False)
-                        popdense[i] = this_output["popdensemap"][0]
+                        popdense[i] = this_output["popdensemap"][0].cuda()
+                        popdense_squared[i] = this_output["popdensemap"][0].to(torch.float32).cuda()**2
                         if "scale" in this_output.keys():
-                            scale[i] = this_output["scale"][0]
+                            scale[i] = this_output["scale"][0].cuda()
+                            scale_squared[i] = this_output["scale"][0].to(torch.float32).cuda()**2
                     
-                    output = {"popdensemap": popdense.mean(dim=0, keepdim=True).cuda()}
-                    if i > 0:
-                        output["popdensemap_STD"] = popdense.std(dim=0, keepdim=True).cuda()
+                    output = {
+                        "popdensemap": popdense.sum(dim=0, keepdim=True),
+                        "popdensemap_squared": popdense_squared.sum(dim=0, keepdim=True)
+                    }
+                    # if i > 0:
+                    #     output["popdensemap_STD"] = popdense.std(dim=0, keepdim=True).cuda()
                     if "scale" in this_output.keys():
-                        output["scale"] = scale.cuda().mean(dim=0, keepdim=True).cuda()
-                        if i > 0:
-                            output["scale_STD"] = scale.std(dim=0, keepdim=True).cuda()
-
-                    # output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu().to(torch.float16)
-
-                    # if "scale" in output.keys():
-                    #     output_scale_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale"][0][mask].cpu().to(torch.float16)
-
-                    # output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
-                    # for model in self.model:
-                    #     output = model(sample, padding=False)
+                        output["scale"] = scale.cuda().sum(dim=0, keepdim=True)
+                        output["scale_squared"] = scale_squared.cuda().sum(dim=0, keepdim=True)
+                        # if i > 0:
+                        #     output["scale_STD"] = scale.std(dim=0, keepdim=True).cuda()
                     
+                    # save predictions to large map
                     output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu().to(torch.float16)
+                    output_map_squared[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap_squared"][0][mask].cpu().to(torch.float32)
 
                     if "scale" in output.keys():
                         output_scale_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale"][0][mask].cpu().to(torch.float16)
+                        output_scale_map_squared[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale_squared"][0][mask].cpu().to(torch.float32)
 
-                    if len(self.model) > 1:
-                        output_STD_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap_STD"][0][mask].cpu().to(torch.float16)
-                        if "scale" in output.keys():
-                            output_scale_STD_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale_STD"][0][mask].cpu().to(torch.float16)
+                    # if len(self.model) > 1:
+                    #     output_STD_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap_STD"][0][mask].cpu().to(torch.float16)
+                    #     if "scale" in output.keys():
+                    #         output_scale_STD_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale_STD"][0][mask].cpu().to(torch.float16)
 
-                    output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
+                    output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += len(self.model)
 
                 ###### average over the number of times each pixel was visited ######
                 # mask out values that are not visited of visited exactly once
                 div_mask = output_map_count > 1
                 output_map[div_mask] = output_map[div_mask] / output_map_count[div_mask]
 
+                # calculate the standard deviation from the sum of squares and the mean as "std_dev = math.sqrt((sum_of_squares - n * mean ** 2) / (n - 1))"
+                output_map_squared[div_mask] = torch.sqrt((output_map_squared[div_mask] - (output_map[div_mask] ** 2) * output_map_count[div_mask]) / (output_map_count[div_mask] - 1))
+
                 if "scale" in output.keys():
                     output_scale_map[div_mask] = output_scale_map[div_mask] / output_map_count[div_mask]
 
-                if len(self.model) > 1:
-                    output_STD_map[div_mask] = output_STD_map[div_mask] / output_map_count[div_mask]
-                    if "scale" in output.keys():
-                        output_scale_STD_map[div_mask] = output_scale_STD_map[div_mask] / output_map_count[div_mask]
+                    # calculate the standard deviation from the sum of squares and the mean as "std_dev = math.sqrt((sum_of_squares - n * mean ** 2) / (n - 1))"
+                    output_scale_map_squared[div_mask] = torch.sqrt((output_scale_map_squared[div_mask] - (output_scale_map[div_mask] ** 2) * output_map_count[div_mask]) / (output_map_count[div_mask] - 1))
+
+                # if len(self.model) > 1:
+                #     output_STD_map[div_mask] = output_STD_map[div_mask] / output_map_count[div_mask]
+                #     if "scale" in output.keys():
+                #         output_scale_STD_map[div_mask] = output_scale_STD_map[div_mask] / output_map_count[div_mask]
                 
                 # save maps
                 print("saving maps")
                 if save:
                     # save the output map
                     testdataloader.dataset.save(output_map, self.experiment_folder)
+                    testdataloader.dataset.save(output_map_squared, self.experiment_folder, tag="STD")
 
                     if "scale" in output.keys():
                         testdataloader.dataset.save(output_scale_map, self.experiment_folder, tag="SCALE_{}".format(testdataloader.dataset.region))
-
-                    if len(self.model) > 1:
-                        testdataloader.dataset.save(output_STD_map, self.experiment_folder, tag="STD_{}".format(testdataloader.dataset.region))
-                        if "scale" in output.keys():
-                            testdataloader.dataset.save(output_scale_STD_map, self.experiment_folder, tag="SCALE_STD_{}".format(testdataloader.dataset.region))
+                        testdataloader.dataset.save(output_scale_map_squared, self.experiment_folder, tag="SCALE_STD")
+                    # if len(self.model) > 1:
+                    #     testdataloader.dataset.save(output_STD_map, self.experiment_folder, tag="STD_{}".format(testdataloader.dataset.region))
+                    #     if "scale" in output.keys():
+                    #         testdataloader.dataset.save(output_scale_STD_map, self.experiment_folder, tag="SCALE_STD_{}".format(testdataloader.dataset.region))
                 
                 # convert populationmap to census
                 gpu_mode = True

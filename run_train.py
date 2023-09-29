@@ -236,17 +236,19 @@ class Trainer:
                 if self.args.supmode=="weaksup":
                     
 
+                    # sample_weak = sample
+                    # this_mask = sample_weak["admin_mask"]==sample_weak["census_idx"].view(-1,1,1)
+                    # num_buildings += (sample_weak["building_counts"] * this_mask).sum()
+                    # num_people += sample_weak["y"].sum()
+                    # print("Disaggregation factor",  (num_people/num_buildings).item())
+                    # continue
+
                     # forward pass and loss computation
                     # sample_weak = to_cuda_inplace(sample, self.args.half, spare=["y", "source"]) 
                     sample_weak = to_cuda_inplace(sample) 
                     sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput,
                                                                       segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
                     
-                    # this_mask = sample_weak["admin_mask"]==sample_weak["census_idx"].view(-1,1,1)
-                    # num_buildings += (sample_weak["building_counts"] * this_mask).sum()
-                    # num_people += sample_weak["y"].sum()
-                    # print("Disaggregation factor",  (num_people/num_buildings).item())
-                    # continue
                     
                     # check if the input is to large
                     if sample_weak["input"] is not None:

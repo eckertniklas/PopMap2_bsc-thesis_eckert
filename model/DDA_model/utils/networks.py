@@ -221,12 +221,12 @@ class DualStreamUNet(nn.Module):
 
         # features_fusion = torch.cat((features_sar, features_optical), dim=1)
         features_fusion = torch.cat(features, dim=1)
+
+        # if return features only, return the features before the out conv to save memory
         if return_features:
             return features_fusion
-        logits_fusion = self.fusion_out_conv(features_fusion)
 
         #### get features before outConv 
-        #stacked_features = torch.cat((features_sar, features_optical), dim=0)
         if alpha != 0:
             reverse_feature_sar = ReverseLayerF.apply(features_sar, alpha)
             reverse_feature_optical = ReverseLayerF.apply(features_optical, alpha)
@@ -235,14 +235,29 @@ class DualStreamUNet(nn.Module):
         else:
             logits_disc_sar = None
             logits_disc_optical = None
-
-        logits_sar = self.sar_out_conv(features_sar)
-        logits_optical = self.optical_out_conv(features_optical)
-
-        if return_features:
-            return logits_sar, logits_optical, logits_fusion, logits_disc_sar, logits_disc_optical, features_fusion
+        
+        if S1:
+            logits_sar = self.sar_out_conv(features_sar)
+        
+        if S2:
+            logits_optical = self.optical_out_conv(features_optical)
+        
+        # return the logits if only one stream is used
+        if S1 and not S2:
+            return logits_sar
+        
+        elif S2 and not S1:
+            return logits_optical
+        
         else:
-            return logits_sar, logits_optical, logits_fusion, logits_disc_sar, logits_disc_optical
+            
+            # forward the fusion features through the fusion out conv
+            logits_fusion = self.fusion_out_conv(features_fusion)
+            
+            if return_features:
+                return logits_sar, logits_optical, logits_fusion, logits_disc_sar, logits_disc_optical, features_fusion
+            else:
+                return logits_sar, logits_optical, logits_fusion, logits_disc_sar, logits_disc_optical
 
     def fusion_features(self, x_fusion):
 

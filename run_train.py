@@ -220,7 +220,7 @@ class Trainer:
         dataloader = self.dataloaders['train'] 
         self.optimizer.zero_grad()
 
-        # num_buildings, num_people = 0, 0
+        num_buildings, num_people = 0, 0
 
         with tqdm(dataloader, leave=False, total=len(dataloader)) as inner_tnr:
             inner_tnr.set_postfix(training_loss=np.nan)
@@ -237,11 +237,13 @@ class Trainer:
                     
 
                     # sample_weak = sample
-                    # this_mask = sample_weak["admin_mask"]==sample_weak["census_idx"].view(-1,1,1)
-                    # num_buildings += (sample_weak["building_counts"] * this_mask).sum()
-                    # num_people += sample_weak["y"].sum()
-                    # print("Disaggregation factor",  (num_people/num_buildings).item())
-                    # continue
+                    calculate_disaggregation_factor = False
+                    if calculate_disaggregation_factor:
+                        this_mask = sample_weak["admin_mask"]==sample_weak["census_idx"].view(-1,1,1)
+                        num_buildings += (sample_weak["building_counts"] * this_mask).sum()
+                        num_people += sample_weak["y"].sum()
+                        print("Disaggregation factor",  (num_people/num_buildings).item())
+                        continue
 
                     # forward pass and loss computation
                     # sample_weak = to_cuda_inplace(sample, self.args.half, spare=["y", "source"]) 

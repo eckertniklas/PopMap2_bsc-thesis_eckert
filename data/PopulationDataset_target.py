@@ -879,7 +879,7 @@ def Population_Dataset_collate_fn(batch):
     use_building_segmentation, use_building_counts, use_positional_encoding = False, False, False
     
     # initialize tensors
-    admin_mask_batch = torch.zeros(len(batch), max_x, max_y)
+    admin_mask_batch = (-1)*torch.ones(len(batch), max_x, max_y)
     y_batch = torch.zeros(len(batch))
     
     # Fill the tensors with the data from the batch

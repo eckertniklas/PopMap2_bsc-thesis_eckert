@@ -257,7 +257,9 @@ class POMELO_module(nn.Module):
 
         # create building score, if not available in the dataset
         if "building_counts" not in inputs.keys() or self.sentinelbuildings:
-            inputs["building_counts"]  = self.create_building_score(inputs)
+            with torch.no_grad():
+                inputs["building_counts"]  = self.create_building_score(inputs)
+            torch.cuda.empty_cache()
 
         if self.lempty_eps>0:
             inputs["building_counts"][:,0] = inputs["building_counts"][:,0] + self.lempty_eps
@@ -267,7 +269,7 @@ class POMELO_module(nn.Module):
 
             if self.sparse_unet:
                 # building_sparsity_mask = (inputs["building_counts"][:,0]>0.0001) 
-                building_sparsity_mask = (inputs["building_counts"][:,0]>0.010001) 
+                building_sparsity_mask = (inputs["building_counts"][:,0]>0.001000) 
                 sub = 250
                 xindices = torch.ones(building_sparsity_mask.shape[1]).multinomial(num_samples=min(sub,building_sparsity_mask.shape[1]), replacement=False).sort()[0]
                 yindices = torch.ones(building_sparsity_mask.shape[2]).multinomial(num_samples=min(sub,building_sparsity_mask.shape[2]), replacement=False).sort()[0]
@@ -464,13 +466,13 @@ class POMELO_module(nn.Module):
         Output:
             - out (torch.Tensor): output data
         """
+        # Validate input shape
+        if len(inp.shape) != 4:
+            raise ValueError("Input tensor must have shape (batch_size, channels, height, width)")
 
         # bring everything together
         batch_size, channels, height, width = inp.shape
-        try:
-            inp_flat = inp.permute(1,0,2,3).view(channels, -1, 1)
-        except:
-            inp_flat = inp.permute(1,0,2,3).reshape(channels, -1, 1)
+        inp_flat = inp.permute(1,0,2,3).contiguous().view(channels, -1, 1)
 
         # flatten mask
         mask_flat = mask.view(-1)
@@ -569,28 +571,31 @@ class POMELO_module(nn.Module):
         X, (px1,px2,py1,py2) = self.add_padding(inputs["input"], True)
 
         # forward the neural network
-        with torch.no_grad():
-            if self.S1 and self.S2:
-                X = torch.cat([
-                    X[:, 4:6], # S1
-                    torch.flip(X[:, :3],dims=(1,)), # S2_RGB
-                    X[:, 3:4]], # S2_NIR
-                dim=1)
-            elif self.S1 and not self.S2:
-                X = torch.cat([
-                    X, # S1
-                    torch.zeros(X.shape[0], 4, X.shape[2], X.shape[3], device=X.device)], # S2
-                dim=1)
-            elif not self.S1 and self.S2:
-                X = torch.cat([
-                    torch.zeros(X.shape[0], 2, X.shape[2], X.shape[3], device=X.device), # S1
-                    torch.flip(X[:, :3],dims=(1,)), # S2_RGB
-                    X[:, 3:4]], # S2_NIR
-                dim=1)
+        # with torch.no_grad():
+        if self.S1 and self.S2:
+            X = torch.cat([
+                X[:, 4:6], # S1
+                torch.flip(X[:, :3],dims=(1,)), # S2_RGB
+                X[:, 3:4]], # S2_NIR
+            dim=1)
+            _, _, logits, _, _ = self.building_extractor(X, alpha=0, return_features=False, S1=self.S1, S2=self.S2)
+        elif self.S1 and not self.S2:
+            X = torch.cat([
+                X, # S1
+                torch.zeros(X.shape[0], 4, X.shape[2], X.shape[3], device=X.device)], # S2
+            dim=1)
+            logits = self.building_extractor(X, alpha=0, return_features=False, S1=self.S1, S2=self.S2)
+        elif not self.S1 and self.S2:
+            X = torch.cat([
+                torch.zeros(X.shape[0], 2, X.shape[2], X.shape[3], device=X.device), # S1
+                torch.flip(X[:, :3],dims=(1,)), # S2_RGB
+                X[:, 3:4]], # S2_NIR
+            dim=1)
+            logits = self.building_extractor(X, alpha=0, return_features=False, S1=self.S1, S2=self.S2)
             
-            # forward the model
-            _, _, logits_fusion, _, _ = self.building_extractor(X, alpha=0, return_features=False, S1=self.S1, S2=self.S2)
-            score = torch.sigmoid(logits_fusion)
+        # forward the model
+        # _, _, logits, _, _ = self.building_extractor(X, alpha=0, return_features=False, S1=self.S1, S2=self.S2)
+        score = torch.sigmoid(logits)
 
         # revert padding
         score = self.revert_padding(score, (px1,px2,py1,py2))

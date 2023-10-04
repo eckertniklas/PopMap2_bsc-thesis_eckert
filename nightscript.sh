@@ -1,0 +1,20 @@
+
+
+
+python run_eval.py --model POMELO_module --feature_extractor DDA --head v3 --occupancymodel --sentinelbuildings -dw 2 -S2 -NIR -S1 -f 4 -rse -treg che --train_level coarse4 --fourseasons --resume /scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_721_124/last_model.pth 
+python run_eval.py --model POMELO_module --feature_extractor DDA --head v3 --occupancymodel --sentinelbuildings -dw 2 -S2 -NIR -S1 -f 4 -rse -treg che --train_level coarse4 --fourseasons --resume /scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_721_84/last_model.pth 
+python run_eval.py --model POMELO_module --feature_extractor DDA --head v3 --occupancymodel --sentinelbuildings -dw 2 -S2 -NIR -S1 -f 4 -rse -treg che --train_level coarse4 --fourseasons --resume /scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_722_54/last_model.pth 
+python run_eval.py --model POMELO_module --feature_extractor DDA --head v3 --occupancymodel --sentinelbuildings -dw 2 -S2 -NIR -S1 -f 4 -rse -treg che --train_level coarse4 --fourseasons --resume /scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_753_190/last_model.pth 
+python run_eval.py --model POMELO_module --feature_extractor DDA --head v3 --occupancymodel --sentinelbuildings -dw 2 -S2 -NIR -S1 -f 4 -rse -treg che --train_level coarse4 --fourseasons --resume /scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_776_111/last_model.pth 
+
+python run_eval.py --model POMELO_module --feature_extractor DDA --head v3 --sentinelbuildings -dw 2 -S2 -NIR -S1 -f 4 -rse -treg che --train_level coarse4 --fourseasons --resume /scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_719_46/last_model.pth 
+python run_eval.py --model POMELO_module --feature_extractor DDA --head v3 --sentinelbuildings -dw 2 -S2 -NIR -S1 -f 4 -rse -treg che --train_level coarse4 --fourseasons --resume /scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_718_321/last_model.pth 
+python run_eval.py --model POMELO_module --feature_extractor DDA --head v3 --sentinelbuildings -dw 2 -S2 -NIR -S1 -f 4 -rse -treg che --train_level coarse4 --fourseasons --resume /scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_720_740/last_model.pth 
+python run_eval.py --model POMELO_module --feature_extractor DDA --head v3 --sentinelbuildings -dw 2 -S2 -NIR -S1 -f 4 -rse -treg che --train_level coarse4 --fourseasons --resume /scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_722_243/last_model.pth 
+python run_eval.py --model POMELO_module --feature_extractor DDA --head v3 --sentinelbuildings -dw 2 -S2 -NIR -S1 -f 4 -rse -treg che --train_level coarse4 --fourseasons --resume /scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_722_668/last_model.pth 
+
+python run_eval.py --model POMELO_module --feature_extractor DDA --head v3 --sentinelbuildings -dw 2 -S2 -NIR -S1 -f 4 -rse -treg che --train_level coarse4 --fourseasons --resume /scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_777_539/last_model.pth 
+python run_eval.py --model POMELO_module --feature_extractor DDA --head v3 --sentinelbuildings -dw 2 -S2 -NIR -S1 -f 4 -rse -treg che --train_level coarse4 --fourseasons --resume /scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_757_798/last_model.pth 
+python run_eval.py --model POMELO_module --feature_extractor DDA --head v3 --sentinelbuildings -dw 2 -S2 -NIR -S1 -f 4 -rse -treg che --train_level coarse4 --fourseasons --resume /scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_756_940/last_model.pth 
+python run_eval.py --model POMELO_module --feature_extractor DDA --head v3 --sentinelbuildings -dw 2 -S2 -NIR -S1 -f 4 -rse -treg che --train_level coarse4 --fourseasons --resume /scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_752_244/last_model.pth 
+python run_eval.py --model POMELO_module --feature_extractor DDA --head v3 --sentinelbuildings -dw 2 -S2 -NIR -S1 -f 4 -rse -treg che --train_level coarse4 --fourseasons --resume /scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_753_692/last_model.pth 

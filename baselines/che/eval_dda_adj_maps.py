@@ -99,8 +99,8 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
 
     
     # define GT dataset
-    # disaggregation_level = "coarse4"
-    disaggregation_level = "coarse4synt400"
+    disaggregation_level = "coarse"
+    # disaggregation_level = "coarse4synt400"
     # disaggregation_level = "coarse4synt1150"
     print("Disaggregation level: ", disaggregation_level)
     dataset = Population_Dataset_target("che", train_level=disaggregation_level)
@@ -173,7 +173,8 @@ if __name__=="__main__":
     """
     Evaluates the Worldpop-maps on the test set of Switzerland
     """
-    map_path = "/scratch/metzgern/HAC/data/PopMapData/processed/che/buildingsDDA2_44C.tif"
+    # map_path = "/scratch/metzgern/HAC/data/PopMapData/processed/che/buildingsDDA2_44C_8.tif"
+    map_path = "/scratch/metzgern/HAC/data/PopMapData/processed/che/buildingsDDA2_44C_8.tif"
     # map_path = "/scratch/metzgern/HAC/data/PopMapData/raw/SwissBuildings/SwissTLM3D/swisstlm3d_2020-03_2056_5728/2020_SWISSTLM3D_SHP_CHLV95_LN02/TLM_BAUTEN/swissTLM3D_TLM_GEBAEUDE_FOOTPRINT_count_s2.tif"
     # map_path = "/scratch/metzgern/HAC/data/PopMapData/raw/SwissBuildings/SwissTLM3D/swisstlm3d_2020-03_2056_5728/2020_SWISSTLM3D_SHP_CHLV95_LN02/TLM_BAUTEN/swissTLM3D_TLM_GEBAEUDE_FOOTPRINT_area_s2.tif"
     # map_path = "/scratch/metzgern/HAC/data/PopMapData/raw/SwissBuildings/SwissTLM3D/swisstlm3d_2020-03_2056_5728/2020_SWISSTLM3D_SHP_CHLV95_LN02/TLM_BAUTEN/swissTLM3D_TLM_GEBAEUDE_FOOTPRINT_segmentation_s2.tif"

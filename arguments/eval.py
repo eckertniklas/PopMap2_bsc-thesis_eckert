@@ -39,7 +39,7 @@ parser.add_argument("-adv", "--adversarial", action='store_true', help="")
 
 # misc
 parser.add_argument('--save-dir', default='/scratch2/metzgern/HAC/POMELOv2_results', help='Path to directory where models and logs should be saved')
-parser.add_argument('-w', '--num_workers', help='', type=int, default=6)
+parser.add_argument('-w', '--num_workers', help='', type=int, default=8)
 parser.add_argument("-wp", "--wandb_project", help='', type=str, default="POMELOv2")
 parser.add_argument("--seed", help='', type=int, default=1610)
 parser.add_argument("--in_memory", action='store_true', help='')

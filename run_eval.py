@@ -85,10 +85,11 @@ class Trainer:
                 # self.resume(path=args.resume)
 
 
-    def test_target(self, save=False, full=True, save_scatter=False):
+    def test_target(self, save=False, full=False, save_scatter=False):
 
         # if afganistan or uganda is in the test set, we need to use the large test function
         if any([el in self.args.target_regions for el in ["afg", "uga"]]):
+        # if any([el in self.args.target_regions for el in ["afg"]]):
             self.test_target_large(save=save, full=full)
             return
         
@@ -135,33 +136,27 @@ class Trainer:
                         popdense[i] = this_output["popdensemap"][0].cuda()
                         popdense_squared[i] = this_output["popdensemap"][0].to(torch.float32).cuda()**2
                         if "scale" in this_output.keys():
-                            scale[i] = this_output["scale"][0].cuda()
-                            scale_squared[i] = this_output["scale"][0].to(torch.float32).cuda()**2
+                            if this_output["scale"] is not None:
+                                scale[i] = this_output["scale"][0].cuda()
+                                scale_squared[i] = this_output["scale"][0].to(torch.float32).cuda()**2
                     
                     output = {
                         "popdensemap": popdense.sum(dim=0, keepdim=True),
                         "popdensemap_squared": popdense_squared.sum(dim=0, keepdim=True)
                     }
-                    # if i > 0:
-                    #     output["popdensemap_STD"] = popdense.std(dim=0, keepdim=True).cuda()
                     if "scale" in this_output.keys():
-                        output["scale"] = scale.cuda().sum(dim=0, keepdim=True)
-                        output["scale_squared"] = scale_squared.cuda().sum(dim=0, keepdim=True)
-                        # if i > 0:
-                        #     output["scale_STD"] = scale.std(dim=0, keepdim=True).cuda()
+                        if this_output["scale"] is not None:
+                            output["scale"] = scale.cuda().sum(dim=0, keepdim=True)
+                            output["scale_squared"] = scale_squared.cuda().sum(dim=0, keepdim=True)
                     
                     # save predictions to large map
                     output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu().to(torch.float16)
                     output_map_squared[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap_squared"][0][mask].cpu().to(torch.float32)
 
                     if "scale" in output.keys():
-                        output_scale_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale"][0][mask].cpu().to(torch.float16)
-                        output_scale_map_squared[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale_squared"][0][mask].cpu().to(torch.float32)
-
-                    # if len(self.model) > 1:
-                    #     output_STD_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap_STD"][0][mask].cpu().to(torch.float16)
-                    #     if "scale" in output.keys():
-                    #         output_scale_STD_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale_STD"][0][mask].cpu().to(torch.float16)
+                        if output["scale"] is not None:
+                            output_scale_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale"][0][mask].cpu().to(torch.float16)
+                            output_scale_map_squared[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale_squared"][0][mask].cpu().to(torch.float32)
 
                     output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += len(self.model)
 
@@ -174,16 +169,12 @@ class Trainer:
                 output_map_squared[div_mask] = torch.sqrt((output_map_squared[div_mask] - (output_map[div_mask] ** 2) * output_map_count[div_mask]) / (output_map_count[div_mask] - 1))
 
                 if "scale" in output.keys():
-                    output_scale_map[div_mask] = output_scale_map[div_mask] / output_map_count[div_mask]
+                    if output["scale"] is not None:
+                        output_scale_map[div_mask] = output_scale_map[div_mask] / output_map_count[div_mask]
 
-                    # calculate the standard deviation from the sum of squares and the mean as "std_dev = math.sqrt((sum_of_squares - n * mean ** 2) / (n - 1))"
-                    output_scale_map_squared[div_mask] = torch.sqrt((output_scale_map_squared[div_mask] - (output_scale_map[div_mask] ** 2) * output_map_count[div_mask]) / (output_map_count[div_mask] - 1))
+                        # calculate the standard deviation from the sum of squares and the mean as "std_dev = math.sqrt((sum_of_squares - n * mean ** 2) / (n - 1))"
+                        output_scale_map_squared[div_mask] = torch.sqrt((output_scale_map_squared[div_mask] - (output_scale_map[div_mask] ** 2) * output_map_count[div_mask]) / (output_map_count[div_mask] - 1))
 
-                # if len(self.model) > 1:
-                #     output_STD_map[div_mask] = output_STD_map[div_mask] / output_map_count[div_mask]
-                #     if "scale" in output.keys():
-                #         output_scale_STD_map[div_mask] = output_scale_STD_map[div_mask] / output_map_count[div_mask]
-                
                 # save maps
                 print("saving maps")
                 if save:
@@ -192,12 +183,9 @@ class Trainer:
                     testdataloader.dataset.save(output_map_squared, self.experiment_folder, tag="STD")
 
                     if "scale" in output.keys():
-                        testdataloader.dataset.save(output_scale_map, self.experiment_folder, tag="SCALE_{}".format(testdataloader.dataset.region))
-                        testdataloader.dataset.save(output_scale_map_squared, self.experiment_folder, tag="SCALE_STD")
-                    # if len(self.model) > 1:
-                    #     testdataloader.dataset.save(output_STD_map, self.experiment_folder, tag="STD_{}".format(testdataloader.dataset.region))
-                    #     if "scale" in output.keys():
-                    #         testdataloader.dataset.save(output_scale_STD_map, self.experiment_folder, tag="SCALE_STD_{}".format(testdataloader.dataset.region))
+                        if output["scale"] is not None:
+                            testdataloader.dataset.save(output_scale_map, self.experiment_folder, tag="SCALE_{}".format(testdataloader.dataset.region))
+                            testdataloader.dataset.save(output_scale_map_squared, self.experiment_folder, tag="SCALE_STD") 
                 
                 # convert populationmap to census
                 gpu_mode = True
@@ -205,7 +193,8 @@ class Trainer:
                     print("-"*50)
                     print("Evaluating level: ", level)
                     # convert map to census
-                    census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=gpu_mode, level=level, details_to=os.path.join(self.experiment_folder, "{}_{}".format(testdataloader.dataset.region, level)))
+                    details_path = os.path.join(self.experiment_folder, "{}_{}".format(testdataloader.dataset.region, level)) if full else None
+                    census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=gpu_mode, level=level, details_to=details_path)
                     this_metrics = get_test_metrics(census_pred, census_gt.float().cuda(), tag="MainCensus_{}_{}".format(testdataloader.dataset.region, level))
                     print(this_metrics)
                     self.target_test_stats = {**self.target_test_stats, **this_metrics}
@@ -216,7 +205,6 @@ class Trainer:
                                               **get_test_metrics(census_pred[built_up], census_gt[built_up].float().cuda(), tag="MainCensusPos_{}_{}".format(testdataloader.dataset.region, level))}
                     
                     # create scatterplot and upload to wandb
-                    # print(self.target_test_stats)
                     if save_scatter:
                         scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist(), log_scale=True)
                         if scatterplot is not None:
@@ -233,7 +221,10 @@ class Trainer:
 
                 for level in testlevels_eval[testdataloader.dataset.region]:
                     # convert map to census
-                    census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map_adj, gpu_mode=gpu_mode, level=level, details_to=os.path.join(self.experiment_folder, "{}_{}_adj".format(testdataloader.dataset.region, level)))
+                    print("-"*50)
+                    print("Evaluating level: ", level)
+                    details_path = os.path.join(self.experiment_folder, "{}_{}_adj".format(testdataloader.dataset.region, level)) if full else None
+                    census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map_adj, gpu_mode=gpu_mode, level=level, details_to=details_path)
                     test_stats_adj = get_test_metrics(census_pred, census_gt.float().cuda(), tag="AdjCensus_{}_{}".format(testdataloader.dataset.region, level))
                     print(test_stats_adj)
                     

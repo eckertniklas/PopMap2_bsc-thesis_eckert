@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 from PIL import Image
 
-# import matplotlib
+import matplotlib
 # matplotlib.use('TkAgg')
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 
 def plot_2dmatrix(matrix, fig=1, vmin=None, vmax=None, show=False):
@@ -28,7 +28,7 @@ def plot_2dmatrix(matrix, fig=1, vmin=None, vmax=None, show=False):
     plt.grid(True)
     plt.colorbar()
     plt.savefig('plot_outputs/last_plot.png')
-    if show:
+    if show: 
         plt.show()
 
 

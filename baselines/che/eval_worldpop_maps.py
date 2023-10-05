@@ -95,20 +95,35 @@ def evaluate_meta_maps(map_path, template_path):
 
     
     # define GT dataset
-    dataset = Population_Dataset_target("che", train_level="coarse4")
+    dataset = Population_Dataset_target("che", train_level="coarse")
+
+    hr_pop_map_adj = dataset.adjust_map_to_census(hr_pop_map.clone())
+
 
     # levels = ["finezurich", "finezurich2", "coarse"]
-    levels = ["fine", "coarse", "finezurich", "finezurich2"]
+    # levels = ["fine", "coarse", "finezurich", "finezurich2"]
+    levels = ["fine", "finezurich2"]
     # levels = ["finezurich", "finezurich2", "coarse"]
 
     for level in levels:
+
         print("Evaluating level: ", level)
+        # scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
+        # scatterplot.save(os.path.join(parent_dir, "last_scatter_{}.png".format(level)))
+
+        print("---------------------------------") 
+        print("Adjusted metrics:")
+        census_pred_adj, census_gt = dataset.convert_popmap_to_census(hr_pop_map_adj, gpu_mode=True, level=level)
+        test_metrics_meta_adj = get_test_metrics(census_pred_adj, census_gt.float().cuda() )
+        print(test_metrics_meta_adj)
+
+        # if scatter:
+        print("Direct metrics:")
         census_pred, census_gt = dataset.convert_popmap_to_census(hr_pop_map, gpu_mode=True, level=level)
         test_metrics_meta = get_test_metrics(census_pred, census_gt.float().cuda() )
         print(test_metrics_meta)
-
-        scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
-        scatterplot.save(os.path.join(parent_dir, "last_scatter_{}.png".format(level)))
+        #     scatterplot_adj = scatter_plot3(census_pred_adj.tolist(), census_gt.tolist())
+        #     scatterplot_adj.save(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
 
         print("---------------------------------")
 
@@ -122,8 +137,8 @@ if __name__=="__main__":
     Evaluates the Worldpop-maps on the test set of Rwanda
     """
     # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020.tif"
-    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_UNadj.tif"
-    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_constrained.tif"
+    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_UNadj.tif"
+    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_constrained.tif"
     # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_UNadj_constrained.tif"
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/che/S2Aautumn/che_S2Aautumn.tif"
 

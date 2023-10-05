@@ -102,28 +102,32 @@ def evaluate_meta_maps(map_path, template_path):
 
     # levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
     # levels = ["finezurich", "finezurich2", "coarse"]
-    levels = ["fine", "coarse", "finezurich", "finezurich2"]
-    levels = ["finezurich2", "coarse"]
+    levels = ["fine", "finezurich2", "coarse"]
+    # levels = ["finezurich2", "coarse"]
     # levels = ["coarse"]
 
+    scatter = False
     for level in levels:
         print("Evaluating level: ", level)
-        print("-------------------------------")
-        print("Direct metrics:")
-        census_pred, census_gt = dataset.convert_popmap_to_census(hr_pop_map, gpu_mode=True, level=level)
-        test_metrics_meta = get_test_metrics(census_pred, census_gt.float().cuda() )
-        print(test_metrics_meta)
-
-        scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
-        scatterplot.save(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
         print("-------------------------------")
         print("Adjusted metrics:")
         census_pred_adj, census_gt = dataset.convert_popmap_to_census(hr_pop_map_adj, gpu_mode=True, level=level)
         test_metrics_meta_adj = get_test_metrics(census_pred_adj, census_gt.float().cuda() )
         print(test_metrics_meta_adj)
 
-        scatterplot_adj = scatter_plot3(census_pred_adj.tolist(), census_gt.tolist())
-        scatterplot_adj.save(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
+        if scatter:
+            scatterplot_adj = scatter_plot3(census_pred_adj.tolist(), census_gt.tolist())
+            scatterplot_adj.save(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
+
+        print("-------------------------------")
+        print("Direct metrics:")
+        census_pred, census_gt = dataset.convert_popmap_to_census(hr_pop_map, gpu_mode=True, level=level)
+        test_metrics_meta = get_test_metrics(census_pred, census_gt.float().cuda() )
+        print(test_metrics_meta)
+
+        if scatter:
+            scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
+            scatterplot.save(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
 
         print("---------------------------------")
 
@@ -138,7 +142,8 @@ if __name__=="__main__":
     """
     # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/POMELOv1Maps/che/che_predicted_target_img.tiff"
     # map_path = "/scratch/metzgern/HAC/data/PopMapData/raw/SwissBuildings/SwissTLM3D/swisstlm3d_2020-03_2056_5728/2020_SWISSTLM3D_SHP_CHLV95_LN02/TLM_BAUTEN/swissTLM3D_TLM_GEBAEUDE_FOOTPRINT_count_wpop.tif"
-    map_path = "/scratch2/metzgern/HAC/viz/outputs/CHE_coarse_vfold_15.6.23_test_if_working_all_features_dr:0.5_wr:0.0000001/che_predicted_target_img.tiff"
+    # map_path = "/scratch2/metzgern/HAC/viz/outputs/CHE_coarse_vfold_15.6.23_test_if_working_all_features_dr:0.5_wr:0.0000001/che_predicted_target_img.tiff"
+    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/POMELOv1Maps/che_2/che_predicted_target_img.tiff"
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/che/S2Aautumn/che_S2Aautumn.tif"
 
     evaluate_meta_maps(map_path, template_path)

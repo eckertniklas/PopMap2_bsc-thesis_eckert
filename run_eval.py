@@ -107,7 +107,7 @@ class Trainer:
 
                 # inputialize the output map
                 h, w = testdataloader.dataset.shape()
-                output_map = torch.zeros((h, w), dtype=torch.float16)
+                output_map = torch.zeros((h, w), dtype=torch.float32)
                 output_scale_map = torch.zeros((h, w), dtype=torch.float16)
                 output_map_count = torch.zeros((h, w), dtype=torch.int8)
 
@@ -127,7 +127,7 @@ class Trainer:
                     mask = sample["mask"][0].bool()
 
                     # get the output with a forward pass
-                    popdense = torch.zeros((len(self.model), ips, ips), dtype=torch.float16, device="cuda")
+                    popdense = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
                     scale = torch.zeros((len(self.model), ips, ips), dtype=torch.float16, device="cuda")
                     popdense_squared = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
                     scale_squared = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
@@ -150,7 +150,7 @@ class Trainer:
                             output["scale_squared"] = scale_squared.cuda().sum(dim=0, keepdim=True)
                     
                     # save predictions to large map
-                    output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu().to(torch.float16)
+                    output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu().to(torch.float32)
                     output_map_squared[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap_squared"][0][mask].cpu().to(torch.float32)
 
                     if "scale" in output.keys():
@@ -163,10 +163,18 @@ class Trainer:
                 ###### average over the number of times each pixel was visited ######
                 # mask out values that are not visited of visited exactly once
                 div_mask = output_map_count > 1
+                a = output_map.clone()
+
                 output_map[div_mask] = output_map[div_mask] / output_map_count[div_mask]
+                # eps = 1e-10
 
                 # calculate the standard deviation from the sum of squares and the mean as "std_dev = math.sqrt((sum_of_squares - n * mean ** 2) / (n - 1))"
                 output_map_squared[div_mask] = torch.sqrt((output_map_squared[div_mask] - (output_map[div_mask] ** 2) * output_map_count[div_mask]) / (output_map_count[div_mask] - 1))
+
+
+                # safe_count = torch.where(div_mask, output_map_count, torch.ones_like(output_map_count))
+                # output_map_squared[div_mask] = torch.sqrt(torch.clamp((output_map_squared[div_mask] - (output_map[div_mask] ** 2) * output_map_count[div_mask]) / (safe_count[div_mask] - 1), min=eps))
+
 
                 if "scale" in output.keys():
                     if output["scale"] is not None:

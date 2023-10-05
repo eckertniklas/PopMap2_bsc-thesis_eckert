@@ -104,11 +104,9 @@ def evaluate_meta_maps(map_path, template_path, force_recompute=False):
     hr_pop_map[hr_pop_map < 0] = 0
 
     # define GT dataset
-    # dataset = Population_Dataset_target("pricp2", train_level="fineTRACTCE")
-    dataset = Population_Dataset_target("che", train_level="coarse4") 
-    # dataset = Population_Dataset_target("rwa")
-
-    # levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
+    adj_level = "coarse"
+    dataset = Population_Dataset_target("che", train_level=adj_level)  
+    
     # levels = ["fine", "fineTRACTCE", "fineBLOCKCE", "coarse"]
     # levels = ["finezurich", "finezurich2", "coarse"]
     levels = ["fine", "coarse", "finezurich", "finezurich2"]
@@ -133,7 +131,7 @@ def evaluate_meta_maps(map_path, template_path, force_recompute=False):
 
 if __name__=="__main__":
     """
-    Evaluates the GPWv4-maps on the test set of Puertorico
+    Evaluates the GPWv4-maps on the test set of CHE
     """
     # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/GHS_POP/GHS_POP_E2030_GLOBE_R2023A_54009_100_V1_0_R10_C22.tif"
     map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/CIENSIN/gpw-v4-documentation-rev11/gpw-v4-population-density-rev11_2020_30_sec_tif/gpw_v4_population_density_rev11_2020_30_sec.tif"

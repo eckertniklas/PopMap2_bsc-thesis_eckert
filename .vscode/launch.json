@@ -1712,11 +1712,11 @@
                 "--occupancymodel",
                 // "--buildinginput",
                 // "--useposembedding",
-                "--sentinelbuildings",
+                // "--sentinelbuildings",
                 // "--empty_eps", "0.01",
                 "-dw","2",
-                // "-S2",
-                // "-NIR",
+                "-S2",
+                "-NIR",
                 "-S1",
                 "-f", "4",
                 "-rse",
@@ -1753,9 +1753,15 @@
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_705_630/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_736_861/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_735_716/last_model.pth",
-                "--resume", //S1
+                "--resume", //Google Buildings
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_923_213/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_923_836/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_878_330/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_876_825/last_model.pth",
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_876_434/last_model.pth",
+                // "--resume", //S1
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_759_610/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_758_72/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_758_72/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_758_71/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_771_172/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_772_976/last_model.pth",
@@ -1765,6 +1771,12 @@
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_775_37/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_774_886/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_773_766/last_model.pth",
+                // "--resume", // from CHE
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_721_124/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_721_84/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_722_54/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_753_190/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_776_111/last_model.pth",
             ]
         },
         {
@@ -1779,11 +1791,11 @@
                 "--feature_extractor", "DDA",
                 "--head", "v3",
                 "--occupancymodel", 
-                // "--sentinelbuildings", 
+                "--sentinelbuildings", 
                 "-dw","2",
                 "-S2",
                 "-NIR",
-                // "-S1",
+                "-S1",
                 "-f", "4",
                 "-rse",
                 "-treg", "che", 
@@ -1813,18 +1825,25 @@
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_783_38/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_791_926/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_792_32/last_model.pth",
-                "--resume", // S2
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_819_97/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_818_860/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_804_716/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_803_966/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_796_781/last_model.pth",
+                // "--resume", // S2
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_819_97/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_818_860/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_804_716/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_803_966/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_796_781/last_model.pth",
                 // "--resume", //S1
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_820_142/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_821_509/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_822_203/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler//last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler//last_model.pth",
+                "--resume", //from PRI
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_708_758/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_709_394/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_708_44/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_711_205/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_724_756/last_model.pth",
+
                 ]
         },
         {

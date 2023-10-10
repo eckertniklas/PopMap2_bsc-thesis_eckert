@@ -248,62 +248,62 @@ def scatter_plot_with_zeros(predicted, ground_truth, log_scale=True):
 
 
 def scatter_plot_with_zeros_v9(predicted, ground_truth, log_scale=True):
-    # Convert input data to numpy arrays
+    # Convert the input lists to numpy arrays for efficient operations
     x = np.array(predicted)
     y = np.array(ground_truth)
 
-    # Create the main scatter plot for non-zero data
+    # Initialize the main scatter plot
     fig, ax_main = plt.subplots()
     
-    # Calculate point density for the entire dataset
+    # Create a 2D array combining x and y to calculate point density
     xy = np.vstack([x, y])
+    # Apply log transformation to the data if log_scale is True
+    if log_scale:
+        xy = np.vstack([np.log10(x+0.1), np.log10(y+0.1)])
+
+    # Calculate point density using Gaussian Kernel Density Estimation
     z = gaussian_kde(xy)(xy)
     
+    # Create a mask to filter out zero values from x and y
     mask_non_zero = (x != 0) & (y != 0)
     x_non_zero = x[mask_non_zero]
     y_non_zero = y[mask_non_zero]
     z_non_zero = z[mask_non_zero]
     
+    # Plot non-zero x and y values if there are more than 2 points
     if len(x_non_zero) > 2:
         ax_main.scatter(x_non_zero, y_non_zero, c=z_non_zero, s=12)
 
+        # Apply log scaling if log_scale is True
         if log_scale:
             ax_main.set_xscale('log')
             ax_main.set_yscale('log')
             ax_main.set_xlim(min(0.5, np.min(x_non_zero)), np.max(x_non_zero))
             ax_main.set_ylim(min(0.5, np.min(y_non_zero)), np.max(y_non_zero))
 
-    # Adjust insets for zeros with more appropriate positioning and spacing
-    ax_x_inset = fig.add_axes([0.125, 0.01, 0.775, 0.03])  # [x, y, width, height]
-    ax_x_inset.set_xticks([])
-    ax_x_inset.set_yticks([0.5])
-    ax_x_inset.spines['top'].set_visible(False)
-    ax_x_inset.spines['right'].set_visible(False)
-    ax_x_inset.spines['bottom'].set_visible(False)
-    ax_x_inset.spines['left'].set_visible(False)
-    # Moved the scatter plot on ax_x_inset to y = 0.0 as requested
-    ax_x_inset.scatter(np.linspace(0, 1, np.sum(x == 0)), [0.0]*np.sum(x == 0), c=z[x==0], marker='|', s=12)
-
+    # Create insets for zero values in x and y
+    # The dimensions [x, y, width, height] are specified
+    ax_x_inset = fig.add_axes([0.125, 0.01, 0.775, 0.03])
     ax_y_inset = fig.add_axes([0.03, 0.125, 0.03, 0.775])
-    ax_y_inset.set_xticks([0.5])
-    ax_y_inset.set_yticks([])
-    ax_y_inset.spines['top'].set_visible(False)
-    ax_y_inset.spines['right'].set_visible(False)
-    ax_y_inset.spines['bottom'].set_visible(False)
-    ax_y_inset.spines['left'].set_visible(False)
+    
+    # Remove tick marks and spines from insets
+    for ax in [ax_x_inset, ax_y_inset]:
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+    # Plot zero values in the insets
+    ax_x_inset.scatter(np.linspace(0, 1, np.sum(x == 0)), [0.0]*np.sum(x == 0), c=z[x==0], marker='|', s=12)
     ax_y_inset.scatter([0.0]*np.sum(y == 0), np.linspace(0, 1, np.sum(y == 0)), c=z[y==0], marker='_', s=12)
 
-    # Set labels and title with adjustments
+    # Set labels and title
     ax_main.set_xlabel('Predicted Values', labelpad=25)
     ax_main.set_ylabel('Ground Truth Values', labelpad=25)
     ax_main.set_title('Predicted vs. Ground Truth Values')
+    
+    # Adjust tick label padding
     ax_main.tick_params(axis='x', which='major', pad=20)
     ax_main.tick_params(axis='y', which='major', pad=15)
     
     return fig, ax_main
-
-# Run the updated function and plot
-# fig, ax = scatter_plot_with_zeros_v9(predicted, ground_truth)
-# plt.show()
-
-

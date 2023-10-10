@@ -161,9 +161,10 @@ class Trainer:
                     output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += len(self.model)
 
                 ###### average over the number of times each pixel was visited ######
+                print("averaging over the number of times each pixel was visited")
                 # mask out values that are not visited of visited exactly once
                 div_mask = output_map_count > 1
-                a = output_map.clone()
+                # a = output_map.clone()
 
                 output_map[div_mask] = output_map[div_mask] / output_map_count[div_mask]
                 # eps = 1e-10

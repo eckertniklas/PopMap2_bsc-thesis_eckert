@@ -17,36 +17,23 @@ except:
 
 
 ee_crs = ee.Projection('EPSG:4326')
-    
-# Sentinel 2 Config
-# Sen2spring_start_date = '2019-03-01'
-# Sen2spring_finish_date = '2019-06-01'
-# Sen2summer_start_date = '2019-06-01'
-# Sen2summer_finish_date = '2019-09-01'
-# Sen2autumn_start_date = '2019-09-01'
-# Sen2autumn_finish_date = '2019-12-01'
-# Sen2winter_start_date = '2019-12-01'
-# Sen2winter_finish_date = '2020-03-01'
 
-# Sentinel 2 Config
-Sen2spring_start_date = '2020-03-01'
-Sen2spring_finish_date = '2020-06-01'
-Sen2summer_start_date = '2020-06-01'
-Sen2summer_finish_date = '2020-09-01'
-Sen2autumn_start_date = '2020-09-01'
-Sen2autumn_finish_date = '2020-12-01'
-Sen2winter_start_date = '2020-12-01'
-Sen2winter_finish_date = '2021-03-01'
+def get_sentinel2_config(year):
+    return {
+        'Sen2spring': (f'{year}-03-01', f'{year}-06-01'),
+        'Sen2summer': (f'{year}-06-01', f'{year}-09-01'),
+        'Sen2autumn': (f'{year}-09-01', f'{year}-12-01'),
+        'Sen2winter': (f'{year}-12-01', f'{year+1}-03-01'),
+    }
 
-# Sentinel 2 Config
-# Sen2spring_start_date = '2022-03-01'
-# Sen2spring_finish_date = '2022-06-01'
-# Sen2summer_start_date = '2022-06-01'
-# Sen2summer_finish_date = '2022-09-01'
-# Sen2autumn_start_date = '2022-09-01'
-# Sen2autumn_finish_date = '2022-12-01'
-# Sen2winter_start_date = '2022-12-01'
-# Sen2winter_finish_date = '2023-03-01'
+# 2020 is the default year
+year = 2023
+config = get_sentinel2_config(year)
+for key, value in config.items():
+    print(f"{key} = '{value}'")
+
+seasons = ['spring', 'summer', 'autumn', 'winter']
+
 
 # AOI = ee.Geometry.Point(-122.269, 45.701)
 # START_DATE = '2020-06-01'
@@ -378,37 +365,6 @@ def export_S1_tile(season, dates, filename, roi, folder, scale=10, crs='EPSG:432
     collectionS1 = collectionS1.select(['VV', 'VH'])
     collectionS1_first_asc = collectionS1.median() 
 
-    # fill up the missing data of the descending orbit with the ascending orbit data
-
-    # reference
-    # composite_filled = collectionS1_first_desc.unmask(collectionS1_first_asc)
-
-
-
-    # non_null_mask = collectionS1_first_desc.mask()
-
-    # # Convert the mask to a feature collection
-    # non_null_features = non_null_mask.reduceToVectors(**{
-    #     'scale': scale,  # Adjust the scale as necessary
-    #     'geometryType': 'polygon',
-    #     'geometry': roi,
-    #     'eightConnected': False,
-    #     'maxPixels': 1e9
-    # })
-
-    # # Compute a 1km buffer around the non-null areas
-    # buffer_features = non_null_features.map(lambda feature: feature.buffer(1000))
-
-    # # Convert the buffer back to an image
-    # buffer_mask = ee.Image().paint(buffer_features, 1).unmask(0)
-
-    # # Update the mask of the descending image
-    # desc_with_buffer = collectionS1_first_desc.updateMask(buffer_mask)
-
-    # # Use the unmask function on the descending composite, passing the ascending composite as the argument
-    # filled_composite = desc_with_buffer.unmask(collectionS1_first_asc) 
-
-
 
     if url_mode:
         try:
@@ -530,32 +486,30 @@ def download(minx, miny, maxx, maxy, name):
     if S1:
         ########################### Processing Sentinel 1 #############################################
 
-        export_S1_tile("spring", (Sen2spring_start_date, Sen2spring_finish_date), "S1spring_" + name, exportarea, name, url_mode=False)
-        export_S1_tile("summer", (Sen2summer_start_date, Sen2summer_finish_date), "S1summer_" + name, exportarea, name, url_mode=False)
-        export_S1_tile("autumn", (Sen2autumn_start_date, Sen2autumn_finish_date), "S1autumn_" + name, exportarea, name, url_mode=False)
-        export_S1_tile("winter", (Sen2winter_start_date, Sen2winter_finish_date), "S1winter_" + name, exportarea, name, url_mode=False)
+        for season in seasons:
+            start_date, finish_date = config[f'Sen2{season}']
+            export_S1_tile(season, (start_date, finish_date), f"S1{season}_" + name, exportarea, name, url_mode=False)
 
     if S2:
         ########################### Processing Sentinel 2 Level 1C #############################################
         
-        export_cloud_free_sen2("S2spring", (Sen2spring_start_date, Sen2spring_finish_date), name, exportarea, S2type="S2")
-        export_cloud_free_sen2("S2summer", (Sen2summer_start_date, Sen2summer_finish_date), name, exportarea)
-        export_cloud_free_sen2("S2autumn", (Sen2autumn_start_date, Sen2autumn_finish_date), name, exportarea)
-        export_cloud_free_sen2("S2winter", (Sen2winter_start_date, Sen2winter_finish_date), name, exportarea)
+        raise Exception("do not use this anymore")
+        for season in seasons:
+            start_date, finish_date = config[f'Sen2{season}']
+            export_cloud_free_sen2(f"S2{season}", (start_date, finish_date), name, exportarea, S2type="S2")
 
     if S2A:
         ########################### Processing Sentinel 2 Level 2A #############################################
 
-        export_cloud_free_sen2("S2Aspring", (Sen2spring_start_date, Sen2spring_finish_date), name, exportarea, S2type="S2_SR_HARMONIZED")
-        export_cloud_free_sen2("S2Asummer", (Sen2summer_start_date, Sen2summer_finish_date), name, exportarea, S2type="S2_SR_HARMONIZED")
-        export_cloud_free_sen2("S2Aautumn", (Sen2autumn_start_date, Sen2autumn_finish_date), name, exportarea, S2type="S2_SR_HARMONIZED")
-        export_cloud_free_sen2("S2Awinter", (Sen2winter_start_date, Sen2winter_finish_date), name, exportarea, S2type="S2_SR_HARMONIZED")
+        for season in seasons:
+            start_date, finish_date = config[f'Sen2{season}']
+            export_cloud_free_sen2(f"S2A{season}", (start_date, finish_date), name, exportarea, S2type="S2_SR_HARMONIZED")
      
     if VIIRS:
         ########################### Processing Sentinel 2 #############################################
 
         viirs_NL_col = ee.ImageCollection('NOAA/VIIRS/DNB/MONTHLY_V1/VCMCFG') \
-                    .filter(ee.Filter.date(Sen2spring_start_date, Sen2winter_finish_date))
+                        .filter(ee.Filter.date(config['Sen2spring'][0], config['Sen2winter'][1]))
         NL_median = viirs_NL_col.select("avg_rad").median()
 
         # Create composite

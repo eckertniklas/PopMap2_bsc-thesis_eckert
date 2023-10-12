@@ -290,7 +290,11 @@ class DualStreamUNet(nn.Module):
 
         # initialize output
         bs,_,hnew,wnew = x.shape
-        out = torch.zeros((bs,self.sar_stream.up_seq.up2.conv.conv[3].out_channels*2,hnew,wnew), device=x.device)
+        if S1 and S2:
+            c = self.sar_stream.up_seq.up2.conv.conv[3].out_channels*2
+        if S1 or S2:
+            c = self.sar_stream.up_seq.up2.conv.conv[3].out_channels
+        out = torch.zeros((bs,c,hnew,wnew), device=x.device)
         
         overlap = 16  # Size of the overlapping region on each edge
         stride = self.patchsize - 2*overlap  # Assuming a stride of 32; you can adjust this as per your requirement 

@@ -1614,7 +1614,7 @@
                 "-dw","2",
                 "-S2",
                 "-NIR",
-                // "-S1",
+                "-S1",
                 "-f", "4",
                 "-rse",
                 "-treg", "rwa",
@@ -1656,18 +1656,24 @@
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_786_552/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_784_473/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_784_971/last_model.pth",
-                "--resume", //S2
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_758_191/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_758_186/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_759_978/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_769_684/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_805_491/last_model.pth",
+                // "--resume", //S2
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_758_191/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_758_186/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_759_978/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_769_684/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_805_491/last_model.pth",
                 // "--resume", //S1
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_768_575/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_764_634/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_765_645/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_764_627/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_764_964/last_model.pth",
+                "--resume", //from UGA
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_950_642/last_model.pth",
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_949_640/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_948_157/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_947_559/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_946_515/last_model.pth",
             ]
         },
         {
@@ -1801,24 +1807,24 @@
                 "-treg", "che", 
                 "--train_level", "coarse4", 
                 "--fourseasons", 
-                // "--resume", // ALL
-                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_721_124/last_model.pth",
-                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_721_84/last_model.pth",
-                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_722_54/last_model.pth",
-                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_753_190/last_model.pth",
-                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_776_111/last_model.pth",
+                "--resume", // ALL
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_721_124/last_model.pth",
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_721_84/last_model.pth",
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_722_54/last_model.pth",
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_753_190/last_model.pth",
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_776_111/last_model.pth",
                 // "--resume", // NO OCC
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_719_46/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_718_321/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_720_740/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_722_243/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_722_668/last_model.pth",
-                "--resume", // no pretraining
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_945_569/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_942_983/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_942_912/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_943_77/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_941_144/last_model.pth",
+                // "--resume", // no pretraining
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_945_569/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_942_983/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_942_912/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_943_77/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_941_144/last_model.pth",
                 // "--resume", // NO OCC, no pretraining
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_777_539/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_757_798/last_model.pth",

@@ -140,9 +140,10 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
         print("Empirical global bias: ", empirical_global_bias)
         print(test_metrics_meta)
         
-        scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
-        scatterplot = scatter_plot_with_zeros(census_pred.tolist(), census_gt.tolist())
-        scatterplot.save(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
+        # scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
+        scatterplot = scatter_plot_with_zeros_v9(census_pred.tolist(), census_gt.tolist())
+        # scatterplot.save(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
+        scatterplot[0].savefig(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
         print("-------------------------------")
         print("Adjusted metrics:")
         census_pred_adj, census_gt = dataset.convert_popmap_to_census(hr_pop_map_adj, gpu_mode=True, level=level)
@@ -166,8 +167,8 @@ if __name__=="__main__":
     Evaluates the Worldpop-maps on the test set of Puerto Rico
     """
     # map_path = "/scratch/metzgern/HAC/data/PopMapData/processed/pricp2/buildingsDDA2_44C.tif"
-    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/pricp2/Gbuildings_pricp2_counts.tif"
-    # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1540_88/rwa_predictions.tif"
+    # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/pricp2/Gbuildings_pricp2_counts.tif"
+    map_path = "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_708_758/eval_outputs_ensemble_20230929-141252_members_5/pricp2_predictions.tif"
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/pricp2/S2Aautumn/pricp2_S2Aautumn.tif"
     wpop_raster_template = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/PRI/pri_ppp_2020_constrained.tif"
 

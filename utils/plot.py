@@ -283,27 +283,27 @@ def scatter_plot_with_zeros_v9(predicted, ground_truth, log_scale=True):
 
     # Create insets for zero values in x and y
     # The dimensions [x, y, width, height] are specified
-    ax_x_inset = fig.add_axes([0.125, 0.01, 0.775, 0.03])
-    ax_y_inset = fig.add_axes([0.03, 0.125, 0.03, 0.775])
+    # ax_x_inset = fig.add_axes([0.125, 0.01, 0.775, 0.03])
+    # ax_y_inset = fig.add_axes([0.03, 0.125, 0.03, 0.775])
     
-    # Remove tick marks and spines from insets
-    for ax in [ax_x_inset, ax_y_inset]:
-        ax.set_xticks([])
-        ax.set_yticks([])
-        for spine in ax.spines.values():
-            spine.set_visible(False)
+    # # Remove tick marks and spines from insets
+    # for ax in [ax_x_inset, ax_y_inset]:
+    #     ax.set_xticks([])
+    #     ax.set_yticks([])
+    #     for spine in ax.spines.values():
+    #         spine.set_visible(False)
 
     # Plot zero values in the insets
-    ax_x_inset.scatter(np.linspace(0, 1, np.sum(x == 0)), [0.0]*np.sum(x == 0), c=z[x==0], marker='|', s=12)
-    ax_y_inset.scatter([0.0]*np.sum(y == 0), np.linspace(0, 1, np.sum(y == 0)), c=z[y==0], marker='_', s=12)
+    # ax_x_inset.scatter(np.linspace(0, 1, np.sum(x == 0)), [0.0]*np.sum(x == 0), c=z[x==0], marker='|', s=12)
+    # ax_y_inset.scatter([0.0]*np.sum(y == 0), np.linspace(0, 1, np.sum(y == 0)), c=z[y==0], marker='_', s=12)
 
     # Set labels and title
-    ax_main.set_xlabel('Predicted Values', labelpad=25)
-    ax_main.set_ylabel('Ground Truth Values', labelpad=25)
+    ax_main.set_xlabel('Predicted Values')
+    ax_main.set_ylabel('Ground Truth Values')
     ax_main.set_title('Predicted vs. Ground Truth Values')
     
     # Adjust tick label padding
-    ax_main.tick_params(axis='x', which='major', pad=20)
-    ax_main.tick_params(axis='y', which='major', pad=15)
+    # ax_main.tick_params(axis='x', which='major', pad=20)
+    # ax_main.tick_params(axis='y', which='major', pad=15)
     
     return fig, ax_main

@@ -38,7 +38,8 @@ def reproject_maps(map_path, template_path, output_path, sumpool=False):
                 # 'transform': transform,
                 'transform': dst.transform,
                 'width': width,
-                'height': height
+                'height': height,
+                'compress': 'lzw'
             })
 
             # Write the reprojected raster to the new dataset
@@ -123,8 +124,9 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
 
     # reproject to the worldpop map
     hr_map_path_adj_reproj = map_path.replace(".tif", "_hr_adj_reproj.tif")
-    if not os.path.exists(hr_map_path_adj_reproj):
-        _, _ = reproject_maps(hr_map_path_adj, wpop_raster_template, hr_map_path_adj_reproj)
+    force_recompute = True
+    if not os.path.exists(hr_map_path_adj_reproj) or force_recompute:
+        _, _ = reproject_maps(hr_map_path_adj, wpop_raster_template, hr_map_path_adj_reproj, sumpool=True)
         print("Reprojected map saved to: ", hr_map_path_adj_reproj)
     else:
         print("Reprojected map already exists: ", hr_map_path_adj_reproj)
@@ -172,14 +174,13 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
 if __name__=="__main__":
     """
     Evaluates the Worldpop-maps on the test set of Switzerland
-    """
+    """ 
     # map_path = "/scratch/metzgern/HAC/data/PopMapData/processed/che/buildingsDDA2_44C_8.tif"
-    map_path = "/scratch/metzgern/HAC/data/PopMapData/processed/che/buildingsDDA2_44C_8.tif"
     # map_path = "/scratch/metzgern/HAC/data/PopMapData/raw/SwissBuildings/SwissTLM3D/swisstlm3d_2020-03_2056_5728/2020_SWISSTLM3D_SHP_CHLV95_LN02/TLM_BAUTEN/swissTLM3D_TLM_GEBAEUDE_FOOTPRINT_count_s2.tif"
     # map_path = "/scratch/metzgern/HAC/data/PopMapData/raw/SwissBuildings/SwissTLM3D/swisstlm3d_2020-03_2056_5728/2020_SWISSTLM3D_SHP_CHLV95_LN02/TLM_BAUTEN/swissTLM3D_TLM_GEBAEUDE_FOOTPRINT_area_s2.tif"
     # map_path = "/scratch/metzgern/HAC/data/PopMapData/raw/SwissBuildings/SwissTLM3D/swisstlm3d_2020-03_2056_5728/2020_SWISSTLM3D_SHP_CHLV95_LN02/TLM_BAUTEN/swissTLM3D_TLM_GEBAEUDE_FOOTPRINT_segmentation_s2.tif"
     # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/pricp2/Gbuildings_pricp2_counts.tif"
-    # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1540_88/rwa_predictions.tif"
+    map_path = "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_721_124/eval_outputs_ensemble_20231003-141733_members_5/che_predictions.tif"
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/che/S2Aautumn/pricp2_S2Aautumn.tif"
     wpop_raster_template = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_constrained.tif"
 

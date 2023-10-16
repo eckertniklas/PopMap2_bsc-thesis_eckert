@@ -63,7 +63,7 @@ def reproject_maps(map_path, template_path, output_path, sumpool=False):
 
 
 
-def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
+def evaluate_meta_maps(map_path, template_path, wpop_raster_template, force_recompute=False):
 
     parent_dir = "/".join(map_path.split("/")[:-1])
 
@@ -124,7 +124,7 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
 
     # reproject to the worldpop map
     hr_map_path_adj_reproj = map_path.replace(".tif", "_hr_adj_reproj.tif")
-    force_recompute = True
+    # force_recompute = True
     if not os.path.exists(hr_map_path_adj_reproj) or force_recompute:
         _, _ = reproject_maps(hr_map_path_adj, wpop_raster_template, hr_map_path_adj_reproj, sumpool=True)
         print("Reprojected map saved to: ", hr_map_path_adj_reproj)
@@ -140,6 +140,7 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
     # levels = ["fine", "coarse", "finezurich", "finezurich2"]
     
     scatter = True
+    ss = 20
 
     for level in levels:
         print("Evaluating level: ", level)
@@ -152,7 +153,7 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
         print(test_metrics_meta)
 
         if scatter:
-            scatterplot = scatter_plot_with_zeros_v9(census_pred.tolist(), census_gt.tolist())
+            scatterplot = scatter_plot_with_zeros_v9(census_pred.tolist()[::ss], census_gt.tolist()[::ss])
             scatterplot.savefig(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
             # scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
             # scatterplot.save(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
@@ -163,10 +164,10 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
         print(test_metrics_meta_adj)
 
         if scatter:
-            scatterplot_adj = scatter_plot_with_zeros_v9(census_pred_adj.tolist(), census_gt.tolist())
+            scatterplot_adj = scatter_plot_with_zeros_v9(census_pred_adj.tolist()[::ss], census_gt.tolist()[::ss])
             scatterplot_adj.savefig(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
-            scatterplot_adj = scatter_plot3(census_pred_adj.tolist(), census_gt.tolist())
-            scatterplot_adj.save(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
+            # scatterplot_adj = scatter_plot3(census_pred_adj.tolist(), census_gt.tolist())
+            # scatterplot_adj.save(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
 
         print("---------------------------------")
 
@@ -188,4 +189,4 @@ if __name__=="__main__":
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/che/S2Aautumn/pricp2_S2Aautumn.tif"
     wpop_raster_template = "/scratch2/metzgern/HAC/data/PopMapData/raw/WorldPopMaps/CHE/che_ppp_2020_constrained.tif"
 
-    evaluate_meta_maps(map_path, template_path, wpop_raster_template)
+    evaluate_meta_maps(map_path, template_path, wpop_raster_template, force_recompute=False)

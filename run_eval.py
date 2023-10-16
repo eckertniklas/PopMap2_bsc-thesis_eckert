@@ -443,6 +443,6 @@ if __name__ == '__main__':
     trainer = Trainer(args)
 
     since = time.time() 
-    trainer.test_target(save=True)
+    trainer.test_target(save=False)
     time_elapsed = time.time() - since
     print('Evaluating completed in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))

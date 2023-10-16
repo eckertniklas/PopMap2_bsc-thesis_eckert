@@ -6,7 +6,6 @@ import ee
 import os
 
 
-
 try:
     ee.Initialize()
 except:
@@ -93,10 +92,6 @@ def get_s2_sr_cld_col(aoi, start_date, end_date):
       CLOUD_FILTER : int
         Threshold percentage for filtering Sentinel images
     """
-        
-    # Import and filter S2 SR.
-    # s2_sr_col = (ee.ImageCollection('COPERNICUS/S2_SR')  # Default
-    # s2_sr_col = (ee.ImageCollection('COPERNICUS/S2') 
     
     # Real Data from raw S2 collection
     s2_sr_col = (ee.ImageCollection('COPERNICUS/S2') 
@@ -128,19 +123,6 @@ def get_s2_sr_cld_col(aoi, start_date, end_date):
         })
     }))
 
-    #  merge1 with s2_sr_col_FORMASKS
-    # merge1 =  ee.ImageCollection(ee.Join.saveFirst('s2cloudless').apply(**{
-    #     'primary': merge1,
-    #     'secondary': s2_sr_col_FORMASKS,
-    #     'condition': ee.Filter.equals(**{
-    #         'leftField': 'system:index',
-    #         'rightField': 'system:index'
-    #     })
-    # }))
-
-    # merge1 = merge1.addBands(s2_sr_col_FORMASKS)
-
-    # Combine the two collections merge1 and s2_sr_col_FORMASKS
 
     merge1 = ee.ImageCollection.combine(merge1, s2_sr_col_FORMASKS)
 

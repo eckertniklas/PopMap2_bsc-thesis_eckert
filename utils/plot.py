@@ -266,7 +266,7 @@ def scatter_plot_with_zeros_v9(predicted, ground_truth, log_scale=True):
     y = np.array(ground_truth)
 
     # Define the figure
-    fig = plt.figure(figsize=(4.5, 4.5))
+    fig = plt.figure(figsize=(3.7, 3))
 
     # # Define a 3x3 grid
     gs = gridspec.GridSpec(10, 10)
@@ -305,7 +305,6 @@ def scatter_plot_with_zeros_v9(predicted, ground_truth, log_scale=True):
         z11 = np.array([0])
         y1 = np.array([0])
         has_y = False
-
     
     x1 = x[(x > 0.5)* (y < 0.5)] # only gt vals
     if len(x1) > 2:
@@ -337,7 +336,7 @@ def scatter_plot_with_zeros_v9(predicted, ground_truth, log_scale=True):
     # Plot non-zero x and y values if there are more than 2 points
     if len(x_non_zero) > 2:
         scatter_big = ax_big.scatter(x_non_zero, y_non_zero, c=z_non_zero, s=12, cmap='cividis') # Plot the scatter plot
-        scatter_big.set_clim(vmin=z_min, vmax=z_max)  # Set the color limits
+        scatter_big.set_clim(vmin=0, vmax=np.max(z_non_zero))  # Set the color limits
 
         # Apply log scaling if log_scale is True
         if log_scale:
@@ -360,7 +359,7 @@ def scatter_plot_with_zeros_v9(predicted, ground_truth, log_scale=True):
         ax_big.plot([global_min, global_max], [global_min, global_max], color='red', linestyle='--', alpha=0.5)  # Add the identity line
         # ax_big.axline((1, 1), slope=1, color='red', linestyle='--', alpha=0.5)  # Add the identity line
 
-    scatter_bottom = ax_slim_bottom.scatter(y1, np.zeros_like(y1), c=z11, s=12, cmap='cividis')
+    scatter_bottom = ax_slim_bottom.scatter(x1, np.zeros_like(x1), c=z12, s=12, cmap='cividis')
     scatter_bottom.set_clim(vmin=z_min, vmax=z_max)  # Set the color limits
     if log_scale:
         ax_slim_bottom.set_xscale('log')
@@ -373,7 +372,7 @@ def scatter_plot_with_zeros_v9(predicted, ground_truth, log_scale=True):
     ax_slim_bottom.set_yticklabels([])  # Removes x-axis tick labels
     ax_slim_bottom.set_ylabel('')       # Removes x-axis label
 
-    scatter_left = ax_slim_left.scatter(np.zeros_like(x1), x1, c=z12, s=12, cmap='cividis')
+    scatter_left = ax_slim_left.scatter(np.zeros_like(y1), y1, c=z11, s=12, cmap='cividis')
     scatter_left.set_clim(vmin=z_min, vmax=z_max)  # Set the color limits
     if log_scale:
         ax_slim_left.set_yscale('log')
@@ -401,7 +400,8 @@ def scatter_plot_with_zeros_v9(predicted, ground_truth, log_scale=True):
 
     ax_slim_bottom.set_xlabel('Predicted Values')
     ax_slim_left.set_ylabel('Ground Truth Values')
-    
+    plt.tight_layout()
+
     if show:
         plt.show()
     

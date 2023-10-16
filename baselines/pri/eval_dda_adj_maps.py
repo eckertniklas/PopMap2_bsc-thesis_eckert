@@ -143,6 +143,7 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
         # scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
         scatterplot = scatter_plot_with_zeros_v9(census_pred.tolist(), census_gt.tolist())
         # scatterplot.save(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
+
         scatterplot.savefig(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
         print("-------------------------------")
         print("Adjusted metrics:")

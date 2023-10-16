@@ -200,15 +200,12 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
             del sample["building_segmentation"]
 
         # merge the inputs
-        # sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS", "building_segmentation", "building_counts"] if key in sample], dim=1)
-        # sample["input"] = torch.concatenate([sample[key] for key in ["S2", "S1", "VIIRS"] if key in sample], dim=1)
         keys_to_concatenate = [sample[key] for key in ["S2", "S1", "VIIRS"] if key in sample]
 
         if keys_to_concatenate:
             sample["input"] = torch.concatenate(keys_to_concatenate, dim=1)
         else:
             # Handle the case where no modality is available
-            # This could be setting sample["input"] to None, or some default tensor, or raising an exception, etc.
             sample["input"] = None  # or any other appropriate action
             
 

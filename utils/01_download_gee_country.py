@@ -27,7 +27,7 @@ def get_sentinel2_config(year):
     }
 
 # 2020 is the default year
-year = 2023
+year = 2020
 config = get_sentinel2_config(year)
 for key, value in config.items():
     print(f"{key} = '{value}'")

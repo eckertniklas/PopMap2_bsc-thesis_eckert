@@ -43,7 +43,6 @@ class Trainer:
         self.experiment_folder = self.args.experiment_folder
         print("Experiment folder:", self.experiment_folder)
 
-
         if not os.path.exists(self.experiment_folder):
             os.makedirs(self.experiment_folder)
 
@@ -80,9 +79,7 @@ class Trainer:
         # checkpoint resume
         for j, checkpoint in enumerate(args.resume):
             if args.resume is not None:
-                # self.model[j]
                 self.resume(checkpoint, j)
-                # self.resume(path=args.resume)
 
 
     def test_target(self, save=False, full=False, save_scatter=False):

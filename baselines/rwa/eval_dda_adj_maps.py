@@ -10,7 +10,7 @@ from rasterio.warp import calculate_default_transform, reproject, Resampling
 import os
 from utils.metrics import get_test_metrics
 import torch
-from utils.plot import plot_2dmatrix, plot_and_save, scatter_plot3
+from utils.plot import plot_2dmatrix, plot_and_save, scatter_plot3, scatter_plot_with_zeros_v9
 
 
 def reproject_maps(map_path, template_path, output_path, sumpool=False):
@@ -140,6 +140,7 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template, force_reco
     # define levels
     levels = ["fine100", "fine200", "fine400", "fine1000", "coarse"]
     # levels = ["coarse"]
+    scatter = True
 
     for level in levels:
         print("Evaluating level: ", level)
@@ -151,18 +152,20 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template, force_reco
         print("Empirical global bias: ", empirical_global_bias)
         print(test_metrics_meta)
 
-        scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
-        scatterplot.save(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
+        if scatter:
+            scatterplot = scatter_plot_with_zeros_v9(census_pred.tolist(), census_gt.tolist())
+            # scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
+            scatterplot.savefig(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
         print("-------------------------------")
         print("Adjusted metrics:")
         census_pred_adj, census_gt = dataset.convert_popmap_to_census(hr_pop_map_adj, gpu_mode=True, level=level)
         test_metrics_meta_adj = get_test_metrics(census_pred_adj, census_gt.float().cuda() )
         print(test_metrics_meta_adj)
 
-        scatter = True
         if scatter:
-            scatterplot_adj = scatter_plot3(census_pred_adj.tolist(), census_gt.tolist())
-            scatterplot_adj.save(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
+            # scatterplot_adj = scatter_plot3(census_pred_adj.tolist(), census_gt.tolist())
+            scatterplot_adj = scatter_plot_with_zeros_v9(census_pred_adj.tolist(), census_gt.tolist())
+            scatterplot_adj.savefig(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
 
         print("---------------------------------")
 

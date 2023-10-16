@@ -115,7 +115,21 @@
                 "1.478184",
                 "30.312309",
                 "1.619753",
-                "bunia2023",
+                "bunia2020",
+            ] 
+        },
+        {
+            "name": "01_download_gee_country.py, GOMAXXXX",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/01_download_gee_country.py",
+            "console": "integratedTerminal",
+            "args": [
+                "29.126472",
+                "-1.708807",
+                "29.297619",
+                "-1.560552",
+                "goma2023",
             ] 
         },
         {

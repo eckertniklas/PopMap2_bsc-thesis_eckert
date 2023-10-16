@@ -143,7 +143,7 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
         # scatterplot = scatter_plot3(census_pred.tolist(), census_gt.tolist())
         scatterplot = scatter_plot_with_zeros_v9(census_pred.tolist(), census_gt.tolist())
         # scatterplot.save(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
-        scatterplot[0].savefig(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
+        scatterplot.savefig(os.path.join(parent_dir, "last_scatter_direct_{}.png".format(level)))
         print("-------------------------------")
         print("Adjusted metrics:")
         census_pred_adj, census_gt = dataset.convert_popmap_to_census(hr_pop_map_adj, gpu_mode=True, level=level)
@@ -153,7 +153,7 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
         # scatterplot_adj = scatter_plot3(census_pred_adj.tolist(), census_gt.tolist())
         scatterplot_adj = scatter_plot_with_zeros_v9(census_pred_adj.tolist(), census_gt.tolist())
         # scatterplot_adj.save(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
-        scatterplot_adj[0].savefig(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
+        scatterplot_adj.savefig(os.path.join(parent_dir, "last_scatter_adj_{}.png".format(level)))
 
         print("---------------------------------")
 

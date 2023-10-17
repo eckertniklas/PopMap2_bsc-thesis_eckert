@@ -154,9 +154,6 @@ class Population_Dataset_target(Dataset):
         if not os.path.exists(covar_root):
             covar_root = covar_root.replace("scratch2", "scratch3")
         
-        # if not os.path.exists(covar_root):
-        #     raise ValueError("Covariate root does not exist")
-        
         S1spring_file = os.path.join(covar_root,  os.path.join("S1spring", region +"_S1spring.tif"))
         S1summer_file = os.path.join(covar_root,  os.path.join("S1summer", region +"_S1summer.tif"))
         S1autumn_file = os.path.join(covar_root,  os.path.join("S1autumn", region +"_S1autumn.tif"))
@@ -219,6 +216,7 @@ class Population_Dataset_target(Dataset):
 
 
         self.S1_file = {0: S1spring_file, 1: S1summer_file, 2: S1autumn_file, 3: S1winter_file}
+        self.S1_file = {0: S1spring_file, 1: S1summer_file, 2: S1autumn_file, 3: S1winter_file}
         
         if self.use2A:
             S2spring_file = os.path.join(covar_root,  os.path.join("S2Aspring", region +"_S2Aspring.tif"))
@@ -253,6 +251,7 @@ class Population_Dataset_target(Dataset):
             S2autumn_file = os.path.join(covar_root,  os.path.join("S21Cautumn", region +"_S21Cautumn.tif"))
             S2winter_file = os.path.join(covar_root,  os.path.join("S21Cwinter", region +"_S21Cwinter.tif"))
 
+        self.S2_file = {0: S2spring_file, 1: S2summer_file, 2: S2autumn_file, 3: S2winter_file}
         self.S2_file = {0: S2spring_file, 1: S2summer_file, 2: S2autumn_file, 3: S2winter_file}
         self.season_dict = {0: "spring", 1: "summer", 2: "autumn", 3: "winter"}
         self.inv_season_dict = {v: k for k, v in self.season_dict.items()}

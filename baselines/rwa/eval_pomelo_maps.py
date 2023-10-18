@@ -95,7 +95,7 @@ def evaluate_meta_maps(map_path, template_path):
 
     
     # define GT dataset
-    dataset = Population_Dataset_target("rwa")
+    dataset = Population_Dataset_target("rwa", train_level="coarse")
 
     # adjust map with the coarse census
     hr_pop_map_adj = dataset.adjust_map_to_census(hr_pop_map.clone())
@@ -134,6 +134,7 @@ if __name__=="__main__":
     Evaluates the Worldpop-maps on the test set of Rwanda
     """
     map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/POMELOv1Maps/che/rwa_predicted_target_img_adjusted.tiff"
+    map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/POMELOv1Maps/rwa/rwa_predicted_target_img_adjusted.tiff"
     template_path = "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa/S2Aautumn/rwa_S2Aautumn.tif"
 
     evaluate_meta_maps(map_path, template_path)

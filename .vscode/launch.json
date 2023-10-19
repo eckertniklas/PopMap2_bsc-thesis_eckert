@@ -1360,7 +1360,7 @@
                 "--nomain",
                 "--val_every_n_epochs", "1",
                 "--weak_batch_size", "1",
-                "--occupancymodel",
+                // "--occupancymodel",
                 // "--useposembedding",
                 "--weightdecay_pos", "0.0",
                 "--weightdecay", "0.01",

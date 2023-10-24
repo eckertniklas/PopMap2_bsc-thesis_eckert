@@ -1634,7 +1634,7 @@
                 "--model", "POMELO_module",
                 "--head", "v3",
                 "--feature_extractor", "DDA",
-                "--occupancymodel",
+                // "--occupancymodel",
                 // "--buildinginput",
                 // "--useposembedding",
                 "--sentinelbuildings",
@@ -1649,18 +1649,18 @@
                 "--fourseasons",
                 "--num_workers", "8",
                 "--train_level", "coarse", 
-                "--resume", //1600
+                // "--resume", //1600
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_696_451/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_693_727/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_693_194/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_693_526/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_692_518/last_model.pth",
                     // 1610
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_690_622/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_689_611/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_686_402/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_681_376/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_681_24/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_690_622/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_689_611/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_686_402/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_681_376/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_681_24/last_model.pth",
                     // 1620
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_806_480/last_model.pth", \\1620
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_806_54/last_model.pth", \\1621
@@ -1675,12 +1675,24 @@
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_718_700/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_723_411/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_724_744/last_model.pth",
+                // "--resume", //no occ, no pretraining, bugfix
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler//last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler//last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler//last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler//last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler//last_model.pth",
                 // "--resume", //no occ
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_708_485/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_708_693/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_708_687/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_714_433/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_717_305/last_model.pth",
+                "--resume", //no occ, bugfix
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_970_78/last_model.pth",
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_974_338/last_model.pth",
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_970_55/last_model.pth",
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_970_244/last_model.pth",
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_973_326/last_model.pth",
                 // "--resume", //no pretraining
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_713_890/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_711_20/last_model.pth",
@@ -1766,12 +1778,12 @@
                 "--fourseasons",
                 "-treg", "pricp2", 
                 "--train_level", "coarse", 
-                // "--resume", //full model
-                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_708_758/last_model.pth",
-                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_709_394/last_model.pth",
-                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_708_44/last_model.pth",
-                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_711_205/last_model.pth",
-                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_724_756/last_model.pth",
+                "--resume", //full model
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_708_758/last_model.pth",
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_709_394/last_model.pth",
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_708_44/last_model.pth",
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_711_205/last_model.pth",
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_724_756/last_model.pth",
                 // "--resume", //no pretraining
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_727_778/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_727_33/last_model.pth",
@@ -1784,24 +1796,30 @@
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_731_203/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_733_104/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_734_86/last_model.pth",
+                // "--resume", //no occ, bugfixed
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_982_392/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_984_308/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_984_634/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_986_797/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_987_132/last_model.pth",
                 // "--resume", //no occ, no pretraining 
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_707_30/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_706_382/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_705_630/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_736_861/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_735_716/last_model.pth",
-                // "--resume", //no occ, no pretraining 
-                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_707_30/last_model.pth",
-                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_706_382/last_model.pth",
-                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_705_630/last_model.pth",
-                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_736_861/last_model.pth",
-                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_735_716/last_model.pth",
-                "--resume", //Google Buildings
+                // "--resume", //no occ, no pretraining, bugfixed
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_980_458/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_980_390/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_982_490/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_988_14/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_989_838/last_model.pth",
+                // "--resume", //Google Buildings
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_923_213/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_923_836/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_878_330/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_876_825/last_model.pth",
-                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_876_434/last_model.pth",
+                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_876_434/last_model.pth",
                 // "--resume", //S1
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_759_610/last_model.pth",
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_758_72/last_model.pth",
@@ -1856,6 +1874,12 @@
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_720_740/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_722_243/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_722_668/last_model.pth",
+                // "--resume", // NO OCC, bug fixed
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_964_632/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_965_238/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_966_792/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_967_167/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_994_830/last_model.pth",
                 // "--resume", // no pretraining
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_945_569/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_942_983/last_model.pth",
@@ -1868,6 +1892,12 @@
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_756_940/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_752_244/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_753_692/last_model.pth",
+                // "--resume", // NO OCC, no pretraining, bugfixed
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_992_366/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_991_943/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_990_237/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_969_626/last_model.pth",
+                //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_995_84/last_model.pth",
                 // "--resume", // TLM
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_778_673/last_model.pth",
                 //     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_782_234/last_model.pth",

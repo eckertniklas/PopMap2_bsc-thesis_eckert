@@ -12,12 +12,9 @@ from torchvision.transforms import Normalize
 from torchvision import transforms
 from utils.transform import OwnCompose
 from utils.transform import RandomRotationTransform, RandomHorizontalFlip, RandomVerticalFlip, \
-    RandomHorizontalVerticalFlip, RandomBrightness, RandomGamma, HazeAdditionModule, AddGaussianNoise, AddGaussianNoiseWithCorrelation
-# from utils.transform import Eu2Rwa
+    RandomBrightness, RandomGamma, AddGaussianNoiseWithCorrelation
 from tqdm import tqdm
  
-from torch.cuda.amp import autocast, GradScaler
-
 import wandb
  
 import gc
@@ -29,18 +26,14 @@ from data.PopulationDataset_target import Population_Dataset_target, Population_
 from utils.losses import get_loss, r2
 from utils.metrics import get_test_metrics
 from utils.utils import new_log, to_cuda, to_cuda_inplace, detach_tensors_in_dict, seed_all
-# from utils.utils import new_log, to_cuda, to_cuda_inplace, detach_tensors_in_dict, seed_all, get_model_kwargs, model_dict
 from model.get_model import get_model_kwargs, model_dict
 from utils.utils import load_json, apply_transformations_and_normalize, apply_normalize
 from utils.constants import config_path
-from utils.scheduler import CustomLRScheduler
 
 from utils.plot import plot_2dmatrix, plot_and_save, scatter_plot3
-# from utils.utils import get_fnames_labs_reg, get_fnames_unlab_reg
-# from utils.datasampler import LabeledUnlabeledSampler
 from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1, pop_map_root, testlevels, overlap
 from utils.constants import inference_patch_size as ips
-from utils.utils import Namespace, NumberList
+from utils.utils import NumberList
 
 import rasterio
 from rasterio.windows import Window
@@ -54,14 +47,8 @@ nvidia_smi.nvmlInit()
 
 class Trainer:
 
-    def __init__(self, args: argparse.Namespace):
+    def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
-
-
-        if args.loss in ["gaussian_nll", "log_gaussian_nll", "laplacian_nll", "log_laplacian_nll", "gaussian_aug_loss", "log_gaussian_aug_loss", "laplacian_aug_loss", "log_laplacian_aug_loss"]:
-            self.args.probabilistic = True
-        else:
-            self.args.probabilistic = False
 
         # set up experiment folder
         self.experiment_folder, self.args.expN, self.args.randN = new_log(os.path.join(args.save_dir, "So2Sat"), args)
@@ -81,18 +68,11 @@ class Trainer:
         else:
             raise ValueError(f"Unknown model: {args.model}")
         
-        if args.model in ["BoostUNet"]:
-            self.boosted = True
-        else:
-            self.boosted = False
-
-
-        # set up model
+        # set random seed after model initialization to ensure reproducibility of training pipline
         seed_all(args.seed+1)
         
         # number of params
         args.pytorch_total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        # print("Model", args.model, "; #Params:", args.pytorch_total_params)
         args.num_effective_param = self.model.num_params
         print("Model", args.model, "; #Effective Params:", args.num_effective_param)
 
@@ -107,18 +87,13 @@ class Trainer:
         # set up optimizer and scheduler
         if args.optimizer == "Adam":
             
-            head_name = ['head.6.weight','head.6.bias']
+            if self.args.head == "v3_slim":
+                head_name  = ['head.0.weight', 'head.0.bias']
+            else:
+                head_name = ['head.6.weight','head.6.bias']
 
             # Get all parameters except the head bias
             params_with_decay = [param for name, param in self.model.named_parameters() if name not in head_name and 'embedder' not in name and 'unetmodel' not in name]
-
-            # check if the model has an embedder
-            if hasattr(self.model, 'embedder'):
-                # Get the positional embedding parameters
-                params_positional = [param for name, param in self.model.embedder.named_parameters()]
-            else:
-                params_positional = []
-
             params_unet_only = [param for name, param in self.model.named_parameters() if name not in head_name and 'embedder' not in name and 'unetmodel' in name]
 
             # Get the head bias parameter, only bias, if available
@@ -126,8 +101,8 @@ class Trainer:
 
             self.optimizer = optim.Adam([
                     {'params': params_with_decay, 'weight_decay': args.weightdecay}, # Apply weight decay here
-                    {'params': params_positional, 'weight_decay': args.weightdecay_pos}, # Apply weight decay here
-                    {'params': params_unet_only, 'weight_decay': args.weightdecay_unet}, # No weight decay
+                    # {'params': params_positional, 'weight_decay': args.weightdecay_pos}, # Apply weight decay here
+                    {'params': params_unet_only, 'weight_decay': args.weightdecay_unet}, # Apply weight decay here
                     {'params': params_without_decay, 'weight_decay': 0.0}, # No weight decay
                 ]
                 , lr=args.learning_rate)
@@ -138,11 +113,7 @@ class Trainer:
         elif args.optimizer == "SGD":
             self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
 
-        if args.half:
-            self.scaler = GradScaler()
-
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
-        # self.scheduler = CustomLRScheduler(self.optimizer, drop_epochs=[3, 5, 10, 15, 20, 25, 30, 40, 50, 70, 90, 110, 150, ], gamma=0.75)
         
         # set up info
         self.info = { "epoch": 0,  "iter": 0,  "sampleitr": 0}
@@ -175,16 +146,12 @@ class Trainer:
                 if self.args.save_model in ['last', 'both']:
                     self.save_model('last')
 
-
                 # weak validation
                 if (self.info["epoch"] + 1) % self.args.val_every_n_epochs == 0:
                     if self.args.supmode=="weaksup" and self.args.weak_validation:
                         self.validate_weak()
                         torch.cuda.empty_cache()
 
-                    # self.validate()
-                    # torch.cuda.empty_cache()
-                
                 if (self.info["epoch"] + 1) % (self.args.val_every_n_epochs) == 0:
                     # if "afg" in self.args.target_regions:
                     #     self.test_target_large(save=True)
@@ -235,10 +202,10 @@ class Trainer:
                 #  check if sample is weakly target supervised or source supervised 
                 if self.args.supmode=="weaksup":
                     
-
                     # sample_weak = sample
                     calculate_disaggregation_factor = False
                     if calculate_disaggregation_factor:
+                        # calculate global disaggregation factor
                         this_mask = sample_weak["admin_mask"]==sample_weak["census_idx"].view(-1,1,1)
                         num_buildings += (sample_weak["building_counts"] * this_mask).sum()
                         num_people += sample_weak["y"].sum()
@@ -246,11 +213,10 @@ class Trainer:
                         continue
 
                     # forward pass and loss computation
-                    # sample_weak = to_cuda_inplace(sample, self.args.half, spare=["y", "source"]) 
+                    # sample_weak = to_cuda_inplace(sample, self.args.half, spare=["y", "source"])
                     sample_weak = to_cuda_inplace(sample) 
                     sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput,
                                                                       segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
-                    
                     
                     # check if the input is to large
                     if sample_weak["input"] is not None:
@@ -269,63 +235,20 @@ class Trainer:
                                 print("Input to large for encoder and unet. No forward pass.")
                                 continue
                     
-                    if self.args.half:
-                        with autocast():
-                            output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False,
-                                                encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad,
-                                                # sparse=self.args.empty_eps>0.0
-                                                sparse=True
-                                                )
-                    else:
-                        output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False,
-                                                encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad,
-                                                # sparse=self.args.empty_eps>0.0
-                                                sparse=True
-                                                )
-
-                    # merge augmented samples
-                    if self.args.weak_merge_aug:
-                        output_weak["popcount"] = output_weak["popcount"].sum(dim=0, keepdim=True)
-                        if "popvar" in output_weak:
-                            output_weak["popvar"] = output_weak["popvar"].sum(dim=0, keepdim=True) 
-                        sample_weak["y"] = sample_weak["y"].sum(dim=0, keepdim=True)
-                        sample_weak["source"] = sample_weak["source"][0]
-                        if self.boosted:
-                            output_weak["intermediate"]["popcount"] = output_weak["intermediate"]["popcount"].sum(dim=0, keepdim=True)
-                            if "popvar" in output_weak["intermediate"]:
-                                output_weak["intermediate"]["popvar"] = output_weak["intermediate"]["popvar"].sum(dim=0, keepdim=True)
+                    # perform forward pass
+                    output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False,
+                                                encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, sparse=True )
 
                     # compute loss
-                    if self.args.half:
-                        with autocast():
-                            loss_weak, loss_dict_weak = get_loss(
-                                output_weak, sample_weak, scale=output_weak["scale"], empty_scale=output_weak["empty_scale"], loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
-                                scale_regularization=args.scale_regularization, scale_regularizationL2=args.scale_regularizationL2, emptyscale_regularizationL2=args.emptyscale_regularizationL2,
-                                output_regularization=args.output_regularization,
-                                tag="weak")
-                    else:
-                        loss_weak, loss_dict_weak = get_loss(
-                            output_weak, sample_weak, scale=output_weak["scale"], empty_scale=output_weak["empty_scale"], loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
-                            scale_regularization=args.scale_regularization, scale_regularizationL2=args.scale_regularizationL2, emptyscale_regularizationL2=args.emptyscale_regularizationL2,
-                            output_regularization=args.output_regularization,
-                            tag="weak")
+                    loss_weak, loss_dict_weak = get_loss(
+                        output_weak, sample_weak, scale=output_weak["scale"], empty_scale=output_weak["empty_scale"], loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
+                        scale_regularization=args.scale_regularization, scale_regularizationL2=args.scale_regularizationL2, emptyscale_regularizationL2=args.emptyscale_regularizationL2,
+                        output_regularization=args.output_regularization,
+                        tag="weak")
                     
                     # Detach tensors
                     loss_dict_weak = detach_tensors_in_dict(loss_dict_weak)
                     
-                    # if self.boosted:
-                    #     boosted_loss = [el.replace("gaussian", "l1") if el in ["gaussian_nll", "log_gaussian_nll", "gaussian_aug_loss", "log_gaussian_aug_loss"] else el for el in args.loss]
-                    #     boosted_loss = [el.replace("laplace", "l1") if el in ["laplacian_nll", "log_laplacian_nll", "laplace_aug_loss", "log_laplace_aug_loss"] else el for el in boosted_loss]
-                    #     loss_weak_raw, loss_weak_dict_raw = get_loss(
-                    #         output_weak["intermediate"], sample_weak, scale=output_weak["intermediate"]["scale"], empty_scale=output_weak["intermediate"]["empty_scale"], loss=boosted_loss,
-                    #         lam=args.lam, merge_aug=args.merge_aug, scale_regularization=args.scale_regularization, scale_regularizationL2=args.scale_regularizationL2, emptyscale_regularizationL2=args.emptyscale_regularizationL2,
-                    #         output_regularization=args.output_regularization,
-                    #         tag="train_weak_intermediate")
-                        
-                    #     loss_weak_dict_raw = detach_tensors_in_dict(loss_weak_dict_raw)
-                    #     loss_dict_weak = {**loss_dict_weak, **loss_weak_dict_raw}
-                    #     loss_weak += loss_weak_raw * self.args.lam_raw
-
                     # update loss
                     optim_loss += loss_weak * self.args.lam_weak #* self.info["beta"]
                 else:
@@ -346,7 +269,7 @@ class Trainer:
                     train_stats[key] += loss_dict_raw[key].cpu().item() if torch.is_tensor(loss_dict_raw[key]) else loss_dict_raw[key]
                 train_stats["log_count"] += 1
 
-                # collect buffer
+                # collect buffer for training stats (r2 score)
                 self.pred_buffer.add(output_weak["popcount"].cpu().detach())
                 self.target_buffer.add(sample_weak["y"].cpu().detach())
                                 
@@ -359,22 +282,15 @@ class Trainer:
                 # backprop
                 # if self.info["epoch"] > 0 or not self.args.no_opt:
                 if not self.args.no_opt:
-                    if self.args.half:
-                        self.scaler.scale(optim_loss).backward()
-                    else:
-                        optim_loss.backward()
+                    optim_loss.backward()
 
                     # gradient clipping
                     if self.args.gradient_clip > 0.:
                         clip_grad_norm_(self.model.parameters(), self.args.gradient_clip)
                     
                     if (i + 1) % self.accumulation_steps == 0:
-                        if self.args.half:
-                            self.scaler.step(self.optimizer)
-                            self.scaler.update()
-                        else:
-                            self.optimizer.step()
-                            self.optimizer.zero_grad()
+                        self.optimizer.step()
+                        self.optimizer.zero_grad()
 
                 # clear memory and detach tensors
                 optim_loss = optim_loss.detach()
@@ -486,8 +402,7 @@ class Trainer:
 
                     output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += 1
 
-                # average over the number of times each pixel was visited
-                # mask out values that are not visited of visited exactly once
+                # average over the number of times each pixel was visited,  mask out values that are not visited of visited exactly once
                 div_mask = output_map_count > 1
                 output_map[div_mask] = output_map[div_mask] / output_map_count[div_mask]
 
@@ -542,7 +457,6 @@ class Trainer:
                 # inputialize the output map
 
                 # # Copy the initialized file to create the second file
-                # copyfile(tmp_output_map_file, tmp_output_map_count_file)
                 copyfile(tmp_output_map_file, tmp_output_map_scale_file)
 
                 # metadata_count.update({'compress': "lzw"})
@@ -626,7 +540,7 @@ class Trainer:
                 os.remove(tmp_output_map_count_file)
 
     @staticmethod
-    def get_dataloaders(self, args): 
+    def get_dataloaders(self, args: argparse.Namespace) -> dict: 
         """
         Get dataloaders for the source and target domains
         Inputs:
@@ -640,13 +554,10 @@ class Trainer:
         self.data_transform = {}
         if args.full_aug:
             general_transforms = [
-                # AddGaussianNoise(std=0.04, p=0.75), 
                 RandomVerticalFlip(p=0.5, allsame=args.supmode=="weaksup"),
                 RandomHorizontalFlip(p=0.5, allsame=args.supmode=="weaksup"),
                 RandomRotationTransform(angles=[90, 180, 270], p=0.75),
             ]
-            if args.addgaussiannoise:
-                general_transforms.append(AddGaussianNoiseWithCorrelation(std=1.0, p=0.75))
 
             self.data_transform["general"] = transforms.Compose(general_transforms)
 
@@ -672,7 +583,6 @@ class Trainer:
                 self.dataset_stats[mkey] = torch.tensor(val)
 
         # get the target regions for testing
-        # ascfill = True if reg in ["uga"] else False
         need_asc = ["uga"]
         datasets = {
             "test_target": [ Population_Dataset_target( reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, ascfill=reg in need_asc, **input_defs) \
@@ -716,7 +626,7 @@ class Trainer:
     def save_model(self, prefix=''):
         """
         Input:
-            prefix: string to prepend to the filename
+            prefix: string to prepend to the filenam
         """
         torch.save({
             'model': self.model.state_dict(),

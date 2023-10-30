@@ -3,8 +3,8 @@ import torch
 
 from utils.plot import plot_2dmatrix
 from collections import defaultdict
-from utils.CORAL import coral
-from utils.MMD import default_mmd as mmd
+# from utils.CORAL import coral
+# from utils.MMD import default_mmd as mmd
 
 from torch.nn.modules.loss import _Loss
 from torch import Tensor
@@ -24,8 +24,6 @@ def get_loss(output, gt, scale=None, empty_scale=None, loss=["l1_loss"], lam=[1.
         merge_aug: bool, if True, merge the losses to create fake administrative territories
         lam_builtmask: float, weight for the built mask loss
         lam_adv: float, weight for the adversarial loss
-        lam_coral: float, weight for the coral loss
-        lam_mmd: float, weight for the mmd loss
     output:
         loss: float, the loss
         auxdict: dict, auxiliary losses
@@ -145,50 +143,50 @@ def get_loss(output, gt, scale=None, empty_scale=None, loss=["l1_loss"], lam=[1.
         auxdict = {**auxdict, **{"Population_"+tag+"/"+key: value for key,value in popdict.items()}}
 
     # Domain adaption losses
-    if ~gt["source"].all():
+    # if ~gt["source"].all():
 
-        # Adversarial Domain adaptation loss
-        if lam_adv>0.0 and output["domain"] is not None:
-            # prepare vars
-            if len(output["domain"].shape)==4:
-                dims = output["domain"].shape
-                pred_domain = output["domain"][:,0].reshape(-1)
-                gt_domain = gt["source"].float().repeat(dims[-1]*dims[-2]).reshape(-1)
-            if len(output["domain"].shape)==2:
-                num_subsamples = output["domain"].size(1)
-                pred_domain = output["domain"].view(-1)
-                gt_domain = gt["source"].float().unsqueeze(1).repeat(1,num_subsamples).view(-1)
-            else:
-                pred_domain = output["domain"]
-                gt_domain = gt["source"].float()
+    #     # Adversarial Domain adaptation loss
+    #     if lam_adv>0.0 and output["domain"] is not None:
+    #         # prepare vars
+    #         if len(output["domain"].shape)==4:
+    #             dims = output["domain"].shape
+    #             pred_domain = output["domain"][:,0].reshape(-1)
+    #             gt_domain = gt["source"].float().repeat(dims[-1]*dims[-2]).reshape(-1)
+    #         if len(output["domain"].shape)==2:
+    #             num_subsamples = output["domain"].size(1)
+    #             pred_domain = output["domain"].view(-1)
+    #             gt_domain = gt["source"].float().unsqueeze(1).repeat(1,num_subsamples).view(-1)
+    #         else:
+    #             pred_domain = output["domain"]
+    #             gt_domain = gt["source"].float()
 
-            # calculate loss
-            adv_dict = {"bce": F.binary_cross_entropy(pred_domain, gt_domain )}
-            optimization_loss += lam_adv*adv_dict["bce"]
+    #         # calculate loss
+    #         adv_dict = {"bce": F.binary_cross_entropy(pred_domain, gt_domain )}
+    #         optimization_loss += lam_adv*adv_dict["bce"]
 
-            # prepate for logging
-            adv_dict.update(**class_metrics(pred_domain, gt_domain, thresh=0.5))
-            auxdict = {**auxdict, **{"Domainadaptation/adv/"+key: value for key,value in adv_dict.items()}}
+    #         # prepate for logging
+    #         adv_dict.update(**class_metrics(pred_domain, gt_domain, thresh=0.5))
+    #         auxdict = {**auxdict, **{"Domainadaptation/adv/"+key: value for key,value in adv_dict.items()}}
         
         # CORAL Domain adaptation loss
-        if lam_coral>0.0 and output["decoder_features"] is not None:
-            source_features = output["decoder_features"][gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
-            target_features = output["decoder_features"][~gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
-            coral_dict = {"coral_loss": coral(source_features.T, target_features.T)}
-            optimization_loss += lam_coral*coral_dict["coral_loss"]
+        # if lam_coral>0.0 and output["decoder_features"] is not None:
+        #     source_features = output["decoder_features"][gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
+        #     target_features = output["decoder_features"][~gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
+        #     coral_dict = {"coral_loss": coral(source_features.T, target_features.T)}
+        #     optimization_loss += lam_coral*coral_dict["coral_loss"]
 
-            # prepate for logging
-            auxdict = {**auxdict, **{"Domainadaptation/"+key: value for key,value in coral_dict.items()}}
+        #     # prepate for logging
+        #     auxdict = {**auxdict, **{"Domainadaptation/"+key: value for key,value in coral_dict.items()}}
 
-        # MMD Domain adaptation loss
-        if lam_mmd>0.0 and output["decoder_features"] is not None:
-            source_features = output["decoder_features"][gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
-            target_features = output["decoder_features"][~gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
-            mmd_dict = {"mmd_loss": mmd(source_features.T, target_features.T)}
-            optimization_loss += lam_mmd*mmd_dict["mmd_loss"]
+        # # MMD Domain adaptation loss
+        # if lam_mmd>0.0 and output["decoder_features"] is not None:
+        #     source_features = output["decoder_features"][gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
+        #     target_features = output["decoder_features"][~gt["source"]].permute(0,2,1).reshape(output["decoder_features"].shape[1],-1)
+        #     mmd_dict = {"mmd_loss": mmd(source_features.T, target_features.T)}
+        #     optimization_loss += lam_mmd*mmd_dict["mmd_loss"]
 
-            # prepate for logging
-            auxdict = {**auxdict, **{"Domainadaptation/"+key: value for key,value in mmd_dict.items()}}
+        #     # prepate for logging
+        #     auxdict = {**auxdict, **{"Domainadaptation/"+key: value for key,value in mmd_dict.items()}}
         
     # prepare for logging
     auxdict["optimization_loss"] =  optimization_loss

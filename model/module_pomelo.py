@@ -4,15 +4,10 @@ import torch
 import torch.nn.functional as F
 
 # import copy
-import segmentation_models_pytorch as smp
-# from model.DANN import DomainClassifier, DomainClassifier1x1, DomainClassifier_v3, DomainClassifier_v4, DomainClassifier_v5, DomainClassifier_v6, ReverseLayerF
 from model.customUNet import CustomUNet
-from torch.nn.functional import upsample_nearest, interpolate
 import ast
 
 from model.DDA_model.utils.networks import load_checkpoint
-
-from utils.siren import Siren, Siren1x1
 
 from utils.plot import plot_2dmatrix, plot_and_save
 
@@ -205,6 +200,15 @@ class POMELO_module(nn.Module):
                 nn.Conv2d(h, 2, kernel_size=1, padding=0)
             )
         
+        elif head=="v3_slim":
+            h = 64
+            head_input_dim += unet_out
+            head_input_dim -= feature_dim if this_input_dim==0 else 0
+            self.head = nn.Sequential(
+                nn.Conv2d(head_input_dim, 2, kernel_size=1, padding=0),
+            )
+        
+
         elif head=="v4":
             h = 64
             head_input_dim += unet_out

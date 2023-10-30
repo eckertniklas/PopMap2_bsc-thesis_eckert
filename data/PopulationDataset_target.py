@@ -52,6 +52,14 @@ class Population_Dataset_target(Dataset):
             fourseasons: whether to use the four seasons data
             mode: the mode to use ("weaksup" (weakly supervised training) or "test")
             split: the split to use ("all", "train", "val")
+            max_samples: the maximum number of samples to use
+            transform: the transform to apply to the data
+            sentinelbuildings: whether to use the sentinel buildings
+            ascfill: whether to use the ascending orbit data to fill the missing values
+            ascAug: whether to use the ascending orbit data to augment the data
+            train_level: the level of the training data ("fine" or "coarse")
+            max_pix: the maximum number of pixels in the administrative region
+            max_pix_box: the maximum number of pixels in the bounding box
         """
         super().__init__()
 

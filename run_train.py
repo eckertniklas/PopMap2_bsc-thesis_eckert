@@ -5,14 +5,13 @@ import time
 
 import numpy as np
 import torch
-from torch import is_tensor, optim
+from torch import optim
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader, ConcatDataset
-from torchvision.transforms import Normalize
 from torchvision import transforms
 from utils.transform import OwnCompose
 from utils.transform import RandomRotationTransform, RandomHorizontalFlip, RandomVerticalFlip, \
-    RandomBrightness, RandomGamma, AddGaussianNoiseWithCorrelation
+    RandomBrightness, RandomGamma,
 from tqdm import tqdm
  
 import wandb
@@ -21,17 +20,16 @@ import gc
 
 # from arguments import train_parser
 from arguments.train import parser as train_parser
-# from data.So2Sat import PopulationDataset_Reg
 from data.PopulationDataset_target import Population_Dataset_target, Population_Dataset_collate_fn
 from utils.losses import get_loss, r2
 from utils.metrics import get_test_metrics
 from utils.utils import new_log, to_cuda, to_cuda_inplace, detach_tensors_in_dict, seed_all
 from model.get_model import get_model_kwargs, model_dict
-from utils.utils import load_json, apply_transformations_and_normalize, apply_normalize
+from utils.utils import load_json, apply_transformations_and_normalize
 from utils.constants import config_path
 
-from utils.plot import plot_2dmatrix, plot_and_save, scatter_plot3
-from utils.constants import img_rows, img_cols, all_patches_mixed_train_part1, all_patches_mixed_test_part1, pop_map_root, testlevels, overlap
+from utils.plot import plot_2dmatrix, scatter_plot3
+from utils.constants import img_rows, img_cols, testlevels, overlap
 from utils.constants import inference_patch_size as ips
 from utils.utils import NumberList
 

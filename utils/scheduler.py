@@ -1,7 +1,6 @@
 
 
 
-import torch
 from torch.optim.lr_scheduler import _LRScheduler
 
 class CustomLRScheduler(_LRScheduler):
@@ -16,10 +15,3 @@ class CustomLRScheduler(_LRScheduler):
             return self.base_lrs
         return self.base_lrs
 
-# Example of usage
-# optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-# scheduler = CustomLRScheduler(optimizer, drop_epochs=[5, 10, 25])
-
-# for epoch in range(30):
-#     # training steps
-#     scheduler.step()  # Remember to call scheduler.step() at the end of each epoch

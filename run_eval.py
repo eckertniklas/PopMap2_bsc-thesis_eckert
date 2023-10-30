@@ -5,7 +5,7 @@ import time
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, ChainDataset, ConcatDataset
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 from sklearn import model_selection
 import wandb
@@ -20,10 +20,10 @@ from data.PopulationDataset_target import Population_Dataset_target
 from utils.metrics import get_test_metrics
 from utils.utils import to_cuda_inplace, seed_all
 from model.get_model import get_model_kwargs, model_dict
-from utils.utils import load_json, apply_transformations_and_normalize, apply_normalize
+from utils.utils import load_json, apply_transformations_and_normalize
 from utils.constants import config_path
 
-from utils.plot import plot_2dmatrix, plot_and_save, scatter_plot3
+from utils.plot import plot_2dmatrix, scatter_plot3
 from utils.constants import  overlap, testlevels, testlevels_eval
 from utils.constants import inference_patch_size as ips
 
@@ -62,10 +62,6 @@ class Trainer:
             else:
                 raise ValueError(f"Unknown model: {args.model}")
         
-        # number of params
-        # args.pytorch_total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        # print("Model", args.model, "; #Params:", args.pytorch_total_params)
-
         # wandb config
         wandb.init(project=args.wandb_project, dir=self.args.experiment_folder)
         wandb.config.update(self.args)
@@ -94,9 +90,7 @@ class Trainer:
         save_scatter = save_scatter
         for j in range(len(self.model)):
             self.model[j].eval()
-        # self.model.eval()
         self.test_stats = defaultdict(float)
-        # self.model.train()
 
         with torch.no_grad(): 
             self.target_test_stats = defaultdict(float)
@@ -169,11 +163,7 @@ class Trainer:
                 # calculate the standard deviation from the sum of squares and the mean as "std_dev = math.sqrt((sum_of_squares - n * mean ** 2) / (n - 1))"
                 output_map_squared[div_mask] = torch.sqrt((output_map_squared[div_mask] - (output_map[div_mask] ** 2) * output_map_count[div_mask]) / (output_map_count[div_mask] - 1))
 
-
-                # safe_count = torch.where(div_mask, output_map_count, torch.ones_like(output_map_count))
-                # output_map_squared[div_mask] = torch.sqrt(torch.clamp((output_map_squared[div_mask] - (output_map[div_mask] ** 2) * output_map_count[div_mask]) / (safe_count[div_mask] - 1), min=eps))
-
-
+                # mask out values that are not visited of visited exactly once
                 if "scale" in output.keys():
                     if output["scale"] is not None:
                         output_scale_map[div_mask] = output_scale_map[div_mask] / output_map_count[div_mask]
@@ -253,6 +243,13 @@ class Trainer:
             wandb.log({**{k + '/targettest': v for k, v in self.target_test_stats.items()}, **self.info}, self.info["iter"])
 
     def initialize_raster_large(self, file_name, metadata, chunk_size=4096):
+        """
+        Initialize a raster file with zeros
+        Inputs:
+            file_name: path to the file to be initialized
+            metadata: metadata of the file to be initialized
+            chunk_size: size of the chunks to be written
+        """
 
         with rasterio.open(file_name, 'w', **metadata) as tmp_dst:
         

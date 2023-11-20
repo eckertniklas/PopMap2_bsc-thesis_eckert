@@ -164,13 +164,13 @@ def scatter_plot3(predicted, ground_truth, log_scale=True):
         min_value, max_value = np.max([0.5,np.min(ground_truth)]), np.max(ground_truth)
     ax.set_xlim(min_value, max_value)
     ax.set_ylim(min_value, max_value)
-    print("min_value, max_value", min_value, max_value)
+    # print("min_value, max_value", min_value, max_value)
     
     # I want to know the min and max, but in terms of perceptage of the total
     min_value_perc = min_value / len(predicted)
     max_value_perc = max_value / len(predicted)
-    print("min_value_perc, max_value_perc", min_value_perc, max_value_perc)
-    print("min [%], max [%]", min_value_perc*100, max_value_perc*100)
+    # print("min_value_perc, max_value_perc", min_value_perc, max_value_perc)
+    # print("min [%], max [%]", min_value_perc*100, max_value_perc*100)
     # plt.show()
 
     # Set both axes to a log scale

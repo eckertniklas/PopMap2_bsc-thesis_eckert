@@ -158,9 +158,10 @@ class Population_Dataset_target(Dataset):
         # get the path to the data files
         covar_root = os.path.join(pop_map_covariates, region)
         if not os.path.exists(covar_root):
-            covar_root = covar_root.replace("scratch", "scratch2")
+            covar_root = covar_root.replace("scratch", "scratch3")
         if not os.path.exists(covar_root):
-            covar_root = covar_root.replace("scratch2", "scratch3")
+            covar_root = covar_root.replace("scratch3", "scratch2")
+        print("Using covar_root: ", covar_root)
         
         S1spring_file = os.path.join(covar_root,  os.path.join("S1spring", region +"_S1spring.tif"))
         S1summer_file = os.path.join(covar_root,  os.path.join("S1summer", region +"_S1summer.tif"))
@@ -182,9 +183,10 @@ class Population_Dataset_target(Dataset):
             # rawEE_map_root = rawEE_map_root
             print(rawEE_map_root)
             if not os.path.exists(os.path.join(rawEE_map_root, region, "S1spring")):
-                rawEE_map_root = rawEE_map_root.replace("scratch", "scratch2")
+                rawEE_map_root = rawEE_map_root.replace("scratch", "scratch3")
             if not os.path.exists(os.path.join(rawEE_map_root, region, "S1spring")):
-                rawEE_map_root = rawEE_map_root.replace("scratch2", "scratch3")
+                rawEE_map_root = rawEE_map_root.replace("scratch3", "scratch2")
+            print("Using rawEE_map_root: ", rawEE_map_root)
         
             spring_dir = os.path.join(rawEE_map_root, region, "S1spring")
             summer_dir = os.path.join(rawEE_map_root, region, "S1summer")

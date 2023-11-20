@@ -743,7 +743,7 @@
                 "--feature_extractor", "DDA",
                 "-l", "log_l1_loss", 
                 "-la", "1.0",
-                "--empty_eps", "0.01",
+                // "--empty_eps", "0.01",
                 "-sreg", "0.01",
                 "-dw","2", 
                 // "-S2",
@@ -753,7 +753,7 @@
                 "4",
                 "-rse",
                 "-treg", "rwa", 
-                "-tregtrain", "rwa",
+                "-tregtrain", "rwa2022",
                 "-exZH",
                 "-val", "1",
                 "--lr_step", "5",
@@ -783,7 +783,7 @@
                 "--biasinit", "0.9407",
                 // "--dropout", "0.5",
                 // "--addgaussiannoise",
-                "--sparse_unet"
+                // "--sparse_unet"
             ]
         },
         {

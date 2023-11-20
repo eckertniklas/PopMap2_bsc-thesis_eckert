@@ -167,8 +167,8 @@ def scatter_plot3(predicted, ground_truth, log_scale=True):
     print("min_value, max_value", min_value, max_value)
     
     # I want to know the min and max, but in terms of perceptage of the total
-    min_value_perc = min_value / len(x)
-    max_value_perc = max_value / len(x)
+    min_value_perc = min_value / len(predicted)
+    max_value_perc = max_value / len(predicted)
     print("min_value_perc, max_value_perc", min_value_perc, max_value_perc)
     print("min [%], max [%]", min_value_perc*100, max_value_perc*100)
     # plt.show()

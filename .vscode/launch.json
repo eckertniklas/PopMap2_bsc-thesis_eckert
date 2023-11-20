@@ -1766,7 +1766,7 @@
                 "--occupancymodel",
                 // "--buildinginput",
                 // "--useposembedding",
-                // "--sentinelbuildings",
+                "--sentinelbuildings",
                 // "--empty_eps", "0.01",
                 "-dw","2",
                 "-S2",

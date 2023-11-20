@@ -170,7 +170,8 @@ if __name__=="__main__":
     # sample
     # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1599_252/rwa_predictions.tif"
     # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1610_250/rwa_predictions.tif"
-    map_path = "/scratch2/metzgern/Downloads/experiment_230_483/pricp2_predictions.tif"
+    # map_path = "/scratch2/metzgern/Downloads/experiment_230_483/pricp2_predictions.tif"
+    map_path = "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_708_758/eval_outputs_ensemble_20231110-160701_members_5/pricp2_predictions.tif"
     # map_path = "/scratch2/metzgern/Downloads/experiment_155_459/rwa_predictions.tif"
     # map_path = "/scratch2/metzgern/Downloads/experiment_155_459/rwa_predictions.tif"
     # map_path = "/scratch2/metzgern/HAC/POMELOv2_results/So2Sat/experiment_1542_618/rwa_predictions.tif"

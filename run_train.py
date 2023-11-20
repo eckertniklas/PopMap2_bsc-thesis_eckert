@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader, ConcatDataset
 from torchvision import transforms
 from utils.transform import OwnCompose
 from utils.transform import RandomRotationTransform, RandomHorizontalFlip, RandomVerticalFlip, \
-    RandomBrightness, RandomGamma,
+    RandomBrightness, RandomGamma
 from tqdm import tqdm
  
 import wandb

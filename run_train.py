@@ -196,14 +196,10 @@ class Trainer:
                 optim_loss = 0.0
                 loss_dict_weak = {}
                 loss_dict_raw = {}
-                
-                #  check if sample is weakly target supervised or source supervised 
-                # if self.args.supmode=="weaksup":
-                
-                # sample_weak = sample
+                                
+                # calculate global disaggregation factor
                 calculate_disaggregation_factor = False
                 if calculate_disaggregation_factor:
-                    # calculate global disaggregation factor
                     this_mask = sample_weak["admin_mask"]==sample_weak["census_idx"].view(-1,1,1)
                     num_buildings += (sample_weak["building_counts"] * this_mask).sum()
                     num_people += sample_weak["y"].sum()
@@ -211,7 +207,6 @@ class Trainer:
                     continue
 
                 # forward pass and loss computation
-                # sample_weak = to_cuda_inplace(sample, self.args.half, spare=["y", "source"])
                 sample_weak = to_cuda_inplace(sample) 
                 sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput,
                                                                     segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
@@ -222,7 +217,7 @@ class Trainer:
                 else:
                     num_pix = 0
 
-
+                # freeze encoder and decoder if input is to large to fit on GPU
                 encoder_no_grad, unet_no_grad = False, False 
                 if num_pix > self.args.limit1:
                     encoder_no_grad, unet_no_grad = True, False
@@ -250,18 +245,16 @@ class Trainer:
                 
                 # update loss
                 optim_loss += loss_weak * self.args.lam_weak #* self.info["beta"]
-                # else:
-                #     output_weak = None
 
-                loss_dict = {}
+                # loss_dict = {}
                 loss_dict_raw = {} 
 
                 # Detach tensors
-                loss_dict = detach_tensors_in_dict(loss_dict)
+                # loss_dict = detach_tensors_in_dict(loss_dict)
 
                 # accumulate statistics of all dicts
-                for key in loss_dict:
-                    train_stats[key] += loss_dict[key].cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key]
+                # for key in loss_dict:
+                #     train_stats[key] += loss_dict[key].cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key]
                 for key in loss_dict_weak:
                     train_stats[key] += loss_dict_weak[key].cpu().item() if torch.is_tensor(loss_dict_weak[key]) else loss_dict_weak[key]
                 for key in loss_dict_raw:
@@ -320,6 +313,7 @@ class Trainer:
                 if (i + 1) % min(self.args.logstep_train, len(self.dataloaders['train'])) == 0:
                     self.log_train(train_stats,(inner_tnr, tnr))
                     train_stats = defaultdict(float)
+    
     
     def log_train(self, train_stats, tqdmstuff=None):
         train_stats = {k: v / train_stats["log_count"] for k, v in train_stats.items()}

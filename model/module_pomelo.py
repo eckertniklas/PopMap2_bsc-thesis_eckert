@@ -50,7 +50,7 @@ class POMELO_module(nn.Module):
 
         self.down = down
         self.occupancymodel = occupancymodel
-        self.useposembedding = useposembedding
+        # self.useposembedding = useposembedding
         self.buildinginput = buildinginput
         self.feature_extractor = feature_extractor
         self.sparse_unet = sparse_unet
@@ -71,42 +71,42 @@ class POMELO_module(nn.Module):
         self.p2d = (self.p, self.p, self.p, self.p)
 
         # own parent file
-        parent_file = os.path.join(experiment_folder, "parent.txt")
+        # parent_file = os.path.join(experiment_folder, "parent.txt")
 
-        if os.path.exists(parent_file):
-            loaded_parent = open(parent_file, "r").readline().strip()
-            assert os.path.exists(loaded_parent)
-            if parent is not None:
-                assert loaded_parent == parent
-            parent = loaded_parent
+        # if os.path.exists(parent_file):
+        #     loaded_parent = open(parent_file, "r").readline().strip()
+        #     assert os.path.exists(loaded_parent)
+        #     if parent is not None:
+        #         assert loaded_parent == parent
+        #     parent = loaded_parent
 
-        elif parent is not None:
-            # means that this is a new model and we need to create the parent file
-            with open(parent_file, "w") as f:
-                f.write(parent)
+        # elif parent is not None:
+        #     # means that this is a new model and we need to create the parent file
+        #     with open(parent_file, "w") as f:
+        #         f.write(parent)
         
 
-        if parent is not None or os.path.exists(parent_file):
-            # recursive loading of the boosting model
+        # if parent is not None or os.path.exists(parent_file):
+        #     # recursive loading of the boosting model
 
-            # load csv to dict
-            argsdict = read_params(os.path.join(parent, "args.csv"))
+        #     # load csv to dict
+        #     argsdict = read_params(os.path.join(parent, "args.csv"))
 
-            print("-"*50)
-            print("Loading parent model from: ", parent)
-            self.parent = POMELO_module(input_channels, int(argsdict["feature_dim"]), argsdict["feature_extractor"], int(argsdict["down"]), occupancymodel=ast.literal_eval(argsdict["occupancymodel"]),
-                                        useposembedding=ast.literal_eval(argsdict["useposembedding"]), experiment_folder=parent, replace7x7=ast.literal_eval(argsdict["replace7x7"]), head=str(argsdict["head"]),
-                                        grouped=ast.literal_eval(argsdict["grouped"]))
-            self.parent.unetmodel.load_state_dict(torch.load(os.path.join(parent, "last_unetmodel.pth"))["model"])
-            self.parent.head.load_state_dict(torch.load(os.path.join(parent, "last_head.pth"))["model"])
+        #     print("-"*50)
+        #     print("Loading parent model from: ", parent)
+        #     self.parent = POMELO_module(input_channels, int(argsdict["feature_dim"]), argsdict["feature_extractor"], int(argsdict["down"]), occupancymodel=ast.literal_eval(argsdict["occupancymodel"]),
+        #                                 useposembedding=ast.literal_eval(argsdict["useposembedding"]), experiment_folder=parent, replace7x7=ast.literal_eval(argsdict["replace7x7"]), head=str(argsdict["head"]),
+        #                                 grouped=ast.literal_eval(argsdict["grouped"]))
+        #     self.parent.unetmodel.load_state_dict(torch.load(os.path.join(parent, "last_unetmodel.pth"))["model"])
+        #     self.parent.head.load_state_dict(torch.load(os.path.join(parent, "last_head.pth"))["model"])
 
-            if ast.literal_eval(argsdict["useposembedding"]):
-                self.parent.embedder.load_state_dict(torch.load(os.path.join(parent, "last_embedder.pth"))["model"])
+        #     if ast.literal_eval(argsdict["useposembedding"]):
+        #         self.parent.embedder.load_state_dict(torch.load(os.path.join(parent, "last_embedder.pth"))["model"])
 
-            head_input_dim += 1
-        else:
-            # create the parent file
-            self.parent = None
+        #     head_input_dim += 1
+        # else:
+        #     # create the parent file
+        self.parent = None
         
         self.S1, self.S2 = True, True
         if input_channels==0:
@@ -131,7 +131,6 @@ class POMELO_module(nn.Module):
             DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
             TRAINER = Namespace(LR=1e5)
             cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS,
-                            # DATALOADER=DATALOADER, TRAINER=TRAINER, NAME="fusionda_new")
                             DATALOADER=DATALOADER, TRAINER=TRAINER, NAME=f"fusionda_newAug{stage1feats}_{stage2feats}")
 
             ## load weights from checkpoint
@@ -166,25 +165,24 @@ class POMELO_module(nn.Module):
             else:
                 self.unetmodel = None
 
-
-        if useposembedding:
-            if head=="v3":
-                freq = 2 # for x dimensions and 2 components (sin and cos)
-                self.embedder = nn.Sequential(
-                    nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(inplace=True),
-                    nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(inplace=True),
-                    nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(inplace=True),
-                )
-                self.embedding_dim = feature_dim
-                head_input_dim += feature_dim
-            elif head=="v4":
-                freq = 2 # for x dimensions and 2 components (sin and cos)
-                self.embedder = nn.Sequential(
-                    nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(inplace=True),
-                    nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(inplace=True),
-                )
-                self.embedding_dim = feature_dim
-                head_input_dim += feature_dim
+        # if useposembedding:
+        #     if head=="v3":
+        #         freq = 2 # for x dimensions and 2 components (sin and cos)
+        #         self.embedder = nn.Sequential(
+        #             nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+        #             nn.Conv2d(32, 32, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+        #             nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+        #         )
+        #         self.embedding_dim = feature_dim
+        #         head_input_dim += feature_dim
+        #     elif head=="v4":
+        #         freq = 2 # for x dimensions and 2 components (sin and cos)
+        #         self.embedder = nn.Sequential(
+        #             nn.Conv2d(2*freq, 32, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+        #             nn.Conv2d(32, feature_dim, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+        #         )
+        #         self.embedding_dim = feature_dim
+        #         head_input_dim += feature_dim
 
         if buildinginput:
             head_input_dim += 1
@@ -209,26 +207,26 @@ class POMELO_module(nn.Module):
             )
         
 
-        elif head=="v4":
-            h = 64
-            head_input_dim += unet_out
-            head_input_dim -= feature_dim if this_input_dim==0 else 0
-            self.head = nn.Sequential(
-                nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
-                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(inplace=True), 
-                nn.Conv2d(h, 2, kernel_size=1, padding=0)
-            )
+        # elif head=="v4":
+        #     h = 64
+        #     head_input_dim += unet_out
+        #     head_input_dim -= feature_dim if this_input_dim==0 else 0
+        #     self.head = nn.Sequential(
+        #         nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+        #         nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(inplace=True), 
+        #         nn.Conv2d(h, 2, kernel_size=1, padding=0)
+        #     )
 
-        elif head=="v6":
-            h = 128
-            head_input_dim += unet_out
-            head_input_dim -= feature_dim if this_input_dim==0 else 0
-            self.head = nn.Sequential(
-                nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
-                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
-                nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
-                nn.Conv2d(h, 2, kernel_size=1, padding=0)
-            )
+        # elif head=="v6":
+        #     h = 128
+        #     head_input_dim += unet_out
+        #     head_input_dim -= feature_dim if this_input_dim==0 else 0
+        #     self.head = nn.Sequential(
+        #         nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+        #         nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+        #         nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
+        #         nn.Conv2d(h, 2, kernel_size=1, padding=0)
+        #     )
 
         # lift the bias of the head to avoid the risk of dying ReLU
         self.head[-1].bias.data = biasinit * torch.ones(2)
@@ -259,12 +257,13 @@ class POMELO_module(nn.Module):
 
         X = inputs["input"]
 
-        # create building score, if not available in the dataset
+        # create building score, if not available in the dataset, or overwrite it if sentinelbuildings is True
         if "building_counts" not in inputs.keys() or self.sentinelbuildings:
             with torch.no_grad():
                 inputs["building_counts"]  = self.create_building_score(inputs)
             torch.cuda.empty_cache()
 
+        # add the empty building score for softening the ReLU
         if self.lempty_eps>0:
             inputs["building_counts"][:,0] = inputs["building_counts"][:,0] + self.lempty_eps
 
@@ -321,15 +320,14 @@ class POMELO_module(nn.Module):
             # TODO: make option to create the building maps from the checkpoint, but not at training time....
             middlefeatures.append(inputs["building_counts"])
 
-        if self.parent is not None:
-            # Forward the parent model
-            with torch.no_grad():
-                output_dict = self.parent(inputs, padding=False, return_features=False, unet_no_grad=unet_no_grad, sparse=sparse)
+        # if self.parent is not None:
+        #     # Forward the parent model
+        #     with torch.no_grad():
+        #         output_dict = self.parent(inputs, padding=False, return_features=False, unet_no_grad=unet_no_grad, sparse=sparse)
 
-            # Concatenate the parent features with middle features of the current model
-            middlefeatures.append(output_dict["scale"].unsqueeze(1))
+        #     # Concatenate the parent features with middle features of the current model
+        #     middlefeatures.append(output_dict["scale"].unsqueeze(1))
             
-
         # Forward the main model
         if self.unetmodel is not None: 
             X, (px1,px2,py1,py2) = self.add_padding(X, padding)
@@ -387,22 +385,22 @@ class POMELO_module(nn.Module):
             middlefeatures.append(X)
 
         # Embed the pose information
-        if self.useposembedding:
+        # if self.useposembedding:
         
-            lazy_pos = True
-            if sparse: 
-                # downsample the feature map, and only forward the few anchor points
-                if lazy_pos:
-                    pose = F.interpolate(inputs["positional_encoding"], size=(20, 20), mode='bilinear', align_corners=False)
-                    pose = self.embedder(pose)
-                    pose = F.interpolate(pose, size=(inputs["positional_encoding"].shape[2], inputs["positional_encoding"].shape[3]), mode='bilinear', align_corners=False)
-                else:
-                    pose = self.sparse_module_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
+        #     lazy_pos = True
+        #     if sparse: 
+        #         # downsample the feature map, and only forward the few anchor points
+        #         if lazy_pos:
+        #             pose = F.interpolate(inputs["positional_encoding"], size=(20, 20), mode='bilinear', align_corners=False)
+        #             pose = self.embedder(pose)
+        #             pose = F.interpolate(pose, size=(inputs["positional_encoding"].shape[2], inputs["positional_encoding"].shape[3]), mode='bilinear', align_corners=False)
+        #         else:
+        #             pose = self.sparse_module_forward(inputs["positional_encoding"], sparsity_mask, self.embedder, out_channels=self.embedding_dim)
 
-            else:
-                pose = self.embedder(inputs["positional_encoding"])
+        #     else:
+        #         pose = self.embedder(inputs["positional_encoding"])
 
-            middlefeatures.append(pose)
+        #     middlefeatures.append(pose)
 
         headin = torch.cat(middlefeatures, dim=1)
 
@@ -524,6 +522,7 @@ class POMELO_module(nn.Module):
                 data = nn.functional.pad(data, (py1,py2,0,0), mode='reflect')
 
         return data, (px1,px2,py1,py2)
+    
     
     def revert_padding(self, data: torch.tensor, padding: tuple) -> torch.Tensor:
         """

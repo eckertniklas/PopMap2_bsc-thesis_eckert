@@ -36,7 +36,7 @@ class Trainer:
     def __init__(self, args: argparse.Namespace):
         self.args = args
 
-        self.args.probabilistic = False
+        # self.args.probabilistic = False
 
         # set up experiment folder
         self.args.experiment_folder = os.path.join("/",os.path.join(*args.resume[0].split("/")[:-1]), "eval_outputs_ensemble_{}_members_{}".format(time.strftime("%Y%m%d-%H%M%S"), len(args.resume)))

@@ -14,8 +14,6 @@ from utils.utils import *
 from utils.plot import plot_2dmatrix
 from utils.utils import Namespace
 
-# CycleGAN
-from model.cycleGAN.models import create_model
 
 
 
@@ -79,58 +77,58 @@ class AddGaussianNoise(object):
         return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
 
 
-# Experimental
-class AddGaussianNoiseWithCorrelation(object):
-    """Add gaussian noise with spatial correlation to a tensor image.
-    Args:
-        mean (float): mean of the noise distribution. Default value is 0.
-        std (float): standard deviation of the noise distribution. Default value is 1.
-        p (float): probability of the noise being applied. Default value is 1.0.
-        kernel (int): size of the Gaussian kernel used for filtering. Default value is 3.
-    """
-    def __init__(self, mean=0., std=1., p=1.0, kernel=13, sigma=2):
-        self.std = torch.tensor([std], dtype=torch.float32)
-        self.std = std
-        self.mean = mean
-        self.p = p
-        self.kernel_size = kernel
-        # self.gaussian_filter = torch.nn.Conv2d(1, 1, self.kernel_size, padding=self.kernel_size // 2, bias=False).cuda()
-        # self.gaussian_filter.weight.data = self.gaussian_kernel(self.kernel_size).cuda()
-        # self.gaussian_filter.weight.requires_grad = False  # No need to track gradients
+# # Experimental
+# class AddGaussianNoiseWithCorrelation(object):
+#     """Add gaussian noise with spatial correlation to a tensor image.
+#     Args:
+#         mean (float): mean of the noise distribution. Default value is 0.
+#         std (float): standard deviation of the noise distribution. Default value is 1.
+#         p (float): probability of the noise being applied. Default value is 1.0.
+#         kernel (int): size of the Gaussian kernel used for filtering. Default value is 3.
+#     """
+#     def __init__(self, mean=0., std=1., p=1.0, kernel=13, sigma=2):
+#         self.std = torch.tensor([std], dtype=torch.float32)
+#         self.std = std
+#         self.mean = mean
+#         self.p = p
+#         self.kernel_size = kernel
+#         # self.gaussian_filter = torch.nn.Conv2d(1, 1, self.kernel_size, padding=self.kernel_size // 2, bias=False).cuda()
+#         # self.gaussian_filter.weight.data = self.gaussian_kernel(self.kernel_size).cuda()
+#         # self.gaussian_filter.weight.requires_grad = False  # No need to track gradients
 
-        self.blur = transforms.GaussianBlur(kernel_size=self.kernel_size, sigma=sigma)
+#         self.blur = transforms.GaussianBlur(kernel_size=self.kernel_size, sigma=sigma)
 
 
-    @staticmethod
-    def gaussian_kernel(size: int, mean: float = torch.tensor([0.], dtype=torch.float32), std: float = torch.tensor([1.], dtype=torch.float32)):
-        """Generate a Gaussian kernel"""
-        values = torch.tensor([1 / (std * torch.sqrt(torch.tensor([2 * 3.1415]))) * torch.exp(-0.5 * ((i - mean) / std) ** 2)
-                               for i in range(size)], dtype=torch.float32)
-        values /= values.sum()
-        return values.view(1, 1, size, 1) * values.view(1, 1, 1, size)
+#     @staticmethod
+#     def gaussian_kernel(size: int, mean: float = torch.tensor([0.], dtype=torch.float32), std: float = torch.tensor([1.], dtype=torch.float32)):
+#         """Generate a Gaussian kernel"""
+#         values = torch.tensor([1 / (std * torch.sqrt(torch.tensor([2 * 3.1415]))) * torch.exp(-0.5 * ((i - mean) / std) ** 2)
+#                                for i in range(size)], dtype=torch.float32)
+#         values /= values.sum()
+#         return values.view(1, 1, size, 1) * values.view(1, 1, 1, size)
 
-    def apply_gaussian_filter(self, noise):
-        return self.gaussian_filter(noise)
+#     def apply_gaussian_filter(self, noise):
+#         return self.gaussian_filter(noise)
     
-    def __call__(self, x):
-        if torch.is_tensor(x):
-            mask = None
-        else:
-            x, mask = x
+#     def __call__(self, x):
+#         if torch.is_tensor(x):
+#             mask = None
+#         else:
+#             x, mask = x
 
-        if torch.rand(1) < self.p:
-            # noise = torch.randn_like(x) * self.std + self.mean
-            noise = torch.randn((x.shape[1], 1, x.shape[2], x.shape[3]), dtype=x.dtype, device=x.device) * self.std 
-            # noise = noise.unsqueeze(0).unsqueeze(0)
-            noise = self.blur(noise)
-            # noise = self.apply_gaussian_filter(noise)
-            b = x + noise.squeeze(1).unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
-            x += noise.squeeze(1).unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
-            # x += noise.squeeze()
-        return x if mask is None else (x, mask)
+#         if torch.rand(1) < self.p:
+#             # noise = torch.randn_like(x) * self.std + self.mean
+#             noise = torch.randn((x.shape[1], 1, x.shape[2], x.shape[3]), dtype=x.dtype, device=x.device) * self.std 
+#             # noise = noise.unsqueeze(0).unsqueeze(0)
+#             noise = self.blur(noise)
+#             # noise = self.apply_gaussian_filter(noise)
+#             b = x + noise.squeeze(1).unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
+#             x += noise.squeeze(1).unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
+#             # x += noise.squeeze()
+#         return x if mask is None else (x, mask)
     
-    def __repr__(self):
-        return self.__class__.__name__ + '(mean={0}, std={1}, kernel={2})'.format(self.mean, self.std, self.kernel_size)
+#     def __repr__(self):
+#         return self.__class__.__name__ + '(mean={0}, std={1}, kernel={2})'.format(self.mean, self.std, self.kernel_size)
 
 
 
@@ -363,57 +361,57 @@ class RandomBrightness(torch.nn.Module):
         return x
     
 
-def generate_haze_parameters():
-    # Generate random haze parameters based on atmospheric conditions
-    atmosphere_light = np.random.uniform(0.7, 1.0) # Atmospheric light intensity
-    haze_density = np.random.uniform(0.05, 0.3)
-    return atmosphere_light, haze_density
+# def generate_haze_parameters():
+#     # Generate random haze parameters based on atmospheric conditions
+#     atmosphere_light = np.random.uniform(0.7, 1.0) # Atmospheric light intensity
+#     haze_density = np.random.uniform(0.05, 0.3)
+#     return atmosphere_light, haze_density
 
-class HazeAdditionModule(torch.nn.Module):
-    def __init__(self, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3), p=0.9):
-        super(HazeAdditionModule, self).__init__()
-        self.atm_limit = atm_limit
-        self.haze_limit = haze_limit
-        self.p = p
-        self.s2_max = 10000
+# class HazeAdditionModule(torch.nn.Module):
+#     def __init__(self, atm_limit=(0.3, 1.0), haze_limit=(0.05,0.3), p=0.9):
+#         super(HazeAdditionModule, self).__init__()
+#         self.atm_limit = atm_limit
+#         self.haze_limit = haze_limit
+#         self.p = p
+#         self.s2_max = 10000
 
-    def forward(self, x):
-        """
-        Args:
-            x: Multispectral satellite imagery, Tensor of shape (batch_size, num_channels, height, width) or (num_channels, height, width)
-        Returns:
-            x_haze: Hazy multispectral satellite imagery, Tensor of the same shape as x
-        """
-        if torch.rand(1) < self.p:
+#     def forward(self, x):
+#         """
+#         Args:
+#             x: Multispectral satellite imagery, Tensor of shape (batch_size, num_channels, height, width) or (num_channels, height, width)
+#         Returns:
+#             x_haze: Hazy multispectral satellite imagery, Tensor of the same shape as x
+#         """
+#         if torch.rand(1) < self.p:
             
-            # Check if the input image is 3D or 4D
-            if len(x.shape) == 3:
-                num_channels, height, width = x.shape
-                x = x.unsqueeze(0)  # Add a batch dimension
-                batch_size = 1
-                batched = False
-            else:
-                batch_size, num_channels, height, width = x.shape 
-                batched = True
+#             # Check if the input image is 3D or 4D
+#             if len(x.shape) == 3:
+#                 num_channels, height, width = x.shape
+#                 x = x.unsqueeze(0)  # Add a batch dimension
+#                 batch_size = 1
+#                 batched = False
+#             else:
+#                 batch_size, num_channels, height, width = x.shape 
+#                 batched = True
 
-            # sample/gernerate params
-            atmosphere_light = np.random.uniform(self.atm_limit[0], self.atm_limit[1]) # Sample Atmospheric light intensity
-            haze_density = np.random.uniform(self.haze_limit[0], self.haze_limit[1]) # Sample Haze density
+#             # sample/gernerate params
+#             atmosphere_light = np.random.uniform(self.atm_limit[0], self.atm_limit[1]) # Sample Atmospheric light intensity
+#             haze_density = np.random.uniform(self.haze_limit[0], self.haze_limit[1]) # Sample Haze density
 
-            # Create the haze layer
-            haze_layer = torch.ones((batch_size, num_channels, height, width), dtype=x.dtype, device=x.device) * atmosphere_light
+#             # Create the haze layer
+#             haze_layer = torch.ones((batch_size, num_channels, height, width), dtype=x.dtype, device=x.device) * atmosphere_light
 
-            # Apply haze to the input image
-            x = x / self.s2_max
-            x_haze = x * (1 - haze_density) + haze_layer * haze_density
-            x_haze = x_haze * self.s2_max
+#             # Apply haze to the input image
+#             x = x / self.s2_max
+#             x_haze = x * (1 - haze_density) + haze_layer * haze_density
+#             x_haze = x_haze * self.s2_max
 
-            # squeeze the batch dimension
-            if not batched:
-                x_haze = x_haze.squeeze(0)  # Remove the batch dimension
+#             # squeeze the batch dimension
+#             if not batched:
+#                 x_haze = x_haze.squeeze(0)  # Remove the batch dimension
 
-            # reassign the output image to the return variable
-            x = x_haze
+#             # reassign the output image to the return variable
+#             x = x_haze
 
-        return x
+#         return x
     

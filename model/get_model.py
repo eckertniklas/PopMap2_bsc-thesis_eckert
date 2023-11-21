@@ -1,21 +1,21 @@
 
 
-from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep, ResBlocksSqueeze
+# from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep, ResBlocksSqueeze
 from model.ownmodels import BoostUNet
-from model.resblock_pomelo import ResBlocksPomelo
+# from model.resblock_pomelo import ResBlocksPomelo
 
 from model.module_pomelo import POMELO_module
 
 
 model_dict = {
-    "JacobsUNet": JacobsUNet,
-    "PomeloUNet": PomeloUNet,
-    "ResBlocks": ResBlocks,
-    "ResBlocksSqueeze": ResBlocksSqueeze,
-    "UResBlocks": UResBlocks,
-    "ResBlocksDeep": ResBlocksDeep,
+    # "JacobsUNet": JacobsUNet,
+    # "PomeloUNet": PomeloUNet,
+    # "ResBlocks": ResBlocks,
+    # "ResBlocksSqueeze": ResBlocksSqueeze,
+    # "UResBlocks": UResBlocks,
+    # "ResBlocksDeep": ResBlocksDeep,
     "BoostUNet": BoostUNet,
-    "ResBlocksPomelo": ResBlocksPomelo,
+    # "ResBlocksPomelo": ResBlocksPomelo,
     "POMELO_module": POMELO_module
 }
 
@@ -38,28 +38,28 @@ def get_model_kwargs(args, model_name):
     }
 
     # additional kwargs for the Jacob's model
-    if model_name == 'JacobsUNet':
-        kwargs['classifier'] = args.classifier if args.adversarial else None
-        kwargs['head'] = args.head
-        kwargs['down'] = args.down
-        kwargs['occupancymodel'] = args.occupancymodel
-        kwargs['pretrained'] = args.pretrained
-        kwargs['dilation'] = args.dilation
-        kwargs['replace7x7'] = args.replace7x7
-    if model_name == 'BoostUNet':
-        # assert args.Sentinel1
-        # assert args.Sentinel2
-        kwargs['classifier'] = args.classifier if args.adversarial else None
-        kwargs['down'] = args.down
-        kwargs['down2'] = args.down2
-        kwargs['occupancymodel'] = args.occupancymodel 
-        kwargs['useallfeatures'] = args.useallfeatures
-        kwargs['pretrained'] = args.pretrained
-        kwargs['dilation'] = args.dilation
-        kwargs['replace7x7'] = args.replace7x7
-    if model_name == 'ResBlockPomelo':
-        kwargs['classifier'] = args.classifier if args.adversarial else None
-        kwargs['occupancymodel'] = args.occupancymodel
+    # if model_name == 'JacobsUNet':
+    #     kwargs['classifier'] = args.classifier if args.adversarial else None
+    #     kwargs['head'] = args.head
+    #     kwargs['down'] = args.down
+    #     kwargs['occupancymodel'] = args.occupancymodel
+    #     kwargs['pretrained'] = args.pretrained
+    #     kwargs['dilation'] = args.dilation
+    #     kwargs['replace7x7'] = args.replace7x7
+    # if model_name == 'BoostUNet':
+    #     # assert args.Sentinel1
+    #     # assert args.Sentinel2
+    #     kwargs['classifier'] = args.classifier if args.adversarial else None
+    #     kwargs['down'] = args.down
+    #     kwargs['down2'] = args.down2
+    #     kwargs['occupancymodel'] = args.occupancymodel 
+    #     kwargs['useallfeatures'] = args.useallfeatures
+    #     kwargs['pretrained'] = args.pretrained
+    #     kwargs['dilation'] = args.dilation
+    #     kwargs['replace7x7'] = args.replace7x7
+    # if model_name == 'ResBlockPomelo':
+    #     kwargs['classifier'] = args.classifier if args.adversarial else None
+    #     kwargs['occupancymodel'] = args.occupancymodel
     if model_name == 'POMELO_module': 
         kwargs['occupancymodel'] = args.occupancymodel
         kwargs['pretrained'] = args.pretrained

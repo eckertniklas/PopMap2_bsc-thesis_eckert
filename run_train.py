@@ -99,18 +99,13 @@ class Trainer:
 
             self.optimizer = optim.Adam([
                     {'params': params_with_decay, 'weight_decay': args.weightdecay}, # Apply weight decay here
-                    # {'params': params_positional, 'weight_decay': args.weightdecay_pos}, # Apply weight decay here
                     {'params': params_unet_only, 'weight_decay': args.weightdecay_unet}, # Apply weight decay here
                     {'params': params_without_decay, 'weight_decay': 0.0}, # No weight decay
-                ]
-                , lr=args.learning_rate)
+                ] , lr=args.learning_rate)
             
             if args.resume_extractor is not None:
                 self.optimizer = optim.Adam([ {'params': self.model.unetmodel.parameters(), 'weight_decay': args.weightdecay}]  , lr=args.learning_rate)
                 
-        # elif args.optimizer == "SGD":
-        #     self.optimizer = optim.SGD(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weightdecay)
-
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
         
         # set up info
@@ -135,7 +130,6 @@ class Trainer:
         with tqdm(range(self.info["epoch"], self.args.num_epochs), leave=True) as tnr:
             tnr.set_postfix(training_loss=np.nan, validation_loss=np.nan, best_validation_loss=np.nan)
             for _ in tnr:               
-                # self.test_target_large(save=True)
                 # self.test_target(save=True)
 
                 self.train_epoch(tnr)
@@ -151,9 +145,6 @@ class Trainer:
                         torch.cuda.empty_cache()
 
                 if (self.info["epoch"] + 1) % (self.args.val_every_n_epochs) == 0:
-                    # if "afg" in self.args.target_regions:
-                    #     self.test_target_large(save=True)
-                    # else:
                     self.test_target(save=True)
                     torch.cuda.empty_cache()
 
@@ -272,7 +263,6 @@ class Trainer:
                     raise Exception("detected Inf loss..")
                 
                 # backprop
-                # if self.info["epoch"] > 0 or not self.args.no_opt:
                 if not self.args.no_opt:
                     optim_loss.backward()
 
@@ -314,7 +304,7 @@ class Trainer:
                     self.log_train(train_stats,(inner_tnr, tnr))
                     train_stats = defaultdict(float)
     
-    
+
     def log_train(self, train_stats, tqdmstuff=None):
         train_stats = {k: v / train_stats["log_count"] for k, v in train_stats.items()}
         train_stats["Population_weak/r2"] = r2(torch.tensor(self.pred_buffer.get()),torch.tensor(self.target_buffer.get()))

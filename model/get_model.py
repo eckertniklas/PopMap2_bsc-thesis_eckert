@@ -1,21 +1,21 @@
 
 
-from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep, ResBlocksSqueeze
+# from model.pomelo import JacobsUNet, PomeloUNet, ResBlocks, UResBlocks, ResBlocksDeep, ResBlocksSqueeze
 from model.ownmodels import BoostUNet
-from model.resblock_pomelo import ResBlocksPomelo
+# from model.resblock_pomelo import ResBlocksPomelo
 
 from model.module_pomelo import POMELO_module
 
 
 model_dict = {
-    "JacobsUNet": JacobsUNet,
-    "PomeloUNet": PomeloUNet,
-    "ResBlocks": ResBlocks,
-    "ResBlocksSqueeze": ResBlocksSqueeze,
-    "UResBlocks": UResBlocks,
-    "ResBlocksDeep": ResBlocksDeep,
+    # "JacobsUNet": JacobsUNet,
+    # "PomeloUNet": PomeloUNet,
+    # "ResBlocks": ResBlocks,
+    # "ResBlocksSqueeze": ResBlocksSqueeze,
+    # "UResBlocks": UResBlocks,
+    # "ResBlocksDeep": ResBlocksDeep,
     "BoostUNet": BoostUNet,
-    "ResBlocksPomelo": ResBlocksPomelo,
+    # "ResBlocksPomelo": ResBlocksPomelo,
     "POMELO_module": POMELO_module
 }
 

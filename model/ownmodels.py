@@ -10,7 +10,7 @@ import torch.nn.functional as F
 
 # import copy
 import segmentation_models_pytorch as smp
-from model.DANN import DomainClassifier, DomainClassifier1x1, DomainClassifier_v3, DomainClassifier_v4, DomainClassifier_v5, DomainClassifier_v6, ReverseLayerF
+# from model.DANN import DomainClassifier, DomainClassifier1x1, DomainClassifier_v3, DomainClassifier_v4, DomainClassifier_v5, DomainClassifier_v6, ReverseLayerF
 from model.customUNet import CustomUNet
 from torch.nn.functional import upsample_nearest, interpolate
 

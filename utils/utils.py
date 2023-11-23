@@ -36,24 +36,6 @@ def to_cuda(sample):
             sampleout[key] = val
     return sampleout
 
-# def to_cuda_inplace(sample, half=False):
-#     # sampleout = {}
-#     for key, val in sample.items():
-#         if isinstance(val, torch.Tensor):
-#             sample[key] = val.cuda()
-#         elif isinstance(val, list):
-#             new_val = []
-#             for e in val:
-#                 if isinstance(e, torch.Tensor):
-#                     new_val.append(e.cuda())
-#                 else:
-#                     new_val.append(e)
-#             sample[key] = new_val
-#         elif isinstance(val, dict):
-#             sample[key] = to_cuda_inplace(val)
-#         else:
-#             sample[key] = val
-#     return sample
 
 def to_cuda_inplace(sample, half=False, spare=[]):
     for key, val in sample.items():
@@ -78,8 +60,10 @@ def to_cuda_inplace(sample, half=False, spare=[]):
             sample[key] = val
     return sample
 
+
 def detach_tensors_in_dict(input_dict):
     return {key: value.detach() if torch.is_tensor(value) else value for key, value in input_dict.items()}
+
 
 def seed_all(seed):
     # Fix all random seeds
@@ -91,6 +75,7 @@ def seed_all(seed):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
     os.environ['PYTHONHASHSEED'] = str(seed)
+
 
 def new_log(folder_path, args=None):
     os.makedirs(folder_path, exist_ok=True)
@@ -113,6 +98,7 @@ def write_params(params, path):
         for data in params.items():
             writer.writerow([el for el in data])
 
+
 def read_params(path):
     params = {}
     with open(path, 'r') as fh:
@@ -124,7 +110,6 @@ def read_params(path):
     return params
 
 
-
 class Namespace:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
@@ -133,7 +118,6 @@ def load_json(file):
     with open(file, 'r') as f:
         a = json.load(f)
     return a
-
 
 
 def apply_normalize(indata, dataset_stats):

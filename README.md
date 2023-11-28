@@ -36,7 +36,7 @@ With our work we aim to democratize access to up-to-date and high-resolution pop
 
 The core of our method is a neural network model, termed POPCORN. That model has two components: (1) a pre-trained, frozen built-up area extractor; and (2) a building occupancy module that we train through weak supervision with coarse census counts, as illustrated in the Figure below.
 
-The model operates at the full Sentinel-1/-2 resolution, i.e., its output has a nominal spatial resolution of 10$\,$m. However, for the final product and evaluation, we recommend aggregating the raw output to a 1ha (100x100m) grid, as done for the evaluation of the paper.
+The model operates at the full Sentinel-1/-2 resolution, i.e., its output has a nominal spatial resolution of 10m. However, for the final product and evaluation, we recommend aggregating the raw output to a 1ha (100x100m) grid, as done for the evaluation of the paper.
 
 ![Graphical Abstract](imgs/graphical_abstract_v17.jpg)
 

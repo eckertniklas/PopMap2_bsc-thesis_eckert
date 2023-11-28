@@ -16,7 +16,6 @@
 </p>
 
 <p align="center">
-  <strong>Affiliations:</strong><br>
   <sup>🏦</sup> Photogrammetry and Remote Sensing, ETH Zürich<br>
   <sup>🍇</sup> Environmental Computation Science and Earth Observation Laboratory, EPFL Sion
 </p>

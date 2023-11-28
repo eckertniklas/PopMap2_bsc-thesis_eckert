@@ -1,4 +1,4 @@
-![POPCORN LOGO](imgs/POPCORN_transparent.png)
+![POPCORN LOGO](imgs/POPCORN_logo_large.png)
 
 # POPCORN: High-resolution Population Maps Derived from Sentinel-1 and Sentinel-2
 

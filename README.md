@@ -43,7 +43,47 @@ make
 
 # Data
 
-...
+All necessary data is available [here](https://drive.google.com/drive/folders/1jExHgmVrIznKRrG2Mc6_d1-6HfyJJUhk?usp=sharing). Place the data into the following folder structure:
+
+```
+PopMapData/
+├── raw/
+│   └── ... (only needed to recompute the dataset processing)
+├── processed/
+│   ├── che
+│   │   ├──census_fine.csv
+│   │   ├──boundaries_fine.tif
+│   │   ├──census_coarse4.csv
+│   │   ├──boundaries_coarse4.tif
+│   ├── rwa
+│   │   ├──census_coarse.csv
+│   │   ├──boundaries_coarse.tif
+│   │   ├──census_kigali100.csv
+│   │   ├──boundaries_kigali100.tif
+│   │   └── ...
+│   └── pricp2
+│       └── ...
+└── merged/
+    └── EE/
+        ├── che
+        │   ├── S1spring
+        │   │   └──rwa_S1spring.tif
+        │   ├── S1summer
+        │   │   └──rwa_S1summer.tif
+        │   ├── S1autumn
+        │   │   └──rwa_S1autumn.tif
+        │   ├── S1winter
+        │   │   └──rwa_S1winter.tif
+        │   ├── S2Aspring
+        │   │   └──rwa_S2Aspring.tif
+        │   ├── S2Asummer
+        │   │   └──rwa_S2Asummer.tif
+        │   └── ...
+        ├── rwa
+        │   └── ...
+        └── pricp2
+            └── ...
+```
 
 # Inference
 

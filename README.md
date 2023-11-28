@@ -5,13 +5,20 @@
 <!--   <img src="imgs/logo_EPFL.png" alt="EPFL Logo" width="200"/> -->
 </p>
 
+
 # POPCORN: High-resolution Population Maps Derived from Sentinel-1 and Sentinel-2
 
 <p align="center">
-    <a href="https://nandometzger.github.io/"><strong>Nando Metzger</strong></a>,
-    <a href="https://rcdaudt.github.io/"><strong>Rodrigo Caye Daudt</strong></a>,
-    <a href="https://people.epfl.ch/devis.tuia"><strong>Devis Tuia</strong></a>,
-    <a href="https://igp.ethz.ch/personen/person-detail.html?persid=143986"><strong>Konrad Schindler</strong></a>
+    <a href="https://nandometzger.github.io/"><strong>Nando Metzger</strong></a><sup>🏦</sup>,
+    <a href="https://rcdaudt.github.io/"><strong>Rodrigo Caye Daudt</strong></a><sup>🏦</sup>,
+    <a href="https://people.epfl.ch/devis.tuia"><strong>Devis Tuia</strong></a><sup>🍇</sup>,
+    <a href="https://igp.ethz.ch/personen/person-detail.html?persid=143986"><strong>Konrad Schindler</strong></a><sup>🏦</sup>
+</p>
+
+<p align="center">
+  <strong>Affiliations:</strong><br>
+  <sup>🏦</sup> Photogrammetry and Remote Sensing, ETH Zürich<br>
+  <sup>🍇</sup> Environmental Computation Science and Earth Observation Laboratory, EPFL Sion
 </p>
 
 Detailed population maps play an important role in diverse fields ranging from humanitarian action to urban planning. 

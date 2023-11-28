@@ -6,6 +6,7 @@
 import os
 import numpy as np
 from os.path import dirname
+from utils.utils import Namespace
 
 rot_angle = np.arctan(16/97)*(180/np.pi)
 img_rows = 100  # patch height
@@ -277,25 +278,21 @@ us_city_rasters = os.path.join(current_dir_path, 'city_rasters_us')
 all_patches_mixed_us_part1 = os.path.join(current_dir_path, 'US_POP_Part1')
 all_patches_mixed_us_part2 = os.path.join(current_dir_path, 'US_POP_Part2')
 
-# all osm features
-osm_feature_names = ['aerialway', 'aeroway', 'amenity', 'barrier', 'boundary', 'building', 'craft', 'emergency', 'geological',
-'healthcare', 'highway', 'historic', 'landuse', 'leisure', 'man_made', 'military', 'natural',
-'office', 'place', 'power', 'public_transport', 'railway', 'route', 'shop', 'sport', 'telecom',
-'tourism', 'water', 'waterway', 'addr:housenumber', 'restrictions', 'other', 'n', 'm', 'k_avg',
-'intersection_count', 'streets_per_node_avg', 'streets_per_node_counts_argmin',
-'streets_per_node_counts_min', 'streets_per_node_counts_argmax', 'streets_per_node_counts_max',
-'streets_per_node_proportions_argmin', 'streets_per_node_proportions_min',
-'streets_per_node_proportions_argmax', 'streets_per_node_proportions_max', 'edge_length_total',
-'edge_length_avg', 'street_length_total', 'street_length_avg', 'street_segment_count',
-'node_density_km', 'intersection_density_km', 'edge_density_km', 'street_density_km', 'circuity_avg',
-'self_loop_proportion']
-
-# only imp. features for mapping colors in plots
-osm_prominent_feature_names = ["edge_length_total", "intersection_count", "k_avg", "street_length_total",
-                               "streets_per_node_counts_argmin", "streets_per_node_counts_max", "streets_per_node_counts_min",
-                               "streets_per_node_proportions_max", "streets_per_node_proportions_min"]
 
 dpi = 96
 fig_size = (400 / dpi, 400 / dpi)
 fig_size_heatmap = (400 / dpi, 400 / dpi)
+
+
+
+stage1feats = 8
+stage2feats = 16
+dda_dir="model/DDA_model/checkpoints/"
+MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[stage1feats, stage2feats,] )
+CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
+PATHS = Namespace(OUTPUT=dda_dir)
+DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
+TRAINER = Namespace(LR=1e5)
+dda_cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS,
+                DATALOADER=DATALOADER, TRAINER=TRAINER, NAME=f"fusionda_newAug{stage1feats}_{stage2feats}")
 

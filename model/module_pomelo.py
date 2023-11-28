@@ -5,16 +5,13 @@ import torch.nn.functional as F
 
 # import copy
 # from model.customUNet import CustomUNet
-import ast
+# import ast
 
 from model.DDA_model.utils.networks import load_checkpoint
 
 from utils.plot import plot_2dmatrix, plot_and_save
-
-import os
-from utils.utils import Namespace
-
-from utils.utils import read_params
+# from utils.utils import Namespace
+from utils.constants import dda_cfg, stage1feats, stage2feats
 
 class POMELO_module(nn.Module):
     '''
@@ -23,11 +20,10 @@ class POMELO_module(nn.Module):
         - UNet with a regression head
 
     '''
-    def __init__(self, input_channels, feature_dim, feature_extractor="resnet18", down=5,
-                occupancymodel=False, pretrained=False, dilation=1, replace7x7=True,
-                parent=None, experiment_folder=None, useposembedding=False, head="v1", grouped=False,
-                lempty_eps=0.0, dropout=0.0, sparse_unet=False, buildinginput=True, biasinit=0.75,
-                sentinelbuildings=True, dda_dir="model/DDA_model/checkpoints/"):
+    def __init__(self, input_channels, feature_extractor="DDA", down=5,
+                occupancymodel=False, pretrained=False, head="v3",
+                sparse_unet=False, buildinginput=True, biasinit=0.75,
+                sentinelbuildings=True):
         super(POMELO_module, self).__init__()
         """
         Args:
@@ -39,13 +35,6 @@ class POMELO_module(nn.Module):
             - down (int): number of downsampling steps in the feature extractor
             - occupancymodel (bool): whether to use the occupancy model
             - pretrained (bool): whether to use the pretrained feature extractor
-            - dilation (int): dilation factor
-            - replace7x7 (bool): whether to replace the 7x7 convolutions with 3 3x3 convolutions
-            - parent (str): path to the parent model
-            - experiment_folder (str): path to the experiment folder
-            - useposembedding (bool): whether to use the pose embedding
-            - grouped (bool): whether to use grouped convolutions
-
         """
 
         self.down = down
@@ -57,13 +46,7 @@ class POMELO_module(nn.Module):
 
         self.head_name = head 
         head_input_dim = 0
-
-        this_input_dim = input_channels
         
-        if lempty_eps>0:
-            self.lempty_eps = torch.nn.Parameter(torch.tensor(lempty_eps), requires_grad=True)
-        else:
-            self.lempty_eps = 0.0
         
         # Padding Params
         self.p = 14
@@ -84,21 +67,9 @@ class POMELO_module(nn.Module):
             self.unetmodel = None
             unet_out = 0
         elif feature_extractor=="DDA":
-            # get pretrained building extractor model from checkpoint
-            stage1feats = 8
-            stage2feats = 16
-            MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[stage1feats, stage2feats,] )
-            CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
-            # PATHS = Namespace(OUTPUT="/scratch2/metzgern/HAC/data/DDAdata/outputsDDA")
-            PATHS = Namespace(OUTPUT=dda_dir)
-            DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
-            TRAINER = Namespace(LR=1e5)
-            cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS,
-                            DATALOADER=DATALOADER, TRAINER=TRAINER, NAME=f"fusionda_newAug{stage1feats}_{stage2feats}")
 
             ## load weights from checkpoint
-            # self.unetmodel, _, _ = load_checkpoint(epoch=15, cfg=cfg, device="cuda", no_disc=True)
-            self.unetmodel, _, _ = load_checkpoint(epoch=30, cfg=cfg, device="cuda", no_disc=True)
+            self.unetmodel, _, _ = load_checkpoint(epoch=30, cfg=dda_cfg, device="cuda", no_disc=True)
 
             if not pretrained:
                 # initialize weights randomly
@@ -128,7 +99,6 @@ class POMELO_module(nn.Module):
         if head=="v3":
             h = 64
             head_input_dim += unet_out
-            head_input_dim -= feature_dim if this_input_dim==0 else 0
             self.head = nn.Sequential(
                 nn.Conv2d(head_input_dim, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
                 nn.Conv2d(h, h, kernel_size=1, padding=0), nn.ReLU(inplace=True),
@@ -139,7 +109,6 @@ class POMELO_module(nn.Module):
         elif head=="v3_slim":
             h = 64
             head_input_dim += unet_out
-            head_input_dim -= feature_dim if this_input_dim==0 else 0
             self.head = nn.Sequential(
                 nn.Conv2d(head_input_dim, 2, kernel_size=1, padding=0),
             )
@@ -156,13 +125,14 @@ class POMELO_module(nn.Module):
         self.num_params += sum(p.numel() for p in self.head.parameters() if p.requires_grad)
         self.num_params += self.unetmodel.num_params if self.unetmodel is not None else 0
 
-        # define urban extractor
-        self.define_urban_extractor()
-
+        # define urban extractor, which is again a dual stream unet
+        print("Loading urban extractor")
+        self.building_extractor, _, _ = load_checkpoint(epoch=30, cfg=dda_cfg, device="cuda", no_disc=True)
+        self.building_extractor = self.building_extractor.cuda()
 
 
 # NEW FORWARD
-    def forward(self, inputs, train=False, padding=True, alpha=0.1, return_features=True,
+    def forward(self, inputs, train=False, padding=True, return_features=True,
                 encoder_no_grad=False, unet_no_grad=False, sparse=False):
         """
         Forward pass of the model
@@ -178,10 +148,6 @@ class POMELO_module(nn.Module):
             with torch.no_grad():
                 inputs["building_counts"]  = self.create_building_score(inputs)
             torch.cuda.empty_cache()
-
-        # add the empty building score for softening the ReLU
-        if self.lempty_eps>0:
-            inputs["building_counts"][:,0] = inputs["building_counts"][:,0] + self.lempty_eps
 
         if sparse:
             # create sparsity mask 
@@ -233,7 +199,6 @@ class POMELO_module(nn.Module):
 
         if self.buildinginput:
             # append building counts to the middle features
-            # make option to create the building maps from the checkpoint, but not at training time....
             middlefeatures.append(inputs["building_counts"])
 
         # Forward the main model
@@ -310,14 +275,11 @@ class POMELO_module(nn.Module):
                 # save the scale
                 if sparse and self.sparse_unet:
                     aux["scale"] = torch.cat( [(scale* ratio.view(ratio.shape[0],1,1))[subsample_mask_empty] ,
-                                                   scale[building_sparsity_mask] ]  , dim=0)                        
-                    aux["empty_scale"] = None
+                                                   scale[building_sparsity_mask] ]  , dim=0)
                 elif sparse:
                     aux["scale"] = scale[sparsity_mask]
-                    aux["empty_scale"] = (scale * (1-inputs["building_counts"][:,0]))[sparsity_mask]
                 else:
                     aux["scale"] = scale
-                    aux["empty_scale"] = scale * (1-inputs["building_counts"][:,0])
 
                 # Get the population density map
                 popdensemap = scale * inputs["building_counts"][:,0]
@@ -326,7 +288,6 @@ class POMELO_module(nn.Module):
         else:
             popdensemap = nn.functional.relu(out)
             aux["scale"] = None
-            aux["empty_scale"] = None
         
         # aggregate the population counts over the administrative region
         if "admin_mask" in inputs.keys():
@@ -431,24 +392,6 @@ class POMELO_module(nn.Module):
         return data
 
 
-    def define_urban_extractor(self) -> None:
-        """
-        Define the urban extractor if not already defined
-        """
-        
-        if not hasattr(self, "building_extractor"):
-            print("Loading urban extractor")
-            MODEL = Namespace(TYPE='dualstreamunet', OUT_CHANNELS=1, IN_CHANNELS=6, TOPOLOGY=[8, 16,] )
-            CONSISTENCY_TRAINER = Namespace(LOSS_FACTOR=0.5)
-            PATHS = Namespace(OUTPUT="model/DDA_model/checkpoints/")
-            DATALOADER = Namespace(SENTINEL1_BANDS=['VV', 'VH'], SENTINEL2_BANDS=['B02', 'B03', 'B04', 'B08'])
-            TRAINER = Namespace(LR=1e5)
-            cfg = Namespace(MODEL=MODEL, CONSISTENCY_TRAINER=CONSISTENCY_TRAINER, PATHS=PATHS, DATALOADER=DATALOADER, TRAINER=TRAINER, NAME=f"fusionda_newAug8_16")
-            self.building_extractor, _, _ = load_checkpoint(epoch=30, cfg=cfg, device="cuda", no_disc=True)
-            self.building_extractor = self.building_extractor.cuda()
-
-
-
     def create_building_score(self, inputs: dict) -> torch.Tensor:
         """
         input:
@@ -458,7 +401,6 @@ class POMELO_module(nn.Module):
         """
 
         # initialize the neural network, load from checkpoint
-        self.define_urban_extractor()
         self.building_extractor.eval()
         self.unetmodel.freeze_bn_layers()
  

@@ -42,69 +42,69 @@ class UnNormalize(object):
         return tensor
     
 
-class AddGaussianNoise(object):
-    """Add gaussian noise to a tensor image with a given probability.
-    Args:
-        mean (float): mean of the noise distribution. Default value is 0.
-        std (float): standard deviation of the noise distribution. Default value is 1.
-        p (float): probability of the noise beeing applied. Default value is 1.0.
-    """
-    def __init__(self, mean=0., std=1., p=1.0, kernel=3):
-        self.std = std
-        self.mean = mean
-        self.p = p
-        self.k = kernel
+# class AddGaussianNoise(object):
+#     """Add gaussian noise to a tensor image with a given probability.
+#     Args:
+#         mean (float): mean of the noise distribution. Default value is 0.
+#         std (float): standard deviation of the noise distribution. Default value is 1.
+#         p (float): probability of the noise beeing applied. Default value is 1.0.
+#     """
+#     def __init__(self, mean=0., std=1., p=1.0, kernel=3):
+#         self.std = std
+#         self.mean = mean
+#         self.p = p
+#         self.k = kernel
         
-    def __call__(self, x):
-        if torch.is_tensor(x):
-            mask = None
-        else:
-            x, mask = x
+#     def __call__(self, x):
+#         if torch.is_tensor(x):
+#             mask = None
+#         else:
+#             x, mask = x
 
-        if torch.rand(1) < self.p:
-            # x += torch.randn(x.size()) * self.std + self.mean
-            x += torch.randn_like(x) * self.std + self.mean
-        return x if mask is None else (x, mask)
+#         if torch.rand(1) < self.p:
+#             # x += torch.randn(x.size()) * self.std + self.mean
+#             x += torch.randn_like(x) * self.std + self.mean
+#         return x if mask is None else (x, mask)
     
-    def __repr__(self):
-        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+#     def __repr__(self):
+#         return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
 
 
-class RandomHorizontalVerticalFlip(object):
-    def __init__(self, p=0.5, allsame=False):
-        """
+# class RandomHorizontalVerticalFlip(object):
+#     def __init__(self, p=0.5, allsame=False):
+#         """
         
-        """
-        self.p = p
-        self.allsame = allsame
+#         """
+#         self.p = p
+#         self.allsame = allsame
         
-    def __call__(self, x):
-        if torch.is_tensor(x):
-            mask = None
-        else:
-            x, mask = x
+#     def __call__(self, x):
+#         if torch.is_tensor(x):
+#             mask = None
+#         else:
+#             x, mask = x
 
-        if self.allsame:
-            if torch.rand(1) < self.p:
-                x = TF.hflip(TF.vflip(x))
-                if mask is not None:
-                    mask = TF.hflip(TF.vflip(mask))
-                    return x, mask
-                return x
-            else:
-                if mask is not None:
-                    return x, mask
-                return x
-        else:
-            selection = torch.rand(x.shape[0])<self.p
-            x[selection] = TF.hflip(TF.vflip(x))[selection]
-            if mask is not None:
-                mask[selection] = TF.hflip(TF.vflip(mask))[selection]
-                return x, mask
-            return x
+#         if self.allsame:
+#             if torch.rand(1) < self.p:
+#                 x = TF.hflip(TF.vflip(x))
+#                 if mask is not None:
+#                     mask = TF.hflip(TF.vflip(mask))
+#                     return x, mask
+#                 return x
+#             else:
+#                 if mask is not None:
+#                     return x, mask
+#                 return x
+#         else:
+#             selection = torch.rand(x.shape[0])<self.p
+#             x[selection] = TF.hflip(TF.vflip(x))[selection]
+#             if mask is not None:
+#                 mask[selection] = TF.hflip(TF.vflip(mask))[selection]
+#                 return x, mask
+#             return x
     
-    def __repr__(self):
-        return self.__class__.__name__ + '(p={0}'.format(self.p)
+#     def __repr__(self):
+#         return self.__class__.__name__ + '(p={0}'.format(self.p)
 
 
 

@@ -79,7 +79,7 @@ class Trainer:
         wandb.config.update(self.args)
         wandb.watch(self.model, log='all')  
         
-        # seed after initialization
+        # seed after initialization of model to ensure reproducibility
         seed_all(args.seed+2)
 
         # set up optimizer and scheduler
@@ -140,7 +140,7 @@ class Trainer:
 
                 # weak validation
                 if (self.info["epoch"] + 1) % self.args.val_every_n_epochs == 0:
-                    if self.args.supmode=="weaksup" and self.args.weak_validation:
+                    if self.args.weak_validation:
                         self.validate_weak()
                         torch.cuda.empty_cache()
 
@@ -200,7 +200,7 @@ class Trainer:
                 # forward pass and loss computation
                 sample_weak = to_cuda_inplace(sample) 
                 sample_weak = apply_transformations_and_normalize(sample_weak, self.data_transform, self.dataset_stats, buildinginput=self.args.buildinginput,
-                                                                    segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
+                                                                    segmentationinput=self.args.segmentationinput)
                 
                 # check if the input is to large
                 if sample_weak["input"] is not None:
@@ -221,31 +221,23 @@ class Trainer:
                             continue
                 
                 # perform forward pass
-                output_weak = self.model(sample_weak, train=True, alpha=0., return_features=False, padding=False,
+                output_weak = self.model(sample_weak, train=True, return_features=False, padding=False,
                                             encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, sparse=True )
 
                 # compute loss
                 loss_weak, loss_dict_weak = get_loss(
-                    output_weak, sample_weak, scale=output_weak["scale"], empty_scale=output_weak["empty_scale"], loss=args.loss, lam=args.lam, merge_aug=args.merge_aug,
-                    scale_regularization=args.scale_regularization, scale_regularizationL2=args.scale_regularizationL2, emptyscale_regularizationL2=args.emptyscale_regularizationL2,
-                    output_regularization=args.output_regularization,
-                    tag="weak")
+                    output_weak, sample_weak, scale=output_weak["scale"], loss=args.loss, lam=args.lam,
+                    scale_regularization=args.scale_regularization, tag="weak")
                 
                 # Detach tensors
                 loss_dict_weak = detach_tensors_in_dict(loss_dict_weak)
                 
                 # update loss
-                optim_loss += loss_weak * self.args.lam_weak #* self.info["beta"]
+                optim_loss += loss_weak * self.args.lam_weak
 
                 # loss_dict = {}
-                loss_dict_raw = {} 
+                loss_dict_raw = {}
 
-                # Detach tensors
-                # loss_dict = detach_tensors_in_dict(loss_dict)
-
-                # accumulate statistics of all dicts
-                # for key in loss_dict:
-                #     train_stats[key] += loss_dict[key].cpu().item() if torch.is_tensor(loss_dict[key]) else loss_dict[key]
                 for key in loss_dict_weak:
                     train_stats[key] += loss_dict_weak[key].cpu().item() if torch.is_tensor(loss_dict_weak[key]) else loss_dict_weak[key]
                 for key in loss_dict_raw:
@@ -263,16 +255,15 @@ class Trainer:
                     raise Exception("detected Inf loss..")
                 
                 # backprop
-                if not self.args.no_opt:
-                    optim_loss.backward()
+                optim_loss.backward()
 
-                    # gradient clipping
-                    if self.args.gradient_clip > 0.:
-                        clip_grad_norm_(self.model.parameters(), self.args.gradient_clip)
-                    
-                    if (i + 1) % self.accumulation_steps == 0:
-                        self.optimizer.step()
-                        self.optimizer.zero_grad()
+                # gradient clipping
+                if self.args.gradient_clip > 0.:
+                    clip_grad_norm_(self.model.parameters(), self.args.gradient_clip)
+                
+                if (i + 1) % self.accumulation_steps == 0:
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
 
                 # clear memory and detach tensors
                 optim_loss = optim_loss.detach()
@@ -282,6 +273,7 @@ class Trainer:
                 del sample 
                 gc.collect()
                 
+                # clear GPU cache
                 torch.cuda.empty_cache()
 
                 # update info
@@ -289,7 +281,7 @@ class Trainer:
                 self.info["sampleitr"] += self.args.weak_batch_size
                 # logging and stuff
                 if (i+1) % self.args.val_every_i_steps == 0:
-                    if self.args.supmode=="weaksup" and self.args.weak_validation:
+                    if self.args.weak_validation:
                         self.log_train(train_stats)
                         self.validate_weak()
                         self.model.train()
@@ -371,7 +363,7 @@ class Trainer:
                 for sample in tqdm(testdataloader, leave=False):
                     sample = to_cuda_inplace(sample)
                     sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput,
-                                                                 segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
+                                                                 segmentationinput=self.args.segmentationinput)
 
                     # get the valid coordinates
                     xl,yl = [val.item() for val in sample["img_coords"]]
@@ -434,8 +426,8 @@ class Trainer:
         self.data_transform = {}
         if args.full_aug:
             general_transforms = [
-                RandomVerticalFlip(p=0.5, allsame=args.supmode=="weaksup"),
-                RandomHorizontalFlip(p=0.5, allsame=args.supmode=="weaksup"),
+                RandomVerticalFlip(p=0.5, allsame=True),
+                RandomHorizontalFlip(p=0.5, allsame=True),
                 RandomRotationTransform(angles=[90, 180, 270], p=0.75),
             ]
 
@@ -471,34 +463,32 @@ class Trainer:
             "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=self.args.num_workers, shuffle=False, drop_last=False) \
                                 for datasets["test_target"] in datasets["test_target"] ]  }
         
-        # add weakly supervised samples of the target domain to the trainind_dataset
         # create the weakly supervised dataset stack them into a single dataset and dataloader
-        if args.supmode=="weaksup":
-            if args.gradientaccumulation:
-                weak_loader_batchsize = 1
-                self.accumulation_steps = args.weak_batch_size
-            else:
-                weak_loader_batchsize = args.weak_batch_size
-                self.accumulation_steps = 1
-                
-            weak_datasets = []
-            # for reg in args.target_regions_train:
-            for reg, lvl in zip(args.target_regions_train, args.train_level):
-                splitmode = 'train' if self.args.weak_validation else 'all'
-                weak_datasets.append( Population_Dataset_target(reg, mode="weaksup", split=splitmode, patchsize=None, overlap=None, max_samples=args.max_weak_samples,
-                                                                fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
-                                                                ascfill=reg in need_asc, train_level=lvl, max_pix=self.args.max_weak_pix, max_pix_box=self.args.max_pix_box, ascAug=args.ascAug, **input_defs)  )
-            dataloaders["weak_target_dataset"] = ConcatDataset(weak_datasets)
-            dataloaders["train"] = DataLoader(dataloaders["weak_target_dataset"], batch_size=weak_loader_batchsize, num_workers=self.args.num_workers, shuffle=True, collate_fn=Population_Dataset_collate_fn, drop_last=True)
+        if args.gradientaccumulation:
+            weak_loader_batchsize = 1
+            self.accumulation_steps = args.weak_batch_size
+        else:
+            weak_loader_batchsize = args.weak_batch_size
+            self.accumulation_steps = 1
             
-            weak_datasets_val = []
-            if self.args.weak_validation: 
-                for reg, lvl in zip(args.target_regions_train, args.train_level):
-                    weak_datasets_val.append(Population_Dataset_target(reg, mode="weaksup", split="val", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
-                                                                    fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
-                                                                    ascfill=reg in need_asc, train_level=lvl, max_pix=self.args.max_weak_pix, max_pix_box=self.args.max_pix_box, **input_defs) )
-                dataloaders["weak_target_val"] = [ DataLoader(weak_datasets_val[i], batch_size=self.args.weak_val_batch_size, num_workers=self.args.num_workers, shuffle=False, collate_fn=Population_Dataset_collate_fn, drop_last=True)
-                                                  for i in range(len(args.target_regions_train)) ]
+        weak_datasets = []
+        # for reg in args.target_regions_train:
+        for reg, lvl in zip(args.target_regions_train, args.train_level):
+            splitmode = 'train' if self.args.weak_validation else 'all'
+            weak_datasets.append( Population_Dataset_target(reg, mode="weaksup", split=splitmode, patchsize=None, overlap=None, max_samples=args.max_weak_samples,
+                                                            fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
+                                                            ascfill=reg in need_asc, train_level=lvl, max_pix=self.args.max_weak_pix, max_pix_box=self.args.max_pix_box, ascAug=args.ascAug, **input_defs)  )
+        dataloaders["weak_target_dataset"] = ConcatDataset(weak_datasets)
+        dataloaders["train"] = DataLoader(dataloaders["weak_target_dataset"], batch_size=weak_loader_batchsize, num_workers=self.args.num_workers, shuffle=True, collate_fn=Population_Dataset_collate_fn, drop_last=True)
+        
+        weak_datasets_val = []
+        if self.args.weak_validation: 
+            for reg, lvl in zip(args.target_regions_train, args.train_level):
+                weak_datasets_val.append(Population_Dataset_target(reg, mode="weaksup", split="val", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
+                                                                fourseasons=args.random_season, transform=None, sentinelbuildings=args.sentinelbuildings, 
+                                                                ascfill=reg in need_asc, train_level=lvl, max_pix=self.args.max_weak_pix, max_pix_box=self.args.max_pix_box, **input_defs) )
+            dataloaders["weak_target_val"] = [ DataLoader(weak_datasets_val[i], batch_size=self.args.weak_val_batch_size, num_workers=self.args.num_workers, shuffle=False, collate_fn=Population_Dataset_collate_fn, drop_last=True)
+                                                for i in range(len(args.target_regions_train)) ]
 
         return dataloaders
    

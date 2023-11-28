@@ -45,7 +45,11 @@ make
 
 ...
 
-# Run the code
+# Inference
+
+...
+
+# Training
 
 ...
 

@@ -42,7 +42,7 @@ The model operates at the full Sentinel-1/-2 resolution, i.e., its output has a 
 
 ## Setup
 
-# Environment
+### Environment
 
 Instructions on how to install the project or library.
 
@@ -61,7 +61,7 @@ Additionally, install GDAL without sudo access  as described in this [post](http
 make
 ```
 
-# Data
+### Data
 
 All necessary data is available [here](https://drive.google.com/drive/folders/1jExHgmVrIznKRrG2Mc6_d1-6HfyJJUhk?usp=sharing). Place the data into the following folder structure:
 
@@ -105,13 +105,13 @@ PopMapData/
             └── ...
 ```
 
-# Testing
+## Testing
 
-## Checkpoints
+### Checkpoints
 
 Checkpoints can be downloaded from ...
 
-## Inference
+### Inference
 
 You can use the 'run_eval.py' script to generate maps and evaluate them subsequently using
 ```
@@ -120,7 +120,7 @@ python run_eval.py --resume ...
 
 ...
 
-# Training
+## Training
 
 ...
 

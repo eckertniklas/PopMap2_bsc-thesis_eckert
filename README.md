@@ -1,3 +1,5 @@
+![POPCORN LOGO](imgs/POPCORN_transparent.png)
+
 # POPCORN: High-resolution Population Maps Derived from Sentinel-1 and Sentinel-2
 
 Detailed population maps play an important role in diverse fields ranging from humanitarian action to urban planning. 

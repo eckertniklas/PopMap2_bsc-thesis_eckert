@@ -88,7 +88,7 @@ class Population_Dataset_target(Dataset):
         # get the path to the data files
         region_root = os.path.join(pop_map_root, region)
 
-        # load the boundary and census data
+        # load the boundary and census data as a path dictionary
         levels = datalocations[region].keys()
         self.file_paths = {}
         for level in levels:
@@ -106,7 +106,7 @@ class Population_Dataset_target(Dataset):
 
             # redefine indexing
             if max_samples is not None:
-                # self.coarse_census = self.coarse_census.sample(frac=1, random_state=1610)[:max_samples].reset_index(drop=True)
+                # shuffle and sample the data
                 self.coarse_census = self.coarse_census.sample(frac=1, random_state=1610)[-max_samples:].reset_index(drop=True)
 
             if split=="all":
@@ -128,7 +128,6 @@ class Population_Dataset_target(Dataset):
             self.coarse_census = self.coarse_census[self.coarse_census["count"]<max_pix].reset_index(drop=True)
 
             # Print the number of samples exceeding the max pixels of the bounding box (12000000) and kick them out
-            # MAX_PIXELS_BOX = max_pix_box
             self.coarse_census["bbox_count"] = self.coarse_census["bbox"].apply(self.calculate_pixel_count)
             num_samples_exceeding_max = (self.coarse_census["bbox_count"] >= max_pix_box).sum()
             print(f"Kicking out {num_samples_exceeding_max} samples with more than {max_pix_box} pixels in the bounding box")
@@ -271,7 +270,7 @@ class Population_Dataset_target(Dataset):
         if self.sentinelbuildings:
             # load sentinel buildings
             # self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA2_44C.tif")
-            self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA2_44C_8.tif")
+            # self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA2_44C_8.tif")
             self.gbuildings_segmentation_file = ''
             self.sbuildings = True
             self.gbuildings = False
@@ -287,13 +286,6 @@ class Population_Dataset_target(Dataset):
                 self.gbuildings_segmentation_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_segmentation.tif")
                 self.gbuildings_counts_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_counts.tif")
             self.gbuildings = True 
-
-        # self.positional_encoding = True
-        # if self.positional_encoding:
-        #     with rasterio.open(self.file_paths[list(self.file_paths.keys())[0]]["boundary"], "r") as src:
-        #         self.img_shape = src.shape
-        
-        #     self.pos_enc = PositionalEncoding2D(src.shape, 1)
 
         # normalize the dataset (do not use, this does not make sense for variable regions sizes like here)
         print("Setup done!")
@@ -342,14 +334,6 @@ class Population_Dataset_target(Dataset):
             )
         else:
             main_indices = torch.cat([main_indices, season_template*0], dim=1)
-
-        # TODO: add indices for ascending orbit! (maybe not necessary, since we have the ascending orbit data already)
-        # if self.ascAug:
-        #     main_indices_ = torch.cat([
-        #         torch.cat([main_indices, season_template*0], dim=1),
-        #         torch.cat([main_indices, season_template*1], dim=1),
-        #         dim=0
-        #     )
 
         return main_indices
 
@@ -439,12 +423,14 @@ class Population_Dataset_target(Dataset):
 
         if "S2" in indata:
             if np.any(np.isnan(indata["S2"])): 
+                # interpolate the NaN values in the input array using bicubic interpolation, extrapolating if necessary using nearest neighbor if there are not too many NaNs
                 indata["S2"] = self.interpolate_nan(indata["S2"]) 
             
         if "S1" in indata:
             if np.any(np.isnan(indata["S1"])):
                 S1tensor = torch.tensor(indata["S1"])
                 if torch.isnan(S1tensor).sum() / torch.numel(S1tensor) < 0.05 and not self.ascfill:
+                    # interpolate the NaN values in the input array using bicubic interpolation, extrapolating if necessary using nearest neighbor if there are not too many NaNs
                     indata["S1"] = self.interpolate_nan(indata["S1"])
                 else:
                     # generate another datapatch, but with the ascending orbit
@@ -452,6 +438,7 @@ class Population_Dataset_target(Dataset):
                     indata["S1"] = indataAsc["S1"]
                     S1tensor = torch.tensor(indataAsc["S1"])
                     if torch.isnan(S1tensor).sum() / torch.numel(S1tensor) < 0.05:
+                        # interpolate the NaN values in the input array using bicubic interpolation, extrapolating if necessary using nearest neighbor if there are not too many NaNs
                         indata["S1"] = self.interpolate_nan(indata["S1"])
                     else:
                         print("S1 contains too many NaNs, skipping")
@@ -494,12 +481,14 @@ class Population_Dataset_target(Dataset):
         # check for nans and fill it if necessary
         if "S2" in indata:
             if np.any(np.isnan(indata["S2"])): 
+                # interpolate the NaN values in the input array using bicubic interpolation, extrapolating if necessary using nearest neighbor if there are not too many NaNs
                 indata["S2"] = self.interpolate_nan(indata["S2"]) 
             
         if "S1" in indata:
             if np.any(np.isnan(indata["S1"])):
                 S1tensor = torch.tensor(indata["S1"])
                 if torch.isnan(S1tensor).sum() / torch.numel(S1tensor) < 0.05 and not self.ascfill:
+                    # interpolate the NaN values in the input array using bicubic interpolation, extrapolating if necessary using nearest neighbor if there are not too many NaNs
                     indata["S1"] = self.interpolate_nan(indata["S1"])
                 else:
                     # generate another data patch, but with the ascending orbit
@@ -508,6 +497,7 @@ class Population_Dataset_target(Dataset):
                     S1tensor = torch.tensor(indataAsc["S1"])
                     if np.any(np.isnan(indata["S1"])):
                         if torch.isnan(S1tensor).sum() / torch.numel(S1tensor) < 0.05:
+                        # interpolate the NaN values in the input array using bicubic interpolation, extrapolating if necessary using nearest neighbor if there are not too many NaNs
                             indata["S1"] = self.interpolate_nan(indata["S1"])
                         else:
                             print("S1 contains too many NaNs, skipping")
@@ -577,32 +567,16 @@ class Population_Dataset_target(Dataset):
         :return:
             data: data of the patch
         """
+        S2_RGB_channels = (3,2,1)
+        S2_RGBNIR_channels = (3,2,1,4)
+        S1_channels = (1,2)
         
         patchsize_x, patchsize_y, overlap, window = self._setup_patch_parameters(x, y, patchsize, overlap, admin_overlap)
-
-
-        # patchsize_x = self.patchsize if patchsize is None else patchsize[0]
-        # patchsize_y = self.patchsize if patchsize is None else patchsize[1]
-        # overlap = self.overlap if overlap is None else overlap
-
-        # # get the window of the patch for administative region case
-        # if admin_overlap>0:
-        #     new_x = max(x-admin_overlap,0)
-        #     new_y = max(y-admin_overlap,0)
-        #     x_stop = min(x+patchsize_x+admin_overlap, self.cr_shape[0])
-        #     y_stop = min(y+patchsize_y+admin_overlap, self.cr_shape[1])
-        #     window = ((new_x,x_stop),(new_y,y_stop))
-
-        # else:
-        #     window = ((x,x+patchsize_x),(y,y+patchsize_y))
-
 
         indata = {}
 
         # Initialize the mask
         mask = self._create_mask(patchsize_x, patchsize_y, overlap)
-        # mask = np.zeros((patchsize_x, patchsize_y), dtype=bool)
-        # mask[overlap:patchsize_x-overlap, overlap:patchsize_y-overlap] = True
 
         # for debugging
         fake = False
@@ -614,7 +588,6 @@ class Population_Dataset_target(Dataset):
             indata["S1"] = np.random.randint(0, 10000, size=(2,patchsize_x,patchsize_y))
             indata["building_segmentation"] = np.random.randint(0, 1, size=(1,patchsize_x,patchsize_y))
             indata["building_counts"] = np.random.randint(0, 2, size=(1,patchsize_x,patchsize_y))
-            # indata["positional_encoding"] = np.random.randint(0, 10000, size=(32,patchsize_x,patchsize_y))
             return indata, mask, window
 
         ### get the input data ###
@@ -623,66 +596,31 @@ class Population_Dataset_target(Dataset):
             S2_file = self.S2_file[season]
             if self.NIR:
                 with rasterio.open(S2_file, "r") as src:
-                    indata["S2"] = src.read((3,2,1,4), window=window).astype(np.float32) 
+                    indata["S2"] = src.read(S2_RGBNIR_channels, window=window).astype(np.float32) 
             else:
                 with rasterio.open(S2_file, "r") as src:
-                    indata["S2"] = src.read((3,2,1), window=window).astype(np.float32) 
-
+                    indata["S2"] = src.read(S2_RGB_channels, window=window).astype(np.float32) 
 
         # Sentinel 1
         if self.S1:
             S1_file = self.S1_file[season] if descending else self.S1Asc_file[season]
             with rasterio.open(S1_file, "r") as src:
-                indata["S1"] = src.read((1,2), window=window).astype(np.float32) 
-        
+                indata["S1"] = src.read(S1_channels, window=window).astype(np.float32) 
 
-        # if self.S2:
-        #     S2_file = self.S2_file[season]
-        #     if self.NIR:
-        #         if fake:
-        #             indata["S2"] = np.random.randint(0, 10000, size=(4,patchsize_x,patchsize_y))
-        #         else:
-        #             with rasterio.open(S2_file, "r") as src:
-        #                 indata["S2"] = src.read((3,2,1,4), window=window).astype(np.float32) 
-        #     else:
-        #         if fake:
-        #             indata["S2"] = np.random.randint(0, 10000, size=(3,patchsize_x,patchsize_y))
-        #         else:
-        #             with rasterio.open(S2_file, "r") as src:
-        #                 indata["S2"] = src.read((3,2,1), window=window).astype(np.float32) 
-
-        # # Sentinel 1
-        # if self.S1:
-        #     S1_file = self.S1_file[season] if descending else self.S1Asc_file[season]
-        #     if fake:
-        #         indata["S1"] = np.random.randint(0, 10000, size=(2,patchsize_x,patchsize_y))
-        #     else:
-        #         with rasterio.open(S1_file, "r") as src:
-        #             indata["S1"] = src.read((1,2), window=window).astype(np.float32) 
-
-        # # building data
-        # if self.gbuildings or self.sentinelbuildings:
-        #     if fake:
-        #         indata["building_segmentation"] = np.random.randint(0, 1, size=(1,patchsize_x,patchsize_y))
-        #         indata["building_counts"] = np.random.randint(0, 2, size=(1,patchsize_x,patchsize_y))
-        #     else:
-        #         if self.sentinelbuildings:
-        #             with rasterio.open(self.sbuildings_segmentation_file, "r") as src:
-        #                 indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32)/255
-
-        #         elif os.path.exists(self.gbuildings_segmentation_file): 
-        #             with rasterio.open(self.gbuildings_segmentation_file, "r") as src:
-        #                 indata["building_segmentation"] = src.read(1, window=window)[np.newaxis].astype(np.float32)
-        #             with rasterio.open(self.gbuildings_counts_file, "r") as src:
-        #                 indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32) 
-
-        # posional encoding
-        # if self.positional_encoding:
-
-        #     if fake:
-        #         indata["positional_encoding"] = np.random.randint(0, 10000, size=(32,patchsize_x,patchsize_y))
-        #     else:
-        #         indata["positional_encoding"] = self.pos_enc(window=window)
+        # building data
+        if self.gbuildings:
+            if os.path.exists(self.gbuildings_segmentation_file): 
+                with rasterio.open(self.gbuildings_segmentation_file, "r") as src:
+                    indata["building_segmentation"] = src.read(1, window=window)[np.newaxis].astype(np.float32)
+                with rasterio.open(self.gbuildings_counts_file, "r") as src:
+                    indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32) 
+            
+            """
+            Deprecated: now the sentinel buildings are calculated on the fly, no need to load it
+            if self.sentinelbuildings:
+                with rasterio.open(self.sbuildings_segmentation_file, "r") as src:
+                    indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32)/255
+            """
 
         return indata, mask, window
     
@@ -795,6 +733,16 @@ class Population_Dataset_target(Dataset):
         census_i = census_i[valid_census_i]
 
         if details_to is not None:
+            """
+            Save the detailed maps
+            maps include:
+                - densities
+                - totals
+                - densities_gt
+                - totals_gt
+                - residuals
+                - residuals_rel (relative area residuals)
+            """
 
             # create directory if not exists
             if not os.path.exists(details_to):
@@ -963,14 +911,10 @@ def Population_Dataset_collate_fn(batch):
         use_S1 = True
 
     # initialize the other tensors
-    if 'building_segmentation' in batch[0]:
-        max_x = max([item['building_segmentation'].shape[1] for item in batch])
-        max_y = max([item['building_segmentation'].shape[2] for item in batch])
-        building_segmentation = torch.zeros(len(batch), 1, max_x, max_y)
-    # if 'positional_encoding' in batch[0]:
-    #     max_x = max([item['positional_encoding'].shape[1] for item in batch])
-    #     max_y = max([item['positional_encoding'].shape[2] for item in batch])
-    #     positional_encoding = torch.zeros(len(batch), batch[0]['positional_encoding'].shape[0], max_x, max_y)
+    # if 'building_segmentation' in batch[0]:
+    #     max_x = max([item['building_segmentation'].shape[1] for item in batch])
+    #     max_y = max([item['building_segmentation'].shape[2] for item in batch])
+    #     building_segmentation = torch.zeros(len(batch), 1, max_x, max_y)
     if 'building_counts' in batch[0]:
         max_x = max([item['building_counts'].shape[1] for item in batch])
         max_y = max([item['building_counts'].shape[2] for item in batch])
@@ -995,18 +939,14 @@ def Population_Dataset_collate_fn(batch):
         y_batch[i] = item['y']
 
         # check if the other tensors are present and fill them if they are
-        if "building_segmentation" in item:
-            x_size, y_size = item['building_segmentation'].shape[1], item['building_segmentation'].shape[2]
-            building_segmentation[i, :, :x_size, :y_size] = item['building_segmentation']
-            use_building_segmentation = True
+        # if "building_segmentation" in item:
+        #     x_size, y_size = item['building_segmentation'].shape[1], item['building_segmentation'].shape[2]
+        #     building_segmentation[i, :, :x_size, :y_size] = item['building_segmentation']
+        #     use_building_segmentation = True
         if "building_counts" in item:
             x_size, y_size = item['building_counts'].shape[1], item['building_counts'].shape[2]
             building_counts[i, :, :x_size, :y_size] = item['building_counts']
             use_building_counts = True
-        # if 'positional_encoding' in item:
-        #     x_size, y_size = item['positional_encoding'].shape[1], item['positional_encoding'].shape[2]
-        #     positional_encoding[i, :, :x_size, :y_size] = item['positional_encoding']
-        #     use_positional_encoding = True
 
         # get the admin_mask
         x_size, y_size = item['admin_mask'].shape[0], item['admin_mask'].shape[1]
@@ -1027,8 +967,8 @@ def Population_Dataset_collate_fn(batch):
     if use_S1:
         out_dict["S1"] = input_batch_S1
 
-    if use_building_segmentation:
-        out_dict["building_segmentation"] = building_segmentation
+    # if use_building_segmentation:
+        # out_dict["building_segmentation"] = building_segmentation
     if use_building_counts:
         out_dict["building_counts"] = building_counts
     # if use_positional_encoding:

@@ -6,10 +6,10 @@ import numpy as np
 
 # parser = configargparse.ArgumentParser(description='Training Population Estimation')
 parser = configargparse.ArgumentParser()
-parser.add_argument('-c', '--config', is_config_file=True, help='Path to the config file', type=str)
+# parser.add_argument('-c', '--config', is_config_file=True, help='Path to the config file', type=str)
 
-parser.add_argument('-o', '--no-osm', help='If set, Training Skript wont use OSM Data', default=False,  action='store_true')
-parser.add_argument('-s', '--satmode', help='Using Satellite Data only', default=False,  action='store_true')
+# parser.add_argument('-o', '--no-osm', help='If set, Training Skript wont use OSM Data', default=False,  action='store_true')
+# parser.add_argument('-s', '--satmode', help='Using Satellite Data only', default=False,  action='store_true')
 parser.add_argument('-r', '--resume', type=str, help='if argument is given, skript will continue training given model\  ; argument should be name of the model to be trained')
 parser.add_argument('-re', '--resume_extractor', type=str, help=' ')
 

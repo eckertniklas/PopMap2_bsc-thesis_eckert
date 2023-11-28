@@ -19,7 +19,7 @@ from utils.constants import pop_map_root_large, pop_map_root, pop_map_covariates
 from utils.constants import datalocations
 from utils.plot import plot_2dmatrix
 
-from utils.positional_encoding import PositionalEncoding2D
+# from utils.positional_encoding import PositionalEncoding2D
 
 # from osgeo import gdal
 
@@ -288,12 +288,12 @@ class Population_Dataset_target(Dataset):
                 self.gbuildings_counts_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_counts.tif")
             self.gbuildings = True 
 
-        self.positional_encoding = True
-        if self.positional_encoding:
-            with rasterio.open(self.file_paths[list(self.file_paths.keys())[0]]["boundary"], "r") as src:
-                self.img_shape = src.shape
+        # self.positional_encoding = True
+        # if self.positional_encoding:
+        #     with rasterio.open(self.file_paths[list(self.file_paths.keys())[0]]["boundary"], "r") as src:
+        #         self.img_shape = src.shape
         
-            self.pos_enc = PositionalEncoding2D(src.shape, 1)
+        #     self.pos_enc = PositionalEncoding2D(src.shape, 1)
 
         # normalize the dataset (do not use, this does not make sense for variable regions sizes like here)
         print("Setup done!")
@@ -405,6 +405,22 @@ class Population_Dataset_target(Dataset):
 
 
     def __getadminitem__(self, index: int) -> Dict[str, torch.FloatTensor]:
+        """
+        Description:
+            Get the item at the given index, the item is a coarse region with arbitrary size, shape
+        Input:
+            index: index of the item
+        Output:
+            item: dictionary containing
+                indata: the input data (S1, S2, VIIRS, NIR)
+                y: the target data (population)
+                admin_mask: the mask of the administrative region
+                img_coords: the coordinates of the patch
+                season: the season of the data as integer (0,1,2,3) for (spring, summer, autumn, winter)
+                census_idx: the index of the census sample
+
+
+        """
         # get the indices of the patch
         census_sample = self.coarse_census.loc[index]
         
@@ -414,10 +430,11 @@ class Population_Dataset_target(Dataset):
         # get the season for the S2 data
         season = random.choice(['spring', 'autumn', 'winter', 'summer']) if self.fourseasons else "spring"
         descending = random.choice([True, False]) if self.ascAug else True
-        # season = random.choice(['spring', 'autumn', 'winter', 'summer']) if self.fourseasons else "autumn"
+
+        # overlap for the admin mask
+        ad_over = 32
 
         # get the data
-        ad_over = 32
         indata, auxdata, w = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0, admin_overlap=ad_over, descending=descending)
 
         if "S2" in indata:
@@ -449,13 +466,12 @@ class Population_Dataset_target(Dataset):
 
         # return dictionary
         return {
-                # 'input': X,
                 **indata,
                 'y': torch.from_numpy(np.asarray(census_sample["POP20"])).type(torch.FloatTensor),
                 'admin_mask': admin_mask,
                 'img_coords': (xmin,ymin), 'valid_coords':  (xmin, xmax, ymin, ymax),
                 'season': self.inv_season_dict[season],# 'season_str': [season],
-                'source': torch.tensor(True), "census_idx": torch.tensor([census_sample["idx"]]),
+                "census_idx": torch.tensor([census_sample["idx"]]),
                 }
 
 
@@ -475,6 +491,7 @@ class Population_Dataset_target(Dataset):
         # get the data
         indata, mask, _ = self.generate_raw_data(x,y,season.item())
 
+        # check for nans and fill it if necessary
         if "S2" in indata:
             if np.any(np.isnan(indata["S2"])): 
                 indata["S2"] = self.interpolate_nan(indata["S2"]) 
@@ -560,89 +577,165 @@ class Population_Dataset_target(Dataset):
         :return:
             data: data of the patch
         """
+        
+        patchsize_x, patchsize_y, overlap, window = self._setup_patch_parameters(x, y, patchsize, overlap, admin_overlap)
 
-        patchsize_x = self.patchsize if patchsize is None else patchsize[0]
-        patchsize_y = self.patchsize if patchsize is None else patchsize[1]
-        overlap = self.overlap if overlap is None else overlap
 
-        # get the window of the patch for administative region case
-        if admin_overlap>0:
-            new_x = max(x-admin_overlap,0)
-            new_y = max(y-admin_overlap,0)
-            x_stop = min(x+patchsize_x+admin_overlap, self.cr_shape[0])
-            y_stop = min(y+patchsize_y+admin_overlap, self.cr_shape[1])
-            window = ((new_x,x_stop),(new_y,y_stop))
+        # patchsize_x = self.patchsize if patchsize is None else patchsize[0]
+        # patchsize_y = self.patchsize if patchsize is None else patchsize[1]
+        # overlap = self.overlap if overlap is None else overlap
 
-        else:
-            window = ((x,x+patchsize_x),(y,y+patchsize_y))
+        # # get the window of the patch for administative region case
+        # if admin_overlap>0:
+        #     new_x = max(x-admin_overlap,0)
+        #     new_y = max(y-admin_overlap,0)
+        #     x_stop = min(x+patchsize_x+admin_overlap, self.cr_shape[0])
+        #     y_stop = min(y+patchsize_y+admin_overlap, self.cr_shape[1])
+        #     window = ((new_x,x_stop),(new_y,y_stop))
+
+        # else:
+        #     window = ((x,x+patchsize_x),(y,y+patchsize_y))
 
 
         indata = {}
-        mask = np.zeros((patchsize_x, patchsize_y), dtype=bool)
-        mask[overlap:patchsize_x-overlap, overlap:patchsize_y-overlap] = True
+
+        # Initialize the mask
+        mask = self._create_mask(patchsize_x, patchsize_y, overlap)
+        # mask = np.zeros((patchsize_x, patchsize_y), dtype=bool)
+        # mask[overlap:patchsize_x-overlap, overlap:patchsize_y-overlap] = True
 
         # for debugging
         fake = False
+        if fake:
+            if self.NIR:
+                indata["S2"] = np.random.randint(0, 10000, size=(4,patchsize_x,patchsize_y))
+            else:
+                indata["S2"] = np.random.randint(0, 10000, size=(3,patchsize_x,patchsize_y))
+            indata["S1"] = np.random.randint(0, 10000, size=(2,patchsize_x,patchsize_y))
+            indata["building_segmentation"] = np.random.randint(0, 1, size=(1,patchsize_x,patchsize_y))
+            indata["building_counts"] = np.random.randint(0, 2, size=(1,patchsize_x,patchsize_y))
+            # indata["positional_encoding"] = np.random.randint(0, 10000, size=(32,patchsize_x,patchsize_y))
+            return indata, mask, window
 
         ### get the input data ###
         # Sentinel 2
         if self.S2:
             S2_file = self.S2_file[season]
             if self.NIR:
-                if fake:
-                    indata["S2"] = np.random.randint(0, 10000, size=(4,patchsize_x,patchsize_y))
-                else:
-                    with rasterio.open(S2_file, "r") as src:
-                        indata["S2"] = src.read((3,2,1,4), window=window).astype(np.float32) 
+                with rasterio.open(S2_file, "r") as src:
+                    indata["S2"] = src.read((3,2,1,4), window=window).astype(np.float32) 
             else:
-                if fake:
-                    indata["S2"] = np.random.randint(0, 10000, size=(3,patchsize_x,patchsize_y))
-                else:
-                    with rasterio.open(S2_file, "r") as src:
-                        indata["S2"] = src.read((3,2,1), window=window).astype(np.float32) 
+                with rasterio.open(S2_file, "r") as src:
+                    indata["S2"] = src.read((3,2,1), window=window).astype(np.float32) 
+
 
         # Sentinel 1
         if self.S1:
             S1_file = self.S1_file[season] if descending else self.S1Asc_file[season]
-            if fake:
-                indata["S1"] = np.random.randint(0, 10000, size=(2,patchsize_x,patchsize_y))
-            else:
-                with rasterio.open(S1_file, "r") as src:
-                    indata["S1"] = src.read((1,2), window=window).astype(np.float32) 
+            with rasterio.open(S1_file, "r") as src:
+                indata["S1"] = src.read((1,2), window=window).astype(np.float32) 
         
-        # VIIRS
-        if self.VIIRS:
-            if fake:
-                indata["VIIRS"] = np.random.randint(0, 10000, size=(1,patchsize_x,patchsize_y))
-            else:
-                with rasterio.open(self.VIIRS_file, "r") as src:
-                    indata["VIIRS"] = src.read(1, window=window).astype(np.float32)  
 
-        # building data
-        if self.gbuildings or self.sentinelbuildings:
-            if fake:
-                indata["building_segmentation"] = np.random.randint(0, 1, size=(1,patchsize_x,patchsize_y))
-                indata["building_counts"] = np.random.randint(0, 2, size=(1,patchsize_x,patchsize_y))
-            else:
-                if self.sentinelbuildings:
-                    with rasterio.open(self.sbuildings_segmentation_file, "r") as src:
-                        indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32)/255
+        # if self.S2:
+        #     S2_file = self.S2_file[season]
+        #     if self.NIR:
+        #         if fake:
+        #             indata["S2"] = np.random.randint(0, 10000, size=(4,patchsize_x,patchsize_y))
+        #         else:
+        #             with rasterio.open(S2_file, "r") as src:
+        #                 indata["S2"] = src.read((3,2,1,4), window=window).astype(np.float32) 
+        #     else:
+        #         if fake:
+        #             indata["S2"] = np.random.randint(0, 10000, size=(3,patchsize_x,patchsize_y))
+        #         else:
+        #             with rasterio.open(S2_file, "r") as src:
+        #                 indata["S2"] = src.read((3,2,1), window=window).astype(np.float32) 
 
-                elif os.path.exists(self.gbuildings_segmentation_file): 
-                    with rasterio.open(self.gbuildings_segmentation_file, "r") as src:
-                        indata["building_segmentation"] = src.read(1, window=window)[np.newaxis].astype(np.float32)
-                    with rasterio.open(self.gbuildings_counts_file, "r") as src:
-                        indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32) 
+        # # Sentinel 1
+        # if self.S1:
+        #     S1_file = self.S1_file[season] if descending else self.S1Asc_file[season]
+        #     if fake:
+        #         indata["S1"] = np.random.randint(0, 10000, size=(2,patchsize_x,patchsize_y))
+        #     else:
+        #         with rasterio.open(S1_file, "r") as src:
+        #             indata["S1"] = src.read((1,2), window=window).astype(np.float32) 
+
+        # # building data
+        # if self.gbuildings or self.sentinelbuildings:
+        #     if fake:
+        #         indata["building_segmentation"] = np.random.randint(0, 1, size=(1,patchsize_x,patchsize_y))
+        #         indata["building_counts"] = np.random.randint(0, 2, size=(1,patchsize_x,patchsize_y))
+        #     else:
+        #         if self.sentinelbuildings:
+        #             with rasterio.open(self.sbuildings_segmentation_file, "r") as src:
+        #                 indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32)/255
+
+        #         elif os.path.exists(self.gbuildings_segmentation_file): 
+        #             with rasterio.open(self.gbuildings_segmentation_file, "r") as src:
+        #                 indata["building_segmentation"] = src.read(1, window=window)[np.newaxis].astype(np.float32)
+        #             with rasterio.open(self.gbuildings_counts_file, "r") as src:
+        #                 indata["building_counts"] = src.read(1, window=window)[np.newaxis].astype(np.float32) 
 
         # posional encoding
-        if self.positional_encoding:
+        # if self.positional_encoding:
 
-            if fake:
-                indata["positional_encoding"] = np.random.randint(0, 10000, size=(32,patchsize_x,patchsize_y))
-            else:
-                indata["positional_encoding"] = self.pos_enc(window=window)
+        #     if fake:
+        #         indata["positional_encoding"] = np.random.randint(0, 10000, size=(32,patchsize_x,patchsize_y))
+        #     else:
+        #         indata["positional_encoding"] = self.pos_enc(window=window)
 
         return indata, mask, window
+    
+
+    def _setup_patch_parameters(self, x, y, patchsize, overlap, admin_overlap):
+        """
+        Set up the parameters for the patch.
+        Input:
+            x: x coordinate of the patch
+            y: y coordinate of the patch
+            patchsize: size of the patch (tuple or None)
+            overlap: overlap of the patches (int or None)
+            admin_overlap: additional overlap for administrative regions (int)
+        :return:
+            patchsize_x: x dimension of the patch
+            patchsize_y: y dimension of the patch
+            overlap: overlap of the patches
+            window: tuple defining the window to read the data
+        """
+        patchsize_x = self.patchsize if patchsize is None else patchsize[0]
+        patchsize_y = self.patchsize if patchsize is None else patchsize[1]
+        overlap = self.overlap if overlap is None else overlap
+
+        # Calculate the window for the patch, considering administrative overlap if applicable
+        if admin_overlap > 0:
+            new_x = max(x - admin_overlap, 0)
+            new_y = max(y - admin_overlap, 0)
+            x_stop = min(x + patchsize_x + admin_overlap, self.cr_shape[0])
+            y_stop = min(y + patchsize_y + admin_overlap, self.cr_shape[1])
+            window = ((new_x, x_stop), (new_y, y_stop))
+        else:
+            window = ((x, x + patchsize_x), (y, y + patchsize_y))
+
+        return patchsize_x, patchsize_y, overlap, window
+    
+
+    def _create_mask(self, patchsize_x, patchsize_y, overlap):
+        """
+        Create a mask for the patch.
+        Input:
+            patchsize_x: x dimension of the patch
+            patchsize_y: y dimension of the patch
+            overlap: overlap of the patches
+        :return:
+            mask: a boolean mask array for the patch
+        """
+        # Initialize a mask with all False (not in the area of interest)
+        mask = np.zeros((patchsize_x, patchsize_y), dtype=bool)
+
+        # Set the area inside the overlap to True (area of interest)
+        mask[overlap:patchsize_x - overlap, overlap:patchsize_y - overlap] = True
+
+        return mask
 
 
     def convert_popmap_to_census(self, pred, gpu_mode=False, level="fine", details_to=None):
@@ -675,8 +768,6 @@ class Population_Dataset_target(Dataset):
             census_i = -torch.ones(len(census), dtype=torch.float32).cuda()
 
             # iterate over census regions and get totals
-            # for i, (cidx,bbox) in enumerate(zip(census["idx"], census["bbox"])):
-            # for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"]))):
             for i, (cidx,bbox) in tqdm(enumerate(zip(census["idx"], census["bbox"])), total=len(census), disable=False, leave=False):
                 if pd.isnull(bbox):
                     continue
@@ -784,6 +875,7 @@ class Population_Dataset_target(Dataset):
         assert census_pred_i.shape[0] == len(census_i), "census_pred and census have different lengths"
         return census_pred_i, census_i
     
+
     def adjust_map_to_census(self, pred, gpu_mode=True):
         """
         Adjust the predicted map to the census regions via dasymmetric mapping strategy
@@ -875,10 +967,10 @@ def Population_Dataset_collate_fn(batch):
         max_x = max([item['building_segmentation'].shape[1] for item in batch])
         max_y = max([item['building_segmentation'].shape[2] for item in batch])
         building_segmentation = torch.zeros(len(batch), 1, max_x, max_y)
-    if 'positional_encoding' in batch[0]:
-        max_x = max([item['positional_encoding'].shape[1] for item in batch])
-        max_y = max([item['positional_encoding'].shape[2] for item in batch])
-        positional_encoding = torch.zeros(len(batch), batch[0]['positional_encoding'].shape[0], max_x, max_y)
+    # if 'positional_encoding' in batch[0]:
+    #     max_x = max([item['positional_encoding'].shape[1] for item in batch])
+    #     max_y = max([item['positional_encoding'].shape[2] for item in batch])
+    #     positional_encoding = torch.zeros(len(batch), batch[0]['positional_encoding'].shape[0], max_x, max_y)
     if 'building_counts' in batch[0]:
         max_x = max([item['building_counts'].shape[1] for item in batch])
         max_y = max([item['building_counts'].shape[2] for item in batch])
@@ -911,10 +1003,10 @@ def Population_Dataset_collate_fn(batch):
             x_size, y_size = item['building_counts'].shape[1], item['building_counts'].shape[2]
             building_counts[i, :, :x_size, :y_size] = item['building_counts']
             use_building_counts = True
-        if 'positional_encoding' in item:
-            x_size, y_size = item['positional_encoding'].shape[1], item['positional_encoding'].shape[2]
-            positional_encoding[i, :, :x_size, :y_size] = item['positional_encoding']
-            use_positional_encoding = True
+        # if 'positional_encoding' in item:
+        #     x_size, y_size = item['positional_encoding'].shape[1], item['positional_encoding'].shape[2]
+        #     positional_encoding[i, :, :x_size, :y_size] = item['positional_encoding']
+        #     use_positional_encoding = True
 
         # get the admin_mask
         x_size, y_size = item['admin_mask'].shape[0], item['admin_mask'].shape[1]
@@ -926,7 +1018,7 @@ def Population_Dataset_collate_fn(batch):
         'img_coords': [item['img_coords'] for item in batch],
         'valid_coords': [item['valid_coords'] for item in batch],
         'season': torch.tensor([item['season'] for item in batch]),
-        'source': torch.tensor([item['source'] for item in batch], dtype=torch.bool),
+        # 'source': torch.tensor([item['source'] for item in batch], dtype=torch.bool),
         'census_idx': torch.cat([item['census_idx'] for item in batch]),
     }
 
@@ -939,8 +1031,8 @@ def Population_Dataset_collate_fn(batch):
         out_dict["building_segmentation"] = building_segmentation
     if use_building_counts:
         out_dict["building_counts"] = building_counts
-    if use_positional_encoding:
-        out_dict["positional_encoding"] = positional_encoding
+    # if use_positional_encoding:
+    #     out_dict["positional_encoding"] = positional_encoding
 
     return out_dict
 

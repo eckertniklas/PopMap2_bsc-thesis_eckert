@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 
 # import copy
-from model.customUNet import CustomUNet
+# from model.customUNet import CustomUNet
 import ast
 
 from model.DDA_model.utils.networks import load_checkpoint
@@ -50,7 +50,6 @@ class POMELO_module(nn.Module):
 
         self.down = down
         self.occupancymodel = occupancymodel
-        # self.useposembedding = useposembedding
         self.buildinginput = buildinginput
         self.feature_extractor = feature_extractor
         self.sparse_unet = sparse_unet
@@ -121,13 +120,7 @@ class POMELO_module(nn.Module):
             self.unetmodel.disc = None
             self.unetmodel.num_params = sum(p.numel() for p in self.unetmodel.parameters() if p.requires_grad)
         else:
-            if this_input_dim>0:
-                self.unetmodel = CustomUNet(feature_extractor, in_channels=this_input_dim, classes=feature_dim, 
-                                            down=self.down, dilation=dilation, replace7x7=replace7x7, pretrained=pretrained,
-                                            grouped=grouped, dropout=dropout)
-                unet_out = feature_dim
-            else:
-                self.unetmodel = None
+            raise ValueError("feature_extractor {} not supported".format(feature_extractor))
 
         if buildinginput:
             head_input_dim += 1
@@ -240,7 +233,7 @@ class POMELO_module(nn.Module):
 
         if self.buildinginput:
             # append building counts to the middle features
-            # TODO: make option to create the building maps from the checkpoint, but not at training time....
+            # make option to create the building maps from the checkpoint, but not at training time....
             middlefeatures.append(inputs["building_counts"])
 
         # Forward the main model
@@ -273,7 +266,6 @@ class POMELO_module(nn.Module):
                         self.unetmodel.eval()
                         if self.sparse_unet and sparse:
                             X = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True, S1=self.S1, S2=self.S2)
-                            # features = self.unetmodel.sparse_forward(X, sparsity_mask, alpha=0, encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, return_features=True)
                         else:
                             X = self.unetmodel(X, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True, S1=self.S1, S2=self.S2)
                 else:

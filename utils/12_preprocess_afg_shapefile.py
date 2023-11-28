@@ -1,6 +1,6 @@
 
 import argparse
-from osgeo import gdal, osr, ogr
+from osgeo import gdal, ogr
 import os
 import numpy as np
 import geopandas as gdp

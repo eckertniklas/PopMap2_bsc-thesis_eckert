@@ -417,110 +417,6 @@ class Trainer:
 
             del output_map, output_map_count, output_scale_map
 
-    # def test_target_large(self, save=False, full=True):
-    #     # Test on target domain
-    #     self.model.eval()
-    #     self.test_stats = defaultdict(float)
-
-    #     with torch.no_grad(): 
-    #         self.target_test_stats = defaultdict(float)
-    #         for testdataloader in self.dataloaders["test_target"]:
-
-    #             tmp_output_map_file = os.path.join(self.experiment_folder, 'tmp_output_map.tif')
-    #             tmp_output_map_count_file = os.path.join(self.experiment_folder, 'tmp_output_map_count.tif')
-    #             tmp_output_map_scale_file = os.path.join(self.experiment_folder, 'tmp_output_map_scale.tif')
-
-    #             metadata1 = testdataloader.dataset._meta.copy()
-    #             metadata1.update({'compress': 'PACKBITS', 'dtype': 'float32', "BIGTIFF": 'YES'})
-                
-    #             print("Initializing raster files")
-    #             self.initialize_raster_large(os.path.join(self.experiment_folder, "tmp_output_map.tif"), metadata1)
-    #             self.initialize_raster_large(os.path.join(self.experiment_folder, "tmp_output_map_count.tif"), metadata1)
-    #             # self.initialize_raster_large(os.path.join(self.experiment_folder, "tmp_output_map_scale.tif"), metadata1)
-    #             # inputialize the output map
-
-    #             # # Copy the initialized file to create the second file
-    #             copyfile(tmp_output_map_file, tmp_output_map_scale_file)
-
-    #             # metadata_count.update({'compress': "lzw"})
-    #             # # Initialize temporary raster files
-    #             with rasterio.open(tmp_output_map_file, 'r+', **metadata1) as tmp_dst:
-    #                 with rasterio.open(tmp_output_map_count_file, 'r+', **metadata1) as tmp_count_dst:
-    #                     with rasterio.open(tmp_output_map_scale_file, 'r+', **metadata1) as tmp_scale_dst:
-    #                         # Iterate over the chunks of the testdataloader
-    #                         for i, sample in tqdm(enumerate(testdataloader), leave=False, total=len(testdataloader)):
-    #                             sample = to_cuda_inplace(sample)
-    #                             sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput,
-    #                                                                         segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
-
-    #                             # get the valid coordinates
-    #                             xl,yl = [val.item() for val in sample["img_coords"]]
-    #                             mask = sample["mask"][0].bool()
-
-    #                             # get the output with a forward pass
-    #                             output = self.model(sample, padding=False)
-                                
-    #                             # Save current predictions to temporary file
-    #                             xl, yl, xu, yu = xl, yl, xl+ips, yl+ips
-    #                             window = Window(yl, xl, yu-yl, xu-xl)
-
-    #                             # Read existing values, sum new values (accounting for mask), and write back for the inference count tracker
-    #                             output_map_count = tmp_count_dst.read(1, window=window)#.astype(np.float32) 
-    #                             output_map_count[mask.cpu().numpy()] += 1
-    #                             tmp_count_dst.write(output_map_count, 1, window=window)
-
-    #                             counts = output_map_count[mask.cpu().numpy()]
-    #                             has_existing_values = (counts > 1).any()
-
-    #                             # Read existing values, sum new values (accounting for mask), and write back
-    #                             if has_existing_values:
-    #                                 existing_values = tmp_dst.read(1, window=window).astype(np.float32)
-    #                                 new_data = output["popdensemap"][0][mask].cpu().numpy().astype(np.float32)
-    #                                 old_counts = counts - 1
-    #                                 existing_values[mask.cpu()] = (existing_values[mask.cpu()] * old_counts + new_data) / counts
-    #                             else:
-    #                                 existing_values = np.zeros((ips, ips), dtype=np.float32)
-    #                                 existing_values[mask.cpu()] = output["popdensemap"][0][mask].cpu().numpy().astype(np.float32) 
-    #                             tmp_dst.write(existing_values, 1, window=window)
-
-    #                             no_scale = True
-    #                             if "scale" in output.keys() and not no_scale:
-
-    #                                 if has_existing_values:
-    #                                     existing_values_scale = tmp_scale_dst.read(1, window=window).astype(np.float32)
-    #                                     new_data = output["scale"][0][mask].cpu().numpy().astype(np.float32)
-    #                                     old_counts = counts - 1
-    #                                     existing_values_scale[mask.cpu()] = (existing_values_scale[mask.cpu()] * old_counts + new_data) / counts
-    #                                 else:
-    #                                     existing_values_scale = np.zeros((ips, ips), dtype=np.float32)
-    #                                     existing_values_scale[mask.cpu()] = output["scale"][0][mask].cpu().numpy().astype(np.float32)
-    #                                 tmp_scale_dst.write(existing_values_scale, 1, window=window)
-
-    #                             # if i == 400:
-    #                             #     break
-
-    #             # save predictions to file 
-    #             metadata = testdataloader.dataset.metadata()
-    #             metadata.update({"count": 1,
-    #                             "dtype": "float32",
-    #                             "compress": "lzw",
-    #                             "BIGTIFF": "YES"})
-    #                             # "compress": "PACKBITS" })
-    #             # average predictions
-    #             # gpu_mode = False
-    #             # gpu_mode = True
-    #             reg = testdataloader.dataset.region
-    #             outputmap_file = os.path.join(self.experiment_folder, '{}_predictions.tif'.format(reg))
-    #             outputmap_scale = os.path.join(self.experiment_folder, '{}_predictionsSCALE.tif'.format(reg))
-    #             # Read the temporary maps in chunks, average and write to the final output map
-                
-                
-    #             copyfile(tmp_output_map_file, outputmap_file)
-    #             copyfile(tmp_output_map_scale_file, outputmap_scale)
-
-    #             # remove temporary files
-    #             os.remove(tmp_output_map_file)
-    #             os.remove(tmp_output_map_count_file)
 
     @staticmethod
     def get_dataloaders(self, args: argparse.Namespace) -> dict: 
@@ -532,8 +428,9 @@ class Trainer:
             dataloaders: dictionary of dataloaders
         """
 
+        # define input definitions (standards)
         input_defs = {'S1': args.Sentinel1, 'S2': args.Sentinel2, 'VIIRS': args.VIIRS, 'NIR': args.NIR}
-        params = {'dim': (img_rows, img_cols), "satmode": args.satmode, 'in_memory': args.in_memory, **input_defs}
+
         self.data_transform = {}
         if args.full_aug:
             general_transforms = [

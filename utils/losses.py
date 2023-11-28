@@ -52,12 +52,12 @@ def get_loss(output, gt, scale=None, empty_scale=None, loss=["l1_loss"], lam=[1.
             output["empty_scale"] = output["empty_scale"].float()
         
     # prepare vars1.0
-    y_pred = output["popcount"][gt["source"]]
-    y_gt = gt["y"][gt["source"]]
+    y_pred = output["popcount"]#[gt["source"]]
+    y_gt = gt["y"]#[gt["source"]]
     if "popvar" in output.keys():
         if output["popvar"].dtype != torch.float32:
             output["popvar"] = output["popvar"].float()
-        var = output["popvar"][gt["source"]]
+        var = output["popvar"]#[gt["source"]]
 
     # Population loss and metrics
     popdict = {

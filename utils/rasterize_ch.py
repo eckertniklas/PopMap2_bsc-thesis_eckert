@@ -7,15 +7,12 @@ import glob
 import pandas as pd
 import numpy as np
 from osgeo import gdal
-from rasterio.warp import transform_geom
-from rasterio.features import is_valid_geom
 from rasterio.warp import reproject, Resampling, calculate_default_transform
-from rasterio.windows import Window
 from rasterio import CRS
 from rasterio.transform import from_origin
 import rasterio
 
-from tqdm import tqdm, tqdm_pandas
+from tqdm import tqdm
 import scipy
 from PIL import Image
 from PIL.Image import Resampling as PILRes

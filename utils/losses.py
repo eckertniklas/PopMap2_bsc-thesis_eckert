@@ -11,7 +11,7 @@ from torch import Tensor
 
 
 def get_loss(output, gt, scale=None, empty_scale=None, loss=["l1_loss"], lam=[1.0], merge_aug=False,
-             lam_adv=0.0, lam_coral=0.0, lam_mmd=0.0, tag="",
+             tag="",
              scale_regularization=0.0, scale_regularizationL2=0.0, emptyscale_regularizationL2=0.0,
              output_regularization=0.0):
     """
@@ -113,6 +113,7 @@ def get_loss(output, gt, scale=None, empty_scale=None, loss=["l1_loss"], lam=[1.
         if scale_regularizationL2>0.0:
             optimization_loss += scale_regularizationL2 * popdict["scaleL2"]
 
+    # empty scale regularization
     if empty_scale is not None:
         popdict["empty_scale"] = empty_scale.float().abs().mean()
         popdict["empty_scaleL2"] = empty_scale.float().pow(2).mean()

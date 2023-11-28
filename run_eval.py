@@ -122,6 +122,8 @@ class Trainer:
                     scale = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
                     popdense_squared = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
                     scale_squared = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
+
+                    # Evaluate each model in the ensemble
                     for i, model in enumerate(self.model):
                         this_output = model(sample, padding=False)
                         popdense[i] = this_output["popdensemap"][0].cuda()
@@ -157,8 +159,8 @@ class Trainer:
                 div_mask = output_map_count > 1
                 # a = output_map.clone()
 
+                a = output_map[div_mask] / output_map_count[div_mask].to(torch.float32)
                 output_map[div_mask] = output_map[div_mask] / output_map_count[div_mask].to(torch.float32)
-                # eps = 1e-10
 
                 # calculate the standard deviation from the sum of squares and the mean as "std_dev = math.sqrt((sum_of_squares - n * mean ** 2) / (n - 1))"
                 output_map_squared[div_mask] = torch.sqrt((output_map_squared[div_mask] - (output_map[div_mask] ** 2) * output_map_count[div_mask]) / (output_map_count[div_mask] - 1))
@@ -273,6 +275,10 @@ class Trainer:
 
 
     def test_target_large(self, save=False, full=True):
+        """
+        Not stable yet
+        """
+
         # Test on target domain
         self.model.eval()
         self.test_stats = defaultdict(float)

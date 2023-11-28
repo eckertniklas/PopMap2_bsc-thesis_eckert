@@ -1662,10 +1662,10 @@
                     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_681_376/last_model.pth",
                     "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_681_24/last_model.pth",
                     // 1620
-                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_806_480/last_model.pth", \\1620
-                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_806_54/last_model.pth", \\1621
-                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_814_428/last_model.pth", \\1622
-                    // "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_815_1/last_model.pth", \\1623
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_806_480/last_model.pth", //\\1620
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_806_54/last_model.pth", //\\1621
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_814_428/last_model.pth", //\\1622
+                    "/scratch2/metzgern/HAC/POMELOv2_results/euler/experiment_815_1/last_model.pth", //\\1623
                     // "/scratch2/metzgern/HAC/POMELOv2_results/euler//last_model.pth",
                     // 1630
                 // "--resume", //no occ, no pretraining

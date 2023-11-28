@@ -99,12 +99,12 @@ class Trainer:
 
             self.optimizer = optim.Adam([
                     {'params': params_with_decay, 'weight_decay': args.weightdecay}, # Apply weight decay here
-                    {'params': params_unet_only, 'weight_decay': args.weightdecay_unet}, # Apply weight decay here
+                    {'params': params_unet_only, 'weight_decay': args.weightdecay}, # Apply weight decay here
                     {'params': params_without_decay, 'weight_decay': 0.0}, # No weight decay
                 ] , lr=args.learning_rate)
             
-            if args.resume_extractor is not None:
-                self.optimizer = optim.Adam([ {'params': self.model.unetmodel.parameters(), 'weight_decay': args.weightdecay}]  , lr=args.learning_rate)
+            # if args.resume_extractor is not None:
+            #     self.optimizer = optim.Adam([ {'params': self.model.unetmodel.parameters(), 'weight_decay': args.weightdecay}]  , lr=args.learning_rate)
                 
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
         

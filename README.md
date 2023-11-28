@@ -85,7 +85,18 @@ PopMapData/
             └── ...
 ```
 
-# Inference
+# Testing
+
+## Checkpoints
+
+Checkpoints can be downloaded from ...
+
+## Inference
+
+You can use the 'run_eval.py' script to generate maps and evaluate them subsequently using
+```
+python run_eval.py --resume ...
+```
 
 ...
 

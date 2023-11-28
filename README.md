@@ -122,8 +122,26 @@ python run_eval.py --resume ...
 
 ## Training
 
-...
+Train Switzerland:
+```
+python run_train.py ...
+```
 
+Train Rwanda projected census 2020:
+```
+python run_train.py ...
+
+```
+
+Train Puerto Rico:
+```
+python run_train.py ...
+```
+
+Train Rwanda 2022 real census:
+```
+python run_train.py -S2 -NIR -S1 -rse -treg rwa -tregtrain rwa2022 --full_aug --seed 1600 --occupancymodel --weightdecay 0.00001 --weightdecay_unet 0.00001 --sentinelbuildings --train_level coarse --pretrained --biasinit 0.9407
+```
 
 
 

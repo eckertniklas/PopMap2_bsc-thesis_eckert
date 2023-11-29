@@ -155,6 +155,8 @@ python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 -occmo
 ```
 
 
+## Fun fact
 
+ - "POPCORN" stands for POPulation from CORrse census Numbers🍿.
 
 

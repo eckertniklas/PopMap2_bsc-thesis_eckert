@@ -124,12 +124,12 @@ python run_eval.py --resume ...
 
 Train Switzerland:
 ```
-python run_train.py ...
+python run_train.py -S2 -NIR -S1 -treg che -tregtrain che --seed 1600 --occupancymodel --weightdecay ... --sentinelbuildings --pretrained --biasinit 0.2267 --save-dir <your/save/dir>
 ```
 
 Train Rwanda projected census 2020:
 ```
-python run_train.py -S2 -NIR -S1 -rse -treg rwa -tregtrain rwa --full_aug --seed 1600 --occupancymodel --weightdecay 0.00001 --weightdecay_unet 0.00001 --sentinelbuildings --train_level coarse --pretrained --biasinit 0.9407
+python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa --seed 1600 --occupancymodel --weightdecay 0.00001 --sentinelbuildings --pretrained --biasinit 0.9407 --save-dir <your/save/dir>
 ```
 
 Train Puerto Rico:
@@ -139,7 +139,7 @@ python run_train.py ...
 
 Train Rwanda 2022 real census:
 ```
-python run_train.py -S2 -NIR -S1 -rse -treg rwa -tregtrain rwa2022 --full_aug --seed 1600 --occupancymodel --weightdecay 0.00001 --weightdecay_unet 0.00001 --sentinelbuildings --train_level coarse --pretrained --biasinit 0.9407
+python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 --occupancymodel --weightdecay 0.00001 --sentinelbuildings --pretrained --biasinit 0.9407  --save-dir <your/save/dir>
 ```
 
 

@@ -63,7 +63,7 @@ make
 
 ### Data
 
-The code repository contains all the necessary functionalities to reproduce the dataset from the raw data and Google Earth Engine. For the user's convenience, we host necessary preprocessed datasets [here](https://drive.google.com/drive/folders/1jExHgmVrIznKRrG2Mc6_d1-6HfyJJUhk?usp=sharing). Download and place the data into the following folder structure:
+The code repository contains all the necessary functionalities to reproduce the dataset from the raw data and Google Earth Engine. For the user's convenience, we host necessary preprocessed datasets [here](https://drive.google.com/drive/folders/1jExHgmVrIznKRrG2Mc6_d1-6HfyJJUhk?usp=sharing). Download and place the data into the following folder structure for Switzerland (`che`), Rwanda (`rwa`), and Puerto Rico (`pricp2`):
 
 ```
 PopMapData/
@@ -113,7 +113,7 @@ Checkpoints can be downloaded from ...
 
 ### Inference
 
-You can use the 'run_eval.py' script to generate maps and evaluate them subsequently using
+You can use the `run_eval.py` script to generate maps and evaluate them subsequently using
 ```
 python run_eval.py -occmodel -senbuilds -S2 -NIR -S1 -treg <inference dataset name> --fourseasons \
   --resume \

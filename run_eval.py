@@ -111,7 +111,7 @@ class Trainer:
                 for sample in tqdm(testdataloader, leave=True):
                     sample = to_cuda_inplace(sample)
                     sample = apply_transformations_and_normalize(sample,  transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput,
-                                                                      segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
+                                                                      segmentationinput=self.args.segmentationinput)
 
                     # get the valid coordinates
                     xl,yl = [val.item() for val in sample["img_coords"]]
@@ -313,7 +313,7 @@ class Trainer:
                             for i, sample in tqdm(enumerate(testdataloader), leave=False, total=len(testdataloader)):
                                 sample = to_cuda_inplace(sample)
                                 sample = apply_transformations_and_normalize(sample, transform=None, dataset_stats=self.dataset_stats, buildinginput=self.args.buildinginput,
-                                                                            segmentationinput=self.args.segmentationinput, empty_eps=self.args.empty_eps)
+                                                                            segmentationinput=self.args.segmentationinput)
 
                                 # get the valid coordinates
                                 xl,yl = [val.item() for val in sample["img_coords"]]

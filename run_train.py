@@ -83,42 +83,39 @@ class Trainer:
         seed_all(args.seed+2)
 
         # set up optimizer and scheduler
-        if args.optimizer == "Adam":
+        if self.args.head == "v3_slim":
+            head_name  = ['head.0.weight', 'head.0.bias']
+        elif self.args.head == "v3":
+            head_name = ['head.6.weight','head.6.bias']
+
+        # Get all parameters except the head bias
+        params_with_decay = [param for name, param in self.model.named_parameters() if name not in head_name and 'embedder' not in name and 'unetmodel' not in name]
+        params_unet_only = [param for name, param in self.model.named_parameters() if name not in head_name and 'embedder' not in name and 'unetmodel' in name]
+
+        # Get the head bias parameter, only bias, if available
+        params_without_decay = [param for name, param in self.model.named_parameters() if name in head_name and 'embedder' not in name and 'unetmodel' not in name]
+
+        self.optimizer = optim.Adam([
+                {'params': params_with_decay, 'weight_decay': args.weightdecay}, # Apply weight decay here
+                {'params': params_unet_only, 'weight_decay': args.weightdecay}, # Apply weight decay here
+                {'params': params_without_decay, 'weight_decay': 0.0}, # No weight decay
+            ] , lr=args.learning_rate)
             
-            if self.args.head == "v3_slim":
-                head_name  = ['head.0.weight', 'head.0.bias']
-            else:
-                head_name = ['head.6.weight','head.6.bias']
-
-            # Get all parameters except the head bias
-            params_with_decay = [param for name, param in self.model.named_parameters() if name not in head_name and 'embedder' not in name and 'unetmodel' not in name]
-            params_unet_only = [param for name, param in self.model.named_parameters() if name not in head_name and 'embedder' not in name and 'unetmodel' in name]
-
-            # Get the head bias parameter, only bias, if available
-            params_without_decay = [param for name, param in self.model.named_parameters() if name in head_name and 'embedder' not in name and 'unetmodel' not in name]
-
-            self.optimizer = optim.Adam([
-                    {'params': params_with_decay, 'weight_decay': args.weightdecay}, # Apply weight decay here
-                    {'params': params_unet_only, 'weight_decay': args.weightdecay}, # Apply weight decay here
-                    {'params': params_without_decay, 'weight_decay': 0.0}, # No weight decay
-                ] , lr=args.learning_rate)
-            
-            # if args.resume_extractor is not None:
-            #     self.optimizer = optim.Adam([ {'params': self.model.unetmodel.parameters(), 'weight_decay': args.weightdecay}]  , lr=args.learning_rate)
                 
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
         
         # set up info
-        self.info = { "epoch": 0,  "iter": 0,  "sampleitr": 0}
-        self.info["alpha"], self.info["beta"] = 0.0, 0.0
+        self.info = { "epoch": 0,  "iter": 0,  "sampleitr": 0} 
         self.train_stats, self.val_stats = defaultdict(lambda: np.nan), defaultdict(lambda: np.nan)
         self.best_optimization_loss = np.inf
 
         # in case of checkpoint resume
         if args.resume is not None:
             self.resume(path=args.resume)
-        # if args.resume_extractor is not None:
-        #     self.resume(path=args.resume_extractor, load_optimizer=False)
+
+        compile = False
+        if compile:
+            self.model = torch.compile(self.model)
 
     def train(self):
         """
@@ -212,12 +209,12 @@ class Trainer:
                 encoder_no_grad, unet_no_grad = False, False 
                 if num_pix > self.args.limit1:
                     encoder_no_grad, unet_no_grad = True, False
-                    print("Feezing encoder")
+                    # print("Feezing encoder")
                     if num_pix > self.args.limit2:
                         encoder_no_grad, unet_no_grad = True, True 
-                        print("Feezing decoder")
+                        # print("Feezing decoder")
                         if num_pix > self.args.limit3:
-                            print("Input to large for encoder and unet. No forward pass.")
+                            # print("Input to large for encoder and unet. No forward pass.")
                             continue
                 
                 # perform forward pass
@@ -424,22 +421,18 @@ class Trainer:
         input_defs = {'S1': args.Sentinel1, 'S2': args.Sentinel2, 'VIIRS': args.VIIRS, 'NIR': args.NIR}
 
         self.data_transform = {}
-        if args.full_aug:
-            general_transforms = [
-                RandomVerticalFlip(p=0.5, allsame=True),
-                RandomHorizontalFlip(p=0.5, allsame=True),
-                RandomRotationTransform(angles=[90, 180, 270], p=0.75),
-            ]
+        general_transforms = [
+            RandomVerticalFlip(p=0.5, allsame=True),
+            RandomHorizontalFlip(p=0.5, allsame=True),
+            RandomRotationTransform(angles=[90, 180, 270], p=0.75),
+        ]
 
-            self.data_transform["general"] = transforms.Compose(general_transforms)
+        self.data_transform["general"] = transforms.Compose(general_transforms)
 
-            S2augs = [
-                RandomBrightness(p=0.9, beta_limit=(0.666, 1.5)),
-                RandomGamma(p=0.9, gamma_limit=(0.6666, 1.5)),
-            ]
-        else: 
-            self.data_transform["general"] = transforms.Compose([  ])
-            S2augs = []
+        S2augs = [
+            RandomBrightness(p=0.9, beta_limit=(0.666, 1.5)),
+            RandomGamma(p=0.9, gamma_limit=(0.6666, 1.5)),
+        ]
 
         # collect all transformations
         self.data_transform["S2"] = OwnCompose(S2augs)

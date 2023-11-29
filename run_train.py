@@ -117,8 +117,8 @@ class Trainer:
         # in case of checkpoint resume
         if args.resume is not None:
             self.resume(path=args.resume)
-        if args.resume_extractor is not None:
-            self.resume(path=args.resume_extractor, load_optimizer=False)
+        # if args.resume_extractor is not None:
+        #     self.resume(path=args.resume_extractor, load_optimizer=False)
 
     def train(self):
         """

@@ -15,11 +15,10 @@ import random
 
 from typing import Dict, Tuple
 
-from utils.constants import pop_map_root_large, pop_map_root, pop_map_covariates, pop_map_covariates_large, config_path, pop_gbuildings_path, rawEE_map_root, skip_indices
+from utils.constants import pop_map_root, pop_map_covariates, pop_gbuildings_path, rawEE_map_root, skip_indices
 from utils.constants import datalocations
 from utils.plot import plot_2dmatrix
 
-# from utils.positional_encoding import PositionalEncoding2D
 
 # from osgeo import gdal
 

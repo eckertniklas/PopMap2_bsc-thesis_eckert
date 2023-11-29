@@ -1,5 +1,6 @@
 plot_outputs
 PopMapEnv
+PopMapEnv2
 gdal*
 proj*
 vis

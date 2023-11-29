@@ -10,8 +10,13 @@ import matplotlib
 # matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+
+import numpy as np
+# import seaborn as sns
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
+# from scipy import stats
+from scipy.stats import gaussian_kde
+
 
 def plot_2dmatrix(matrix, fig=1, vmin=None, vmax=None, show=False):
     if torch.is_tensor(matrix):
@@ -95,50 +100,55 @@ def scatter_plot(predicted, ground_truth):
     return Image.open(buffer)
 
 
-import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
-from scipy import stats
 
-def scatter_plot2(predicted, ground_truth):
-    # Create a scatterplot of the predicted and ground truth values
+# def scatter_plot2(predicted, ground_truth):
+#     # Create a scatterplot of the predicted and ground truth values
     
-    tips = sns.load_dataset("tips")
+#     tips = sns.load_dataset("tips")
 
-    values = np.vstack([predicted, ground_truth])
-    kernel = stats.gaussian_kde(values)(values)
-    fig, ax = plt.subplots(figsize=(6, 6))
-    sns.scatterplot(
-        data=tips,
-        x="total_bill",
-        y="tip",
-        c=kernel,
-        cmap="viridis",
-        ax=ax,
-    )
+#     values = np.vstack([predicted, ground_truth])
+#     kernel = stats.gaussian_kde(values)(values)
+#     fig, ax = plt.subplots(figsize=(6, 6))
+#     sns.scatterplot(
+#         data=tips,
+#         x="total_bill",
+#         y="tip",
+#         c=kernel,
+#         cmap="viridis",
+#         ax=ax,
+#     )
 
-    # Add axis labels and a title
-    plt.xlabel('Predicted Values')
-    plt.ylabel('Ground Truth Values')
-    plt.title('Predicted vs. Ground Truth Values')
+#     # Add axis labels and a title
+#     plt.xlabel('Predicted Values')
+#     plt.ylabel('Ground Truth Values')
+#     plt.title('Predicted vs. Ground Truth Values')
 
-    # Save the plot to a BytesIO object
-    buffer = BytesIO()
-    plt.savefig(buffer, format='png')
-    buffer.seek(0)
+#     # Save the plot to a BytesIO object
+#     buffer = BytesIO()
+#     plt.savefig(buffer, format='png')
+#     buffer.seek(0)
 
-    # Open the BytesIO object as a PIL Image and return it
-    return Image.open(buffer)
+#     # Open the BytesIO object as a PIL Image and return it
+#     return Image.open(buffer)
 
 
 
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use('Agg')
-from scipy.stats import gaussian_kde
+# import numpy as np
+# import matplotlib.pyplot as plt
+# import matplotlib
+# matplotlib.use('Agg')
+# from scipy.stats import gaussian_kde
 
 def scatter_plot3(predicted, ground_truth, log_scale=True):
+    """
+    Create a scatterplot of the predicted and ground truth values
+    input:
+        predicted: list of predicted values
+        ground_truth: list of ground truth values
+        log_scale: bool, whether to use log scale or not
+    output:
+        Image: PIL Image of the scatter plot 
+    """
     # Create a scatterplot of the predicted and ground truth values
 
     x = np.array(predicted)
@@ -196,11 +206,11 @@ def scatter_plot3(predicted, ground_truth, log_scale=True):
 
 
 
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.stats import gaussian_kde
-from io import BytesIO
-from PIL import Image
+# import numpy as np
+# import matplotlib.pyplot as plt
+# from scipy.stats import gaussian_kde
+# from io import BytesIO
+# from PIL import Image
 
 def scatter_plot_with_zeros(predicted, ground_truth, log_scale=True):
     # Convert input data to numpy arrays

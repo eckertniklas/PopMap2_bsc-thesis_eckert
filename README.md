@@ -115,7 +115,11 @@ Checkpoints can be downloaded from ...
 
 You can use the 'run_eval.py' script to generate maps and evaluate them subsequently using
 ```
-python run_eval.py --resume ...
+python run_eval.py -occmodel -senbuilds -S2 -NIR -S1 -treg rwa --fourseasons \
+  --resume \
+    /path/to/model1/last_model.pth \
+    /path/to/model2/last_model.pth \
+    ....
 ```
 
 ...
@@ -124,22 +128,22 @@ python run_eval.py --resume ...
 
 Train Switzerland:
 ```
-python run_train.py -S2 -NIR -S1 -treg che -tregtrain che --seed 1600 --occupancymodel --weightdecay ... --sentinelbuildings --pretrained --biasinit 0.2267 --save-dir <your/save/dir>
+python run_train.py -S2 -NIR -S1 -treg che -tregtrain che --seed 1600 -occmodel -wd 0.0000005 -senbuilds -pret --biasinit 0.2267 --save-dir <your/save/dir>
 ```
 
 Train Rwanda projected census 2020:
 ```
-python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa --seed 1600 --occupancymodel --weightdecay 0.00001 --sentinelbuildings --pretrained --biasinit 0.9407 --save-dir <your/save/dir>
+python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa --seed 1600 -occmodel -wd 0.00001 -senbuilds -pret --biasinit 0.9407 --save-dir <your/save/dir>
 ```
 
 Train Puerto Rico:
 ```
-python run_train.py ...
+python run_train.py -S2 -NIR -S1 -treg pricp2 -tregtrain pricp2 --seed 1600 -occmodel -wd 0.0000005 -senbuilds -pret --biasinit 0.4119 --save-dir <your/save/dir>
 ```
 
 Train Rwanda 2022 real census:
 ```
-python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 --occupancymodel --weightdecay 0.00001 --sentinelbuildings --pretrained --biasinit 0.9407  --save-dir <your/save/dir>
+python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 -occmodel -wd 0.00001 -senbuilds -pret --biasinit 0.9407  --save-dir <your/save/dir>
 ```
 
 

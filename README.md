@@ -50,11 +50,13 @@ Set up the base environment like this:
 ```bash
 python -m venv PopMapEnv
 source PopMapEnv/bin/activate
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install numpy rasterio wandb tqdm nvidia-ml-py3 matplotlib scipy pillow pandas configargparse fvcore
 pip install requirements.txt
 ```
 Additionally, install GDAL without sudo access  as described in this [post](https://askubuntu.com/questions/689065/how-could-i-install-gdal-without-root)
  - download the gdal-3.4.1 binary, and extract it.
- - execute the commands (this might take some time):
+ - install GDAL using these commands (this might take some time):
 ```bash
 ./autogen.sh
 ./configure
@@ -63,7 +65,7 @@ make
 
 ### Data
 
-All necessary data is available [here](https://drive.google.com/drive/folders/1jExHgmVrIznKRrG2Mc6_d1-6HfyJJUhk?usp=sharing). Place the data into the following folder structure:
+The code repository contains all the necessary functionalities to reproduce the dataset from the raw data and Google Earth Engine. For the user's convenience, we host necessary preprocessed datasets [here](https://drive.google.com/drive/folders/1jExHgmVrIznKRrG2Mc6_d1-6HfyJJUhk?usp=sharing). Download and place the data into the following folder structure:
 
 ```
 PopMapData/
@@ -122,8 +124,25 @@ python run_eval.py --resume ...
 
 ## Training
 
-...
+Train Switzerland:
+```
+python run_train.py ...
+```
 
+Train Rwanda projected census 2020:
+```
+python run_train.py -S2 -NIR -S1 -rse -treg rwa -tregtrain rwa --full_aug --seed 1600 --occupancymodel --weightdecay 0.00001 --weightdecay_unet 0.00001 --sentinelbuildings --train_level coarse --pretrained --biasinit 0.9407
+```
+
+Train Puerto Rico:
+```
+python run_train.py ...
+```
+
+Train Rwanda 2022 real census:
+```
+python run_train.py -S2 -NIR -S1 -rse -treg rwa -tregtrain rwa2022 --full_aug --seed 1600 --occupancymodel --weightdecay 0.00001 --weightdecay_unet 0.00001 --sentinelbuildings --train_level coarse --pretrained --biasinit 0.9407
+```
 
 
 

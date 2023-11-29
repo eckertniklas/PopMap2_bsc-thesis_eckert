@@ -6,7 +6,7 @@
 </p>
 
 
-# POPCORN: High-resolution Population Maps Derived from Sentinel-1 and Sentinel-2
+# 🍿POPCORN: High-resolution Population Maps Derived from Sentinel-1 and Sentinel-2 🌍🛰️
 
 <p align="center">
     <a href="https://nandometzger.github.io/"><strong>Nando Metzger</strong></a><sup>🏦</sup>,
@@ -20,6 +20,7 @@
   <sup>🍇</sup> Environmental Computation Science and Earth Observation Laboratory, EPFL Sion
 </p>
 
+### Abstract 🔍 
 Detailed population maps play an important role in diverse fields ranging from humanitarian action to urban planning. 
 Generating such maps in a timely and scalable manner presents a challenge, especially in data-scarce regions.
 To address it we have developed POPCORN, a population mapping method whose only inputs are free, globally available satellite images from Sentinel-1 and Sentinel-2; and a small number of aggregate population counts over coarse census districts for calibration.
@@ -32,7 +33,7 @@ With our work we aim to democratize access to up-to-date and high-resolution pop
 
 ![Bunia Time Series](imgs/series_bunia.jpg)
 
-## Methodology
+## Methodology 🧠🛰️💻
 
 The core of our method is a neural network model, termed POPCORN. That model has two components: (1) a pre-trained, frozen built-up area extractor; and (2) a building occupancy module that we train through weak supervision with coarse census counts, as illustrated in the Figure below.
 
@@ -40,9 +41,9 @@ The model operates at the full Sentinel-1/-2 resolution, i.e., its output has a 
 
 ![Graphical Abstract](imgs/graphical_abstract_v17.jpg)
 
-## Setup
+## Setup 🔧💾
 
-### Environment
+### Environment 🐍
 
 Instructions on how to install the project or library.
 
@@ -61,9 +62,9 @@ Additionally, install GDAL without sudo access  as described in this [post](http
 make
 ```
 
-### Data
+### Data 🌐🗂️
 
-The code repository contains all the necessary functionalities to reproduce the dataset from the raw data and Google Earth Engine. For the user's convenience, we host necessary preprocessed datasets [here](https://drive.google.com/drive/folders/1jExHgmVrIznKRrG2Mc6_d1-6HfyJJUhk?usp=sharing). Download and place the data into the following folder structure for Switzerland (`che`), Rwanda (`rwa`), and Puerto Rico (`pricp2`):
+The code repository contains all the necessary functionalities to reproduce the dataset from the raw data and Google Earth Engine. For the user's convenience, we host necessary preprocessed datasets [here](https://drive.google.com/drive/folders/1jExHgmVrIznKRrG2Mc6_d1-6HfyJJUhk?usp=sharing). Download and place the data into the following folder structure for Switzerland🇨🇭 (`che`), Rwanda🇷🇼 (`rwa`), and Puerto Rico🇵🇷 (`pricp2`):
 
 ```
 PopMapData/
@@ -105,13 +106,13 @@ PopMapData/
             └── ...
 ```
 
-## Testing
+## Testing 🗺️
 
-### Checkpoints
+### Checkpoints 💾
 
 Checkpoints can be downloaded from ...
 
-### Inference
+### Inference 🚀📊⚖️ 
 
 You can use the `run_eval.py` script to generate maps and evaluate them subsequently using
 ```
@@ -124,7 +125,7 @@ python run_eval.py -occmodel -senbuilds -S2 -NIR -S1 -treg <inference dataset na
 
 ...
 
-## Training
+## Training 🏋️‍♂️ 
 
 Train Switzerland:
 ```

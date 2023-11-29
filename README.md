@@ -38,6 +38,24 @@ Conveniently, POPCORN retrieves explicit maps of built-up areas and of local bui
 Moreover, we find that, once trained, the model can be applied repeatedly to track population changes; and that it can be transferred to geographically similar regions with only a moderate loss in performance (e.g., from Uganda to Rwanda).
 With our work we aim to democratize access to up-to-date and high-resolution population maps, recognizing that some regions faced with particularly strong population dynamics may lack the resources for costly micro-census campaigns.
 
+The population map of Rwanda is available on Google Earth Engine:
+
+```
+var popDensity = ee.Image("projects/ee-nandometzger/assets/POPCORNv1");
+```
+<a href="https://ee-nandometzger.projects.earthengine.app/view/popcornv1-rwa" target="_blank">
+  <button style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+    DEMO APPLICATION
+  </button>
+</a>
+
+<p align="center">
+  <img src="imgs/ee_demo.gif" alt="EE DEMO" width="600"/>
+</p>
+
+
+
+
 ![Bunia Time Series](imgs/series_bunia.jpg)
 
 ## Methodology 🧠🛰️💻

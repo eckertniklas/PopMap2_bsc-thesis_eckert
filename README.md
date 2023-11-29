@@ -54,7 +54,7 @@ pip install requirements.txt
 ```
 Additionally, install GDAL without sudo access  as described in this [post](https://askubuntu.com/questions/689065/how-could-i-install-gdal-without-root)
  - download the gdal-3.4.1 binary, and extract it.
- - execute the commands (this might take some time):
+ - install GDAL using these commands (this might take some time):
 ```bash
 ./autogen.sh
 ./configure

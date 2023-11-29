@@ -39,7 +39,7 @@ parser.add_argument("-head", "--head", default="v3", help="")
 
 parser.add_argument('-wd', '--weightdecay', help='', type=float, default=0.0)
 # parser.add_argument('-wdu', '--weightdecay_unet', help='', type=float, default=0.0)
-parser.add_argument("-rse", "--random_season", action='store_true', help="")
+# parser.add_argument("-rse", "--random_season", action='store_true', help="")
 parser.add_argument('-lrs', '--lr_step', help='', type=int, default=5)
 parser.add_argument('-lrg', '--lr_gamma', help='', type=float, default=0.75)
 parser.add_argument('-gc', '--gradient_clip', help='', type=float, default=0.01)

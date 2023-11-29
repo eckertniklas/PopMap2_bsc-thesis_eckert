@@ -115,7 +115,7 @@ Checkpoints can be downloaded from ...
 
 You can use the 'run_eval.py' script to generate maps and evaluate them subsequently using
 ```
-python run_eval.py -occmodel -senbuilds -S2 -NIR -S1 -treg rwa --fourseasons \
+python run_eval.py -occmodel -senbuilds -S2 -NIR -S1 -treg <inference dataset name> --fourseasons \
   --resume \
     /path/to/model1/last_model.pth \
     /path/to/model2/last_model.pth \

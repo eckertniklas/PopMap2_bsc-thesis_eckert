@@ -50,6 +50,8 @@ Set up the base environment like this:
 ```bash
 python -m venv PopMapEnv
 source PopMapEnv/bin/activate
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install numpy rasterio wandb tqdm nvidia-ml-py3 matplotlib scipy pillow pandas configargparse fvcore
 pip install requirements.txt
 ```
 Additionally, install GDAL without sudo access  as described in this [post](https://askubuntu.com/questions/689065/how-could-i-install-gdal-without-root)

@@ -172,6 +172,15 @@ Train Rwanda 2022 real census:
 python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 -occmodel -wd 0.00001 -senbuilds -pret --biasinit 0.9407  --save-dir <your/save/dir>
 ```
 
+## Recompute the dataset
+
+To ensure full reproducability and additional expandability of our workflow. We provide the the full datapipline to recompute the input images:
+
+```
+python utils/01_download_ee_ .py bounding box coordinates ....
+``` 
+... TODO description coming soon ...
+
 
 ## Fun fact
 

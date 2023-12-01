@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from sklearn import model_selection
+
 import wandb
 
 import rasterio
@@ -393,7 +393,7 @@ class Trainer:
             dataloaders: dictionary of dataloaders
         """
 
-        input_defs = {'S1': args.Sentinel1, 'S2': args.Sentinel2, 'VIIRS': args.VIIRS, 'NIR': args.NIR}
+        input_defs = {'S1': args.Sentinel1, 'S2': args.Sentinel2, 'NIR': args.NIR}
 
         self.dataset_stats = load_json(os.path.join(config_path, 'dataset_stats', 'my_dataset_stats_unified_2A.json'))
         for mkey in self.dataset_stats.keys():

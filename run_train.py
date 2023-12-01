@@ -418,7 +418,7 @@ class Trainer:
         """
 
         # define input definitions (standards)
-        input_defs = {'S1': args.Sentinel1, 'S2': args.Sentinel2, 'VIIRS': args.VIIRS, 'NIR': args.NIR}
+        input_defs = {'S1': args.Sentinel1, 'S2': args.Sentinel2, 'NIR': args.NIR}
 
         self.data_transform = {}
         general_transforms = [

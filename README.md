@@ -6,10 +6,13 @@
 </p>
 
 
-# POPCORN: High-resolution Population Maps Derived from Sentinel-1 and Sentinel-2
+<h1 align="center">
+  🍿POPCORN: High-resolution Population Maps Derived from Sentinel-1 and Sentinel-2 🌍🛰️
+</h1>
+
 
 <p align="center">
-    <a href="https://nandometzger.github.io/"><strong>Nando Metzger</strong></a><sup>🏦</sup>,
+    <a href="https://nandometzger.github.io/"><strong>Nando Metzger</strong></a><sup>🏦📧</sup>,
     <a href="https://rcdaudt.github.io/"><strong>Rodrigo Caye Daudt</strong></a><sup>🏦</sup>,
     <a href="https://people.epfl.ch/devis.tuia"><strong>Devis Tuia</strong></a><sup>🍇</sup>,
     <a href="https://igp.ethz.ch/personen/person-detail.html?persid=143986"><strong>Konrad Schindler</strong></a><sup>🏦</sup>
@@ -17,9 +20,14 @@
 
 <p align="center">
   <sup>🏦</sup> Photogrammetry and Remote Sensing, ETH Zürich<br>
-  <sup>🍇</sup> Environmental Computation Science and Earth Observation Laboratory, EPFL Sion
+  <sup>🍇</sup> Environmental Computation Science and Earth Observation Laboratory, EPFL Sion<br>
+  <sup>📧</sup> Corresponding Author: nando.metzger@geod.baug.ethz.ch
 </p>
 
+<p align="center">
+</p>
+
+### Abstract 🔍 
 Detailed population maps play an important role in diverse fields ranging from humanitarian action to urban planning. 
 Generating such maps in a timely and scalable manner presents a challenge, especially in data-scarce regions.
 To address it we have developed POPCORN, a population mapping method whose only inputs are free, globally available satellite images from Sentinel-1 and Sentinel-2; and a small number of aggregate population counts over coarse census districts for calibration.
@@ -30,9 +38,27 @@ Conveniently, POPCORN retrieves explicit maps of built-up areas and of local bui
 Moreover, we find that, once trained, the model can be applied repeatedly to track population changes; and that it can be transferred to geographically similar regions with only a moderate loss in performance (e.g., from Uganda to Rwanda).
 With our work we aim to democratize access to up-to-date and high-resolution population maps, recognizing that some regions faced with particularly strong population dynamics may lack the resources for costly micro-census campaigns.
 
+The population map of Rwanda is available on Google Earth Engine:
+
+```
+var popDensity = ee.Image("projects/ee-nandometzger/assets/POPCORNv1");
+```
+<a href="https://ee-nandometzger.projects.earthengine.app/view/popcornv1-rwa" target="_blank">
+  <button style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+    DEMO APPLICATION
+  </button>
+</a>
+
+<p align="center">
+  <img src="imgs/ee_demo.gif" alt="EE DEMO" width="600"/>
+</p>
+
+
+
+
 ![Bunia Time Series](imgs/series_bunia.jpg)
 
-## Methodology
+## Methodology 🧠🛰️💻
 
 The core of our method is a neural network model, termed POPCORN. That model has two components: (1) a pre-trained, frozen built-up area extractor; and (2) a building occupancy module that we train through weak supervision with coarse census counts, as illustrated in the Figure below.
 
@@ -40,9 +66,9 @@ The model operates at the full Sentinel-1/-2 resolution, i.e., its output has a 
 
 ![Graphical Abstract](imgs/graphical_abstract_v17.jpg)
 
-## Setup
+## Setup 🔧💾
 
-### Environment
+### Environment 🐍
 
 Instructions on how to install the project or library.
 
@@ -61,9 +87,9 @@ Additionally, install GDAL without sudo access  as described in this [post](http
 make
 ```
 
-### Data
+### Data 🌐🗂️
 
-The code repository contains all the necessary functionalities to reproduce the dataset from the raw data and Google Earth Engine. For the user's convenience, we host necessary preprocessed datasets [here](https://drive.google.com/drive/folders/1jExHgmVrIznKRrG2Mc6_d1-6HfyJJUhk?usp=sharing). Download and place the data into the following folder structure:
+The code repository contains all the necessary functionalities to reproduce the dataset from the raw data and Google Earth Engine. For the user's convenience, we host necessary preprocessed datasets [here](https://drive.google.com/drive/folders/1jExHgmVrIznKRrG2Mc6_d1-6HfyJJUhk?usp=sharing). Download and place the data into the following folder structure for Switzerland🇨🇭 (`che`), Rwanda🇷🇼 (`rwa`), and Puerto Rico🇵🇷 (`pricp2`):
 
 ```
 PopMapData/
@@ -105,44 +131,59 @@ PopMapData/
             └── ...
 ```
 
-## Testing
+## Testing 🧪🗺️
 
-### Checkpoints
+### Checkpoints 💾
 
 Checkpoints can be downloaded from ...
 
-### Inference
+### Inference 🚀📊⚖️ 
 
-You can use the 'run_eval.py' script to generate maps and evaluate them subsequently using
+You can use the `run_eval.py` script to generate maps and evaluate them subsequently using
 ```
-python run_eval.py --resume ...
+python run_eval.py -occmodel -senbuilds -S2 -NIR -S1 -treg <inference dataset name> --fourseasons \
+  --resume \
+    /path/to/model1/last_model.pth \
+    /path/to/model2/last_model.pth \
+    ....
 ```
 
 ...
 
-## Training
+## Training 🏋️‍♂️ 
 
 Train Switzerland:
 ```
-python run_train.py ...
+python run_train.py -S2 -NIR -S1 -treg che -tregtrain che --seed 1600 -occmodel -wd 0.0000005 -senbuilds -pret --biasinit 0.2267 --save-dir <your/save/dir>
 ```
 
 Train Rwanda projected census 2020:
 ```
-python run_train.py -S2 -NIR -S1 -rse -treg rwa -tregtrain rwa --full_aug --seed 1600 --occupancymodel --weightdecay 0.00001 --weightdecay_unet 0.00001 --sentinelbuildings --train_level coarse --pretrained --biasinit 0.9407
+python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa --seed 1600 -occmodel -wd 0.00001 -senbuilds -pret --biasinit 0.9407 --save-dir <your/save/dir>
 ```
 
 Train Puerto Rico:
 ```
-python run_train.py ...
+python run_train.py -S2 -NIR -S1 -treg pricp2 -tregtrain pricp2 --seed 1600 -occmodel -wd 0.0000005 -senbuilds -pret --biasinit 0.4119 --save-dir <your/save/dir>
 ```
 
 Train Rwanda 2022 real census:
 ```
-python run_train.py -S2 -NIR -S1 -rse -treg rwa -tregtrain rwa2022 --full_aug --seed 1600 --occupancymodel --weightdecay 0.00001 --weightdecay_unet 0.00001 --sentinelbuildings --train_level coarse --pretrained --biasinit 0.9407
+python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 -occmodel -wd 0.00001 -senbuilds -pret --biasinit 0.9407  --save-dir <your/save/dir>
 ```
 
+## Recompute the dataset
+
+To ensure full reproducability and additional expandability of our workflow. We provide the the full datapipline to recompute the input images:
+
+```
+python utils/01_download_ee_ .py bounding box coordinates ....
+``` 
+... TODO description coming soon ...
 
 
+## Fun fact
+
+ - "POPCORN" stands for POPulation from CORrse census Numbers🍿.
 
 

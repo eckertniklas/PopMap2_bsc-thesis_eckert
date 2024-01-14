@@ -70,7 +70,7 @@ The model operates at the full Sentinel-1/-2 resolution, i.e., its output has a 
 
 ### Environment 🐍
 
-Instructions on how to install the project or library.
+Instructions on how to install the project or library (Tested on Linux)
 
 Set up the base environment like this:
 ```bash
@@ -79,7 +79,7 @@ source PopMapEnv/bin/activate
 pip install requirements.txt
 ```
 Additionally, install GDAL without sudo access  as described in this [post](https://askubuntu.com/questions/689065/how-could-i-install-gdal-without-root)
- - download the gdal-3.4.1 binary, and extract it.
+ - download the [gdal-3.4.1 binary](https://gdal.org/download.html), and extract it.
  - install GDAL using these commands (this might take some time):
 ```bash
 ./autogen.sh

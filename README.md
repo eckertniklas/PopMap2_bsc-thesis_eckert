@@ -195,7 +195,7 @@ Make sure gcloud is installed on the local as well as the remote device. Connect
 ```
 gcloud auth application-default login --no-browser
 ```
-This will generate another gcloud command like `gcloud auth application-default login --remote-bootstrap="...."```. Copy this command and past it into your *local* terminal.
+This will generate another gcloud command like `gcloud auth application-default login --remote-bootstrap="...."`. Copy this command and past it into your *local* terminal.
 accept that you are bootstraping glcoud to a trusted machine, and the earth engine login-window in your browser should be prompted. After successful browser authentification, your local terminal should provide you with an output `https://localhost:8085/...`. Copy past this line into your remote terminal. 
 
 

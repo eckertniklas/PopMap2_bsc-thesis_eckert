@@ -176,29 +176,27 @@ python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 -occmo
 
 To ensure full reproducibility and additional expandability of our workflow. We provide the full data pipeline to recompute the input images:
 
-### Download raw data
-
-#### Connect to Google Earth Engine 
+### Connect to Google Earth Engine 
 
  - Make sure you have the (gcloud)[https://cloud.google.com/sdk/docs/install#linux] application installed.
  - 
-##### Local Machine
+#### Local Machine
 
 If you are on a local machine, you can login via this command, which will prompt the login page on your browser.
 ```
 gcloud auth application-default login
 ```
 
-##### Remote Machine (SSH)
+#### Remote Machine (SSH)
 
 Make sure gcloud is installed on the local as well as the remote device. Connect via ssh to you remote machine and run the following command on your *remote* terminal: 
 ```
 gcloud auth application-default login --no-browser
 ```
 This will generate another gcloud command like `gcloud auth application-default login --remote-bootstrap="...."`. Copy this command and past it into your *local* terminal.
-accept that you are bootstraping glcoud to a trusted machine, and the earth engine login-window in your browser should be prompted. After successful browser authentification, your local terminal should provide you with an output `https://localhost:8085/...`. Copy past this line into your remote terminal. 
+accept that you are bootstraping glcoud to a trusted machine, and the Earth Engine login-window in your browser should be prompted. After successful browser authentification, your local terminal should provide you with an output `https://localhost:8085/...`. Copy past this line into your remote terminal. 
 
-
+### Download raw data
 ```
 python utils/01_download_ee_ .py bounding box coordinates ....
 ``` 

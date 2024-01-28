@@ -70,7 +70,7 @@ The model operates at the full Sentinel-1/-2 resolution, i.e., its output has a 
 
 ### Environment 🐍
 
-Instructions on how to install the project or library.
+Instructions on how to install the project or library (Tested on Linux)
 
 Set up the base environment like this:
 ```bash
@@ -79,7 +79,7 @@ source PopMapEnv/bin/activate
 pip install requirements.txt
 ```
 Additionally, install GDAL without sudo access  as described in this [post](https://askubuntu.com/questions/689065/how-could-i-install-gdal-without-root)
- - download the gdal-3.4.1 binary, and extract it.
+ - download the [gdal-3.4.1 binary](https://gdal.org/download.html), and extract it.
  - install GDAL using these commands (this might take some time):
 ```bash
 ./autogen.sh
@@ -89,7 +89,7 @@ make
 
 ### Data 🌐🗂️
 
-The code repository contains all the necessary functionalities to reproduce the dataset from the raw data and Google Earth Engine. For the user's convenience, we host necessary preprocessed datasets [here](https://drive.google.com/drive/folders/1jExHgmVrIznKRrG2Mc6_d1-6HfyJJUhk?usp=sharing). Download and place the data into the following folder structure for Switzerland🇨🇭 (`che`), Rwanda🇷🇼 (`rwa`), and Puerto Rico🇵🇷 (`pricp2`):
+The code repository contains all the necessary functionalities to reproduce the dataset from the raw data and Google Earth Engine. For the user's convenience, we host necessary preprocessed datasets [here](https://drive.google.com/drive/folders/1jExHgmVrIznKRrG2Mc6_d1-6HfyJJUhk?usp=sharing). Download and place the data into the following folder structure for Switzerland (`che`), Rwanda (`rwa`), and Puerto Rico (`pricp2`):
 
 ```
 PopMapData/
@@ -174,8 +174,29 @@ python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 -occmo
 
 ## Recompute the dataset
 
-To ensure full reproducability and additional expandability of our workflow. We provide the the full datapipline to recompute the input images:
+To ensure full reproducibility and additional expandability of our workflow. We provide the full data pipeline to recompute the input images:
 
+### Connect to Google Earth Engine 
+
+ - Make sure you have the (gcloud)[https://cloud.google.com/sdk/docs/install#linux] application installed.
+ - 
+#### Local Machine
+
+If you are on a local machine, you can login via this command, which will prompt the login page on your browser.
+```
+gcloud auth application-default login
+```
+
+#### Remote Machine (SSH)
+
+Make sure gcloud is installed on the local as well as the remote device. Connect via ssh to you remote machine and run the following command on your *remote* terminal: 
+```
+gcloud auth application-default login --no-browser
+```
+This will generate another gcloud command like `gcloud auth application-default login --remote-bootstrap="...."`. Copy this command and past it into your *local* terminal.
+accept that you are bootstraping glcoud to a trusted machine, and the Earth Engine login-window in your browser should be prompted. After successful browser authentification, your local terminal should provide you with an output `https://localhost:8085/...`. Copy past this line into your remote terminal. 
+
+### Download raw data
 ```
 python utils/01_download_ee_ .py bounding box coordinates ....
 ``` 

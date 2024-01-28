@@ -59,6 +59,28 @@
             ]
         },
         {
+            "name": "01_download_gee_country_single_frame.py, single frames gaza",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/01_download_gee_country_single_frame.py",
+            "console": "integratedTerminal",
+            "args": [
+                "34.216666", // Southwestern corner longitude
+                "31.216667", // Southwestern corner latitude
+                "34.558333", // Northeastern corner longitude
+                "31.583333", // Northeastern corner latitude
+                "gaza_v1",
+            ]
+        },
+        {
+            "name": "time_series_inference_single_frame.py, single frames gaza",
+            "type": "python",
+            "request": "launch",
+            "program": "time_series_inference_single_frame.py",
+            "console": "integratedTerminal",
+            "args": [ ]
+        },
+        {
             "name": "01_download_gee_country.py, CHE",
             "type": "python",
             "request": "launch",

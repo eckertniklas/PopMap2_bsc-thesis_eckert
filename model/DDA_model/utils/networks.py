@@ -249,8 +249,7 @@ class DualStreamUNet(nn.Module):
         elif S2 and not S1:
             return logits_optical
         
-        else:
-            
+        else: 
             # forward the fusion features through the fusion out conv
             logits_fusion = self.fusion_out_conv(features_fusion)
             
@@ -278,8 +277,6 @@ class DualStreamUNet(nn.Module):
         patchwise forward pass
         """
 
-        # self.check_input_shape(x)
-        # assert not return_features, "return_features is not supported for sparse_forward"
 
         # pad the input tensor to be divisible by the patchsize
         bs,_,h,w = x.shape
@@ -292,8 +289,9 @@ class DualStreamUNet(nn.Module):
         bs,_,hnew,wnew = x.shape
         if S1 and S2:
             c = self.sar_stream.up_seq.up2.conv.conv[3].out_channels*2
-        if S1 or S2:
+        elif S1 or S2:
             c = self.sar_stream.up_seq.up2.conv.conv[3].out_channels
+        c = c if return_features else 1
         out = torch.zeros((bs,c,hnew,wnew), device=x.device)
         
         overlap = 16  # Size of the overlapping region on each edge
@@ -308,14 +306,17 @@ class DualStreamUNet(nn.Module):
                 j1 = max(j - overlap, 0)
                 j2 = min(j + self.patchsize + overlap, wnew)
 
-                mask_patch = sparsity_mask[:, i1:i2, j1:j2]
+                mask_patch = sparsity_mask[:, i1:i2, j1:j2] 
                 active_idxs = torch.nonzero(torch.sum(mask_patch, dim=(1, 2)) > 0)
 
                 if active_idxs.nelement() > 0:
                     x_patch = x[active_idxs[:, 0], :, i1:i2, j1:j2]
 
                     # Forward pass
-                    out_patch = self.forward(x_patch, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True, S1=S1, S2=S2)
+                    if return_features:
+                        out_patch = self.forward(x_patch, alpha=0, encoder_no_grad=encoder_no_grad, return_features=True, S1=S1, S2=S2)
+                    else:
+                        out_patch = self.forward(x_patch, alpha=0, encoder_no_grad=encoder_no_grad, return_features=False, S1=S1, S2=S2)[2]
                     # out_patch = self.forward(x_patch, return_features=True, encoder_no_grad=encoder_no_grad)[0]
 
                     # Add the patch to the output tensor

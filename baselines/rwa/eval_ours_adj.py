@@ -73,25 +73,6 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
     # load map
     with rasterio.open(map_path) as src:
         hr_pop_map = torch.from_numpy(src.read(1))
-        # pop_map = pop_map.to(torch.float16)
-    # hr_pop_map[hr_pop_map != hr_pop_map] = 0
-    
-    # translate the the meta maps in the template file coordinate system
-    # force_recompute = False
-    # if not os.path.exists(hr_map_path) or force_recompute:
-    #     x_stretch, y_stretch = reproject_maps(map_path, template_path, hr_map_path)
-    # else:
-    #     x_stretch = 1.0
-    #     y_stretch = 1.0
-
-    # x_stretch = 1.0
-    # y_stretch = 1.0
-
-    # # Load the high resolution map
-    # with rasterio.open(map_path) as src:
-    #     hr_pop_map = torch.from_numpy(src.read(1))
-    #     hr_pop_map = hr_pop_map/x_stretch/y_stretch
-    #     hr_pop_map = hr_pop_map.to(torch.float16)
 
     # replace nan values with 0
     hr_pop_map[hr_pop_map != hr_pop_map] = 0

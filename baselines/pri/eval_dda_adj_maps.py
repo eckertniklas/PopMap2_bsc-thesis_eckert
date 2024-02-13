@@ -165,7 +165,7 @@ def evaluate_meta_maps(map_path, template_path, wpop_raster_template):
 
 if __name__=="__main__":
     """
-    Evaluates the Worldpop-maps on the test set of Puerto Rico
+    Evaluates the DDA maps on the test set of Puerto Rico
     """
     # map_path = "/scratch/metzgern/HAC/data/PopMapData/processed/pricp2/buildingsDDA2_44C.tif"
     # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/pricp2/Gbuildings_pricp2_counts.tif"

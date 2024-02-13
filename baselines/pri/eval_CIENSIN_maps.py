@@ -130,7 +130,7 @@ def evaluate_meta_maps(map_path, template_path, force_recompute=False):
 
 if __name__=="__main__":
     """
-    Evaluates the GPWv4-maps on the test set of Puertorico
+    Evaluates the CIESIN GPWv4-maps on the test set of Puertorico
     """
     # map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/GHS_POP/GHS_POP_E2030_GLOBE_R2023A_54009_100_V1_0_R10_C22.tif"
     map_path = "/scratch2/metzgern/HAC/data/PopMapData/raw/CIENSIN/gpw-v4-documentation-rev11/gpw-v4-population-density-rev11_2020_30_sec_tif/gpw_v4_population_density_rev11_2020_30_sec.tif"

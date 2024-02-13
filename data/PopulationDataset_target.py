@@ -424,6 +424,8 @@ class Population_Dataset_target(Dataset):
             
         if "S1" in indata:
             if np.any(np.isnan(indata["S1"])):
+                # if there is a small amount of invalid pixels, we just interpolate it. if the amout is to large, we need to resort to another orbit
+                
                 S1tensor = torch.tensor(indata["S1"])
                 if torch.isnan(S1tensor).sum() / torch.numel(S1tensor) < 0.05 and not self.ascfill:
                     # interpolate the NaN values in the input array using bicubic interpolation, extrapolating if necessary using nearest neighbor if there are not too many NaNs

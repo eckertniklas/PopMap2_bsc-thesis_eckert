@@ -398,8 +398,6 @@ class Population_Dataset_target(Dataset):
                 img_coords: the coordinates of the patch
                 season: the season of the data as integer (0,1,2,3) for (spring, summer, autumn, winter)
                 census_idx: the index of the census sample
-
-
         """
         # get the indices of the patch
         census_sample = self.coarse_census.loc[index]

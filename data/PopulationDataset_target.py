@@ -265,11 +265,9 @@ class Population_Dataset_target(Dataset):
         self.inv_season_dict = {v: k for k, v in self.season_dict.items()}
         self.VIIRS_file = os.path.join(covar_root,  os.path.join("viirs", region +"_viirs.tif"))
 
-        # load the google buildings
+        # load the google buildings, if requested...
         if self.sentinelbuildings:
-            # load sentinel buildings
-            # self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA2_44C.tif")
-            # self.sbuildings_segmentation_file = os.path.join(pop_map_root, region, "buildingsDDA2_44C_8.tif")
+            # load sentinel buildings, (Not used anymore, will calculate on-the-fly)
             self.gbuildings_segmentation_file = ''
             self.sbuildings = True
             self.gbuildings = False
@@ -286,7 +284,6 @@ class Population_Dataset_target(Dataset):
                 self.gbuildings_counts_file = os.path.join(pop_gbuildings_path, region, "Gbuildings_" + region + "_counts.tif")
             self.gbuildings = True 
 
-        # normalize the dataset (do not use, this does not make sense for variable regions sizes like here)
         print("Setup done!")
         print("---------------------")
 

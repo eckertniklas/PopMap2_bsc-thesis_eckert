@@ -562,7 +562,7 @@ class Population_Dataset_target(Dataset):
             season: season of the patch
             patchsize: size of the patch
             overlap: overlap of the patches
-        :return:
+        Output:
             data: data of the patch
         """
         S2_RGB_channels = (3,2,1)
@@ -632,7 +632,7 @@ class Population_Dataset_target(Dataset):
             patchsize: size of the patch (tuple or None)
             overlap: overlap of the patches (int or None)
             admin_overlap: additional overlap for administrative regions (int)
-        :return:
+        Output:
             patchsize_x: x dimension of the patch
             patchsize_y: y dimension of the patch
             overlap: overlap of the patches
@@ -680,7 +680,7 @@ class Population_Dataset_target(Dataset):
         inputs:
             :param pred: predicted population
             :param gpu_mode: if aggregation is done on gpu (can use a bit more GPU memory, but is a lot faster)
-        outputs:
+        Output:
             :return: the predicted population for each census region
         """
 
@@ -825,10 +825,10 @@ class Population_Dataset_target(Dataset):
     def adjust_map_to_census(self, pred, gpu_mode=True):
         """
         Adjust the predicted map to the census regions via dasymmetric mapping strategy
-        inputs:
+        Inputs:
             :param pred: predicted map
             :param census: census data
-        outputs:
+        Output:
             :return: adjusted map
         """
         
@@ -857,10 +857,10 @@ class Population_Dataset_target(Dataset):
     def save(self, preds, output_folder, tag="") -> None:
         """
         Saves the predictions to a tif file
-        inputs:
+        Inputs:
             :param preds: the predictions
             :param output_folder: the folder to save the predictions to (will be created if it doesn't exist)
-        outputs:
+        Output:
             :return: None
         """
 
@@ -888,9 +888,9 @@ def Population_Dataset_collate_fn(batch):
     """
     Collate function for the dataloader used in the Population_Dataset class
     to ensure that all items in the batch have the same shape
-    inputs:
+    Inputs:
         :param batch: the batch of data with irregular shapes
-    outputs:
+    Output:
         :return: the batch of data with same shapes
     """
     # Find the maximum dimensions for each item in the batch 
@@ -908,11 +908,6 @@ def Population_Dataset_collate_fn(batch):
         input_batch_S1 = torch.zeros(len(batch), batch[0]['S1'].shape[0], max_x, max_y)
         use_S1 = True
 
-    # initialize the other tensors
-    # if 'building_segmentation' in batch[0]:
-    #     max_x = max([item['building_segmentation'].shape[1] for item in batch])
-    #     max_y = max([item['building_segmentation'].shape[2] for item in batch])
-    #     building_segmentation = torch.zeros(len(batch), 1, max_x, max_y)
     if 'building_counts' in batch[0]:
         max_x = max([item['building_counts'].shape[1] for item in batch])
         max_y = max([item['building_counts'].shape[2] for item in batch])
@@ -936,11 +931,6 @@ def Population_Dataset_collate_fn(batch):
 
         y_batch[i] = item['y']
 
-        # check if the other tensors are present and fill them if they are
-        # if "building_segmentation" in item:
-        #     x_size, y_size = item['building_segmentation'].shape[1], item['building_segmentation'].shape[2]
-        #     building_segmentation[i, :, :x_size, :y_size] = item['building_segmentation']
-        #     use_building_segmentation = True
         if "building_counts" in item:
             x_size, y_size = item['building_counts'].shape[1], item['building_counts'].shape[2]
             building_counts[i, :, :x_size, :y_size] = item['building_counts']
@@ -964,13 +954,8 @@ def Population_Dataset_collate_fn(batch):
         out_dict["S2"] = input_batch_S2
     if use_S1:
         out_dict["S1"] = input_batch_S1
-
-    # if use_building_segmentation:
-        # out_dict["building_segmentation"] = building_segmentation
     if use_building_counts:
         out_dict["building_counts"] = building_counts
-    # if use_positional_encoding:
-    #     out_dict["positional_encoding"] = positional_encoding
 
     return out_dict
 

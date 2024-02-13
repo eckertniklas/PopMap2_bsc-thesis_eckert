@@ -83,7 +83,6 @@ class Population_Dataset_target(Dataset):
         self.ascAug = ascAug
         self.train_level = train_level
 
-
         # get the path to the data files
         region_root = os.path.join(pop_map_root, region)
 
@@ -108,6 +107,7 @@ class Population_Dataset_target(Dataset):
                 # shuffle and sample the data
                 self.coarse_census = self.coarse_census.sample(frac=1, random_state=1610)[-max_samples:].reset_index(drop=True)
 
+            # check the split mode
             if split=="all":
                 self.coarse_census = self.coarse_census
                 print("Using", len(self.coarse_census), "samples in this dataset")

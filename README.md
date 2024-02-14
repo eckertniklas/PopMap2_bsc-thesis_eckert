@@ -135,7 +135,7 @@ PopMapData/
 
 ### Checkpoints 💾
 
-Checkpoints can be downloaded from ...
+Checkpoints can be downloaded from [here](https://drive.google.com/drive/folders/1rOHSZmAQLzM1HwTv3PooqApggTq_rCr0?usp=sharing).
 
 ### Inference 🚀📊⚖️ 
 
@@ -182,7 +182,7 @@ To ensure full reproducibility and additional expandability of our workflow. We 
  - 
 #### Local Machine
 
-If you are on a local machine, you can login via this command, which will prompt the login page on your browser.
+If you are on a local machine, you can log in via this command, which will prompt the login page on your browser.
 ```
 gcloud auth application-default login
 ```
@@ -193,12 +193,12 @@ Make sure gcloud is installed on the local as well as the remote device. Connect
 ```
 gcloud auth application-default login --no-browser
 ```
-This will generate another gcloud command like `gcloud auth application-default login --remote-bootstrap="...."`. Copy this command and past it into your *local* terminal.
-accept that you are bootstraping glcoud to a trusted machine, and the Earth Engine login-window in your browser should be prompted. After successful browser authentification, your local terminal should provide you with an output `https://localhost:8085/...`. Copy past this line into your remote terminal. 
+This will generate another gcloud command like `gcloud auth application-default login --remote-bootstrap="...."`. Copy this command and paste it into your *local* terminal.
+Accept that you are bootstraping glcoud to a trusted machine, and the Earth Engine login window in your browser should be prompted. After successful browser authentification, your local terminal should provide an output `https://localhost:8085/...`. Copy and paste this line into your remote terminal. 
 
 ### Download raw data
 ```
-python utils/01_download_ee_ .py bounding box coordinates ....
+python utils/01_download_ee_ .py bounding box coordinates ...
 ``` 
 ... TODO description coming soon ...
 

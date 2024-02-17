@@ -27,6 +27,10 @@
 <p align="center">
 </p>
 
+
+> #### 💡 **TL;DR**
+> **POPCORN** is a scalable population mapping method using free satellite images and minimal data, surpassing existing accuracy and providing interpretable maps for tracking population changes in data-scarce regions.
+
 ### Abstract 🔍 
 Detailed population maps play an important role in diverse fields ranging from humanitarian action to urban planning. 
 Generating such maps in a timely and scalable manner presents a challenge, especially in data-scarce regions.

@@ -28,8 +28,9 @@ if os.name == "nt":  # locally
 # current_dir_path = "/scratch2/metzgern/HAC/code/So2SatPOP/data"
 # So2Sat data folder
 current_dir_paths = [
-    "/scratch/metzgern/HAC/data",
-    "/cluster/work/igp_psr/metzgern/HAC/data",
+    "/scratch2/neckert/data"
+    # "/scratch/metzgern/HAC/data",
+    # "/cluster/work/igp_psr/metzgern/HAC/data",
     # "/cluster/scratch/metzgern/HAC/data/",
 ]
 # --info=progress2 --info=name0 --ignore-existing
@@ -54,10 +55,11 @@ all_patches_mixed_test_part2 = os.path.join(all_patches_mixed_part2, 'test')   #
 
 # Sat2Pop data folder
 large_file_paths = [
-        "/scratch2/metzgern/HAC/data",
-        "/scratch/metzgern/HAC/data",
-        "/cluster/work/igp_psr/metzgern/HAC/data",
-        "/cluster/scratch/metzgern"
+        "/scratch2/neckert/data"
+        #"/scratch2/neckert/PopMapData",
+        #"/scratch/metzgern/HAC/data",
+        #"/cluster/work/igp_psr/metzgern/HAC/data",
+        #"/cluster/scratch/metzgern"
 ]
 for name in large_file_paths:
     if os.path.isdir(name):
@@ -65,17 +67,17 @@ for name in large_file_paths:
 if large_file_path is None:
     raise Exception("No data folder found")
 pop_map_root = os.path.join(large_file_path, os.path.join("PopMapData", "processed"))
-pop_map_root_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.join("PopMapData", "processed"))
+pop_map_root_large = os.path.join("/scratch2/neckert/data", os.path.join("PopMapData", "processed"))
 pop_map_covariates = os.path.join(large_file_path, os.path.join("PopMapData", os.path.join("merged", "EE")))
-pop_map_covariates_large = os.path.join("/scratch2/metzgern/HAC/data", os.path.join("PopMapData", os.path.join("merged", "EE")))
+pop_map_covariates_large = os.path.join("/scratch2/neckert/data", os.path.join("PopMapData", os.path.join("merged", "EE")))
 print("pop_map_root", pop_map_root)
 
 # raw data folder
 raw_file_paths = [
-        "/scratch2/metzgern/HAC/data",
-        "/scratch/metzgern/HAC/data",
-        "/cluster/work/igp_psr/metzgern/HAC/data",
-        "/cluster/scratch/metzgern"
+        "/scratch2/neckert/data",
+        #"/scratch/metzgern/HAC/data",
+        #"/cluster/work/igp_psr/metzgern/HAC/data",
+        #"/cluster/scratch/metzgern"
 ]
 for name in raw_file_paths:
     if os.path.isdir(name):
@@ -89,9 +91,9 @@ print("rawEE_map_root", rawEE_map_root)
 
 # google buildings data folder
 data_paths_aux = [
-        "/scratch/metzgern/HAC/data",
-        "/scratch2/metzgern/HAC/data",
-        "/cluster/work/igp_psr/metzgern/HAC/data",
+        "/scratch2/neckert/data",
+        #"/scratch2/metzgern/HAC/data",
+        #"/cluster/work/igp_psr/metzgern/HAC/data",
         # "/cluster/scratch/metzgern"
         # /cluster/work/igp_psr/metzgern/HAC/data/PopMapData/raw/GoogleBuildings
 ]

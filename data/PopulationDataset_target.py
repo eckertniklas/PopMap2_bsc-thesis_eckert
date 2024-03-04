@@ -180,11 +180,14 @@ class Population_Dataset_target(Dataset):
             global rawEE_map_root
             # rawEE_map_root = rawEE_map_root
             print(rawEE_map_root)
+            """
+            not used
             if not os.path.exists(os.path.join(rawEE_map_root, region, "S1spring")):
                 rawEE_map_root = rawEE_map_root.replace("scratch", "scratch3")
             if not os.path.exists(os.path.join(rawEE_map_root, region, "S1spring")):
                 rawEE_map_root = rawEE_map_root.replace("scratch3", "scratch2")
             print("Using rawEE_map_root: ", rawEE_map_root)
+            """
         
             spring_dir = os.path.join(rawEE_map_root, region, "S1spring")
             summer_dir = os.path.join(rawEE_map_root, region, "S1summer")

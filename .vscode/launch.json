@@ -2526,8 +2526,9 @@
                 "/scratch2/neckert/checkpoints/POPCORN_PRI_checkpoints/model4/last_model.pth",
                 "/scratch2/neckert/checkpoints/POPCORN_PRI_checkpoints/model5/last_model.pth",
             ]
-        }{
-            "name": "train, Stage 1, pri finetune, neckert",
+        },
+        {
+            "name": "train, Stage 1, pri finetune, neckert, limit3",
             "type": "python",
             "request": "launch",
             "program": "run_train.py",
@@ -2550,6 +2551,7 @@
                 "-pret",
                 "--biasinit",
                 "0.4119",
+                "-limit3",
                 "--save-dir",
                 "/scratch2/results"
             ]

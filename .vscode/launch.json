@@ -2551,7 +2551,12 @@
                 "-pret",
                 "--biasinit",
                 "0.4119",
-                "-limit3",
+                "--limit1",
+                "9000000",
+                "--limit2",
+                "9000000",
+                "--limit3",
+                "13000000",
                 "--save-dir",
                 "/scratch2/results"
             ]

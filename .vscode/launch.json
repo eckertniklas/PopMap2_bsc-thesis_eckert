@@ -2528,7 +2528,7 @@
             ]
         },
         {
-            "name": "train, Stage 1, pri finetune, neckert, limit3",
+            "name": "train, Stage 1, pri finetune, neckert, limit_1.0",
             "type": "python",
             "request": "launch",
             "program": "run_train.py",
@@ -2552,13 +2552,44 @@
                 "--biasinit",
                 "0.4119",
                 "--limit1",
-                "9000000",
+                "6000000",
                 "--limit2",
                 "9000000",
                 "--limit3",
                 "13000000",
                 "--save-dir",
                 "/scratch2/results"
+            ]
+        },
+        {
+            "name": "01_download_gee_country.py, RWA_gb, neckert",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/01_download_gee_country.py",
+            "console": "integratedTerminal",
+            "args": [
+                "28.782241559728206",
+                "-2.9039507660291455",
+                "30.96165440152508",
+                "-0.9948970488002317",
+                "rwa_gb",
+                // "/scratch2/metzgern/HAC/code/So2SatPOP/data/PopMapData/raw/GEEraster/RWA",
+                // "P_2020"
+            ]
+        },
+        {
+            "name": "06_rasterize_gbuildings.py, RWA, neckert",
+            "type": "python",
+            "request": "launch",
+            "program": "utils/06_rasterize_gbuildings.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--csv_path",
+                "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/rwa/Gbuildings_rwa.csv",
+                "--template_path",
+                "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa/S2Awinter/rwa_S2Awinter.tif",
+                "--output_folder",
+                "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/rwa/",
             ]
         }
     ]

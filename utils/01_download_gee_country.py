@@ -11,8 +11,7 @@ try:
 except:
     print("couldn't init EE")
     ee.Authenticate(auth_mode="localhost")
-    ee.Initialize()
-    # gcloud auth application-default login --no-browser
+    ee.Initialize(project="ee-neckert-bscthesis")
 
 
 ee_crs = ee.Projection('EPSG:4326')
@@ -456,12 +455,12 @@ def download(minx, miny, maxx, maxy, name):
     S1 = False
     S2 = False
     VIIRS = False
-    GoogleBuildings = False
+    GoogleBuildings = True
     S2A = False
 
-    S1 = True
+    # S1 = False
     # S2 = True
-    S2A = True
+    # S2A = False
     # VIIRS = True
     # GoogleBuildings = True
 
@@ -515,6 +514,7 @@ def download(minx, miny, maxx, maxy, name):
         # Google Buildings
         export_gbuildings(exportarea, "Gbuildings_" + name, folder=name, confidence_min=0.0, btype="v3") 
         export_gbuildings(exportarea, "Gbuildings_v1_" + name, folder=name, confidence_min=0.0, btype="v1")
+        print("gbuildings DONE!")
 
 
 

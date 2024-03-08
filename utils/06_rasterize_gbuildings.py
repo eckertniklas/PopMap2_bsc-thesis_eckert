@@ -83,7 +83,7 @@ def rasterize_gbuildings(csv_path, template_path, output_folder):
     output_path_counts = os.path.join(output_folder, csv_path.split('/')[-1].split('.')[0] + '_counts.tif') 
     with rasterio.open(output_path_counts, "w", **out_meta) as dest:
         dest.write(counts, 1)
-
+    print("Done!")
         
 
 
@@ -97,3 +97,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     rasterize_gbuildings(args.csv_path, args.template_path, args.output_folder)
+    

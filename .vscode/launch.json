@@ -2528,7 +2528,7 @@
             ]
         },
         {
-            "name": "train, Stage 1, pri finetune, neckert, limit_1.0",
+            "name": "train, Stage 1, pri finetune, neckert, limit_1.2",
             "type": "python",
             "request": "launch",
             "program": "run_train.py",
@@ -2552,9 +2552,9 @@
                 "--biasinit",
                 "0.4119",
                 "--limit1",
-                "6000000",
+                "5000000",
                 "--limit2",
-                "9000000",
+                "6000000",
                 "--limit3",
                 "13000000",
                 "--save-dir",
@@ -2585,11 +2585,11 @@
             "console": "integratedTerminal",
             "args": [
                 "--csv_path",
-                "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/rwa/Gbuildings_rwa.csv",
+                "/scratch2/neckert/open_buildings/Gbuildings_rwa_gb.csv",
                 "--template_path",
-                "/scratch2/metzgern/HAC/data/PopMapData/merged/EE/rwa/S2Awinter/rwa_S2Awinter.tif",
+                "/scratch2/neckert/data/PopMapData/merged/EE/rwa/S2Awinter/rwa_S2Awinter.tif",
                 "--output_folder",
-                "/scratch2/metzgern/HAC/data/PopMapData/raw/GoogleBuildings/rwa/",
+                "/scratch2/neckert/open_buildings/rwa_rasterized",
             ]
         }
     ]

@@ -133,12 +133,16 @@ class POMELO_module(nn.Module):
 
 # NEW FORWARD
     def forward(self, inputs, train=False, padding=True, return_features=True,
-                encoder_no_grad=False, unet_no_grad=False, sparse=False):
+                encoder_no_grad=False, unet_no_grad=False, sparse=False, builtuploss=False):
         """
         Forward pass of the model
         Assumptions:
             - inputs["input"] is the input image (Concatenation of Sentinel-1 and/or Sentinel-2)
             - inputs["input"].shape = [batch_size, input_channels, height, width]
+        """
+
+        """
+            - builtuploss = True: returns BuiltUp score image
         """
 
         X = inputs["input"]
@@ -305,9 +309,14 @@ class POMELO_module(nn.Module):
 
 
         #TODO: return builtup_count
-        return {"popcount": popcount, "popdensemap": popdensemap,
-                **aux,
-                }
+        if builtuploss is True:
+            return {"popcount": popcount, "popdensemap": popdensemap, "builtup_count": inputs["building_counts"],
+                    **aux,
+                    }
+        else:  
+            return {"popcount": popcount, "popdensemap": popdensemap,
+                    **aux,
+                    }
 
 
     def sparse_module_forward(self, inp: torch.Tensor, mask: torch.Tensor,

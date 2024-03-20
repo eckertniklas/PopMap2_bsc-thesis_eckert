@@ -145,7 +145,7 @@ class POMELO_module(nn.Module):
 
         # create building score, if not available in the dataset, or overwrite it if sentinelbuildings is True
         if "building_counts" not in inputs.keys() or self.sentinelbuildings:
-            with torch.no_grad():
+            with torch.no_grad(): #TODO gradients not freezing
                 inputs["building_counts"]  = self.create_building_score(inputs)
             torch.cuda.empty_cache()
 
@@ -303,6 +303,8 @@ class POMELO_module(nn.Module):
         else:
             popcount = popdensemap.sum((1,2))
 
+
+        #TODO: return builtup_count
         return {"popcount": popcount, "popdensemap": popdensemap,
                 **aux,
                 }
@@ -401,7 +403,7 @@ class POMELO_module(nn.Module):
         """
 
         # initialize the neural network, load from checkpoint
-        self.building_extractor.eval()
+        self.building_extractor.eval() #TODO trainmode or delete
         self.unetmodel.freeze_bn_layers()
  
         # add padding

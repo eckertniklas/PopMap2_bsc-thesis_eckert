@@ -59,4 +59,7 @@ parser.add_argument('-mwp', '--max_weak_pix', help='', type=int, default=1000000
 parser.add_argument('-mpb', '--max_pix_box', help='', type=int, default=12000000)
 parser.add_argument('-tlevel', '--train_level', nargs='+', default=["coarse"] )
 
+#building-loss add-on
+parser.add_argument("-bul", "--builtuploss", type=bool, default=False, help="")
+
 args = parser.parse_args()

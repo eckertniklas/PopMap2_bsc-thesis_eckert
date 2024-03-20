@@ -170,7 +170,7 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
     # if empty_eps>0.0:
     #     sample["building_counts"] = sample["building_counts"] + empty_eps
     
-    # merge inputs
+    # merge inputs TODO: check for segmentation
     if buildinginput:
         
         if "building_counts" in sample.keys() and "building_segmentation" not in sample.keys():

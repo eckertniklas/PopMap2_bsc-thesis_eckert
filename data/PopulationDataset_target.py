@@ -606,7 +606,7 @@ class Population_Dataset_target(Dataset):
             with rasterio.open(S1_file, "r") as src:
                 indata["S1"] = src.read(S1_channels, window=window).astype(np.float32) 
 
-        # building data
+        # building data TODO: make sure import works
         if self.gbuildings:
             if os.path.exists(self.gbuildings_segmentation_file): 
                 with rasterio.open(self.gbuildings_segmentation_file, "r") as src:
@@ -896,6 +896,7 @@ def Population_Dataset_collate_fn(batch):
     """
     # Find the maximum dimensions for each item in the batch 
 
+    #TODO: add for segmentation
     # Create empty tensors with the maximum dimensions
     use_S2, use_S1 = False, False
     if 'S2' in batch[0]:
@@ -914,7 +915,7 @@ def Population_Dataset_collate_fn(batch):
         max_y = max([item['building_counts'].shape[2] for item in batch])
         building_counts = torch.zeros(len(batch), 1, max_x, max_y)
     
-    # initialize flags
+    # initialize flags 
     use_building_segmentation, use_building_counts, use_positional_encoding = False, False, False
     
     # initialize tensors

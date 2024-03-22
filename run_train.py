@@ -469,7 +469,7 @@ class Trainer:
         for reg, lvl in zip(args.target_regions_train, args.train_level):
             splitmode = 'train' if self.args.weak_validation else 'all'
             weak_datasets.append( Population_Dataset_target(reg, mode="weaksup", split=splitmode, patchsize=None, overlap=None, max_samples=args.max_weak_samples,
-                                                            fourseasons=True, transform=None, sentinelbuildings=args.sentinelbuildings, 
+                                                            fourseasons=True, transform=None, sentinelbuildings=args.sentinelbuildings, builtuploss=args.builtuploss, 
                                                             ascfill=reg in need_asc, train_level=lvl, max_pix=self.args.max_weak_pix, max_pix_box=self.args.max_pix_box, ascAug=args.ascAug, **input_defs)  )
         dataloaders["weak_target_dataset"] = ConcatDataset(weak_datasets)
         dataloaders["train"] = DataLoader(dataloaders["weak_target_dataset"], batch_size=weak_loader_batchsize, num_workers=self.args.num_workers, shuffle=True, collate_fn=Population_Dataset_collate_fn, drop_last=True)
@@ -478,7 +478,7 @@ class Trainer:
         if self.args.weak_validation: 
             for reg, lvl in zip(args.target_regions_train, args.train_level):
                 weak_datasets_val.append(Population_Dataset_target(reg, mode="weaksup", split="val", patchsize=None, overlap=None, max_samples=args.max_weak_samples,
-                                                                fourseasons=True, transform=None, sentinelbuildings=args.sentinelbuildings, 
+                                                                fourseasons=True, transform=None, sentinelbuildings=args.sentinelbuildings, builtuploss=args.builtuploss, 
                                                                 ascfill=reg in need_asc, train_level=lvl, max_pix=self.args.max_weak_pix, max_pix_box=self.args.max_pix_box, **input_defs) )
             dataloaders["weak_target_val"] = [ DataLoader(weak_datasets_val[i], batch_size=self.args.weak_val_batch_size, num_workers=self.args.num_workers, shuffle=False, collate_fn=Population_Dataset_collate_fn, drop_last=True)
                                                 for i in range(len(args.target_regions_train)) ]

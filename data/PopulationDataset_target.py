@@ -85,8 +85,9 @@ class Population_Dataset_target(Dataset):
         self.train_level = train_level
         self.builtuploss = builtuploss
 
+        #deactivating sentinelbuildings and keeping gbuildings=true
         if self.builtuploss:
-            self.sbuildings = False
+            self.sentinelbuildings = False
 
         # get the path to the data files
         region_root = os.path.join(pop_map_root, region)
@@ -611,7 +612,7 @@ class Population_Dataset_target(Dataset):
             with rasterio.open(S1_file, "r") as src:
                 indata["S1"] = src.read(S1_channels, window=window).astype(np.float32) 
 
-        # building data TODO: make sure import works
+        # building data TODO: make sure import works, should work!
         if self.gbuildings:
             if os.path.exists(self.gbuildings_segmentation_file): 
                 with rasterio.open(self.gbuildings_segmentation_file, "r") as src:
@@ -919,6 +920,11 @@ def Population_Dataset_collate_fn(batch):
         max_x = max([item['building_counts'].shape[1] for item in batch])
         max_y = max([item['building_counts'].shape[2] for item in batch])
         building_counts = torch.zeros(len(batch), 1, max_x, max_y)
+
+    if 'building_segmentation' in batch[0]:
+        max_x = max([item['building_segmentation'].shape[1] for item in batch])
+        max_y = max([item['building_segmentation'].shape[2] for item in batch])
+        building_segmentation = torch.zeros(len(batch), 1, max_x, max_y)
     
     # initialize flags 
     use_building_segmentation, use_building_counts, use_positional_encoding = False, False, False
@@ -943,6 +949,11 @@ def Population_Dataset_collate_fn(batch):
             building_counts[i, :, :x_size, :y_size] = item['building_counts']
             use_building_counts = True
 
+        if "building_segmentation" in item:
+            x_size, y_size = item['building_segmentation'].shape[1], item['building_segmentation'].shape[2]
+            building_segmentation[i, :, :x_size, :y_size] = item['building_segmentation']
+            use_building_segmentation = True
+
         # get the admin_mask
         x_size, y_size = item['admin_mask'].shape[0], item['admin_mask'].shape[1]
         admin_mask_batch[i, :x_size, :y_size] = item['admin_mask']
@@ -963,6 +974,8 @@ def Population_Dataset_collate_fn(batch):
         out_dict["S1"] = input_batch_S1
     if use_building_counts:
         out_dict["building_counts"] = building_counts
+    if use_building_segmentation:
+        out_dict["building_segmentation"] = building_segmentation
 
     return out_dict
 

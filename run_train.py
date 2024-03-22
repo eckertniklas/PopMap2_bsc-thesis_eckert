@@ -450,7 +450,7 @@ class Trainer:
         # get the target regions for testing
         need_asc = ["uga"]
         datasets = {
-            "test_target": [ Population_Dataset_target( reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, ascfill=reg in need_asc, **input_defs) \
+            "test_target": [ Population_Dataset_target( reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, builtuploss=args.builtuploss, ascfill=reg in need_asc, **input_defs) \
                                 for reg in args.target_regions ] }
         dataloaders =  {
             "test_target":  [DataLoader(datasets["test_target"], batch_size=1, num_workers=self.args.num_workers, shuffle=False, drop_last=False) \

@@ -38,7 +38,7 @@ class Population_Dataset_target(Dataset):
     """
     def __init__(self, region, S1=False, S2=True, VIIRS=True, NIR=False, patchsize=1024, overlap=32, fourseasons=False, mode="test",
                  max_samples=None, transform=None, sentinelbuildings=True, ascfill=False, ascAug=False, train_level="fine", split="all",
-                 max_pix=5e6, max_pix_box=12000000) -> None:
+                 max_pix=5e6, max_pix_box=12000000, builtuploss=False) -> None:
         """
         Input:
             region: the region identifier (e.g. "pri" for puerto rico)
@@ -59,6 +59,7 @@ class Population_Dataset_target(Dataset):
             train_level: the level of the training data ("fine" or "coarse")
             max_pix: the maximum number of pixels in the administrative region
             max_pix_box: the maximum number of pixels in the bounding box
+            builtuploss: activates the builtuploss function
         """
         super().__init__()
 
@@ -82,6 +83,10 @@ class Population_Dataset_target(Dataset):
         self.split = split
         self.ascAug = ascAug
         self.train_level = train_level
+        self.builtuploss = builtuploss
+
+        if self.builtuploss:
+            self.sbuildings = False
 
         # get the path to the data files
         region_root = os.path.join(pop_map_root, region)

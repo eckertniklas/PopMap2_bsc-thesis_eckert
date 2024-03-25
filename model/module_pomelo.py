@@ -142,15 +142,15 @@ class POMELO_module(nn.Module):
         """
 
         """
-            - builtuploss = True: returns BuiltUp score image
+            - builtuploss = True: activates builtup-loss add-on
         """
 
         X = inputs["input"]
 
-        # create building score, if not available in the dataset, or overwrite it if sentinelbuildings is True
-        if "building_counts" not in inputs.keys() or self.sentinelbuildings:
-            with torch.no_grad(): #TODO gradients not freezing
-                inputs["building_counts"]  = self.create_building_score(inputs)
+        # create building score, if not available in the dataset, or overwrite it if sentinelbuildings or builtuploss is True
+        if "building_counts" not in inputs.keys() or self.sentinelbuildings or builtuploss:
+            with torch.no_grad(): #TODO: if-clause(builtuploss): deactivate no_grad
+                inputs["building_counts"]  = self.create_building_score(inputs, builtuploss=builtuploss)
             torch.cuda.empty_cache()
 
         if sparse:
@@ -403,7 +403,7 @@ class POMELO_module(nn.Module):
         return data
 
 
-    def create_building_score(self, inputs: dict) -> torch.Tensor:
+    def create_building_score(self, inputs: dict, builtuploss=False) -> torch.Tensor:
         """
         input:
             - inputs: dictionary with the input data
@@ -412,9 +412,17 @@ class POMELO_module(nn.Module):
         """
 
         # initialize the neural network, load from checkpoint
-        self.building_extractor.eval() #TODO trainmode or delete
+        self.building_extractor.eval() #TODO trainmode or delete (train is default?)
         self.unetmodel.freeze_bn_layers()
- 
+
+        """
+        if builtuploss:
+            self.unetmodel.freeze_bn_layers()
+        else:
+            self.building_extractor.eval()
+            self.unetmodel.freeze_bn_layers()
+        """
+
         # add padding
         X, (px1,px2,py1,py2) = self.add_padding(inputs["input"], True)
 

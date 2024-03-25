@@ -215,6 +215,10 @@ def apply_transformations_and_normalize(sample, transform, dataset_stats, buildi
                     else:
                         data.append(sample[key])
                     lens.append(data[-1].shape[1])
+                    
+            #remove "positional_encoding" from keys if not in sample
+            if "positional_encoding" in keys and "positional_encoding" not in sample:
+                keys.remove("positional_encoding")
 
             # Apply the transformation if there is data
             if sample["input"] is not None:

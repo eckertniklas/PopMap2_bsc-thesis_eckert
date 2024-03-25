@@ -7,6 +7,7 @@ from collections import defaultdict
 
 def get_loss(output, gt, scale=None,
              loss=["l1_loss"], lam=[1.0],
+             builtuploss=False, lam_bul = [1.0],
              tag="",
              scale_regularization=0.0,
              ):
@@ -18,6 +19,8 @@ def get_loss(output, gt, scale=None,
         loss: list of losses to be used
         lam: list of weights for each loss
         lam_mmd: float, weight for the MMD loss
+        builtuploss: bool, activates the builtup-loss add-on
+        lam_bul: float, weight for the builtup-loss
         tag: str, tag to be used for logging
         scale_regularization: float, weight for the scale regularization
     output:

@@ -224,6 +224,7 @@ class Trainer:
                 # compute loss
                 loss_weak, loss_dict_weak = get_loss(
                     output_weak, sample_weak, scale=output_weak["scale"], loss=args.loss, lam=args.lam,
+                    builtuploss=self.args.builtuploss, lam_bul = self.args.lambda_builtuploss,
                     scale_regularization=args.scale_regularization, tag="weak")
                 
                 # Detach tensors

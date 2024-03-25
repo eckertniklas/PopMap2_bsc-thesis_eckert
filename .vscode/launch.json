@@ -2625,9 +2625,10 @@
                 "--save-dir",
                 "/scratch2/results",
                 "--builtuploss",
-                "True",
                 "--buildinginput",
-                "--segmentationinput"
+                "--segmentationinput",
+                "--lambda_builtuploss",
+                "1.0"
             ]
         }
     ]

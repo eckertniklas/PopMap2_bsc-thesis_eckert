@@ -60,6 +60,7 @@ parser.add_argument('-mpb', '--max_pix_box', help='', type=int, default=12000000
 parser.add_argument('-tlevel', '--train_level', nargs='+', default=["coarse"] )
 
 #building-loss add-on
-parser.add_argument("-bul", "--builtuploss", type=bool, default=False, help="")
+parser.add_argument("-bul", "--builtuploss", help='', action='store_true')
+parser.add_argument("-lam_bul", "--lambda_builtuploss", type=float, default=1.0, help="")
 
 args = parser.parse_args()

@@ -39,6 +39,10 @@ def get_loss(output, gt, scale=None,
     if output["scale"] is not None:
         if output["scale"].dtype != torch.float32:
             output["scale"] = output["scale"].float()
+
+    if builtuploss == True:
+        if output["builtup_count"].dtype != torch.float32:
+            output["builtup_count"] = output["builtup_count"].float()
     
     # prepare vars1.0
     y_pred = output["popcount"]
@@ -92,6 +96,13 @@ def get_loss(output, gt, scale=None,
     auxdict["optimization_loss"] =  optimization_loss
     auxdict = {key:value.detach().item() for key,value in auxdict.items()}
 
+    # call builtuploss function
+    if builtuploss:
+        bu_loss = builtup_lossfunction(output["builtup_count"], gt["building_segmentation"], lam_bul)
+
+    #combine the loss functions
+    #optimization_loss += bu_loss
+
     return optimization_loss, auxdict
 
 
@@ -110,14 +121,14 @@ def r2(pred, gt, eps=1e-8):
     Calculate the R2 score between the ground truth and the prediction.
     
     Parameters
-    ----------
+    --------
     pred : tensor
         The predicted values.
     gt : tensor
         Ground truth values.
 
     Returns
-    -------
+    --------
     r2 : tensor
         The R2 score.
 
@@ -132,3 +143,15 @@ def r2(pred, gt, eps=1e-8):
     ss_res = torch.sum((gt - pred) ** 2)
     r2 = 1 - ss_res / (ss_tot + eps)
     return r2
+
+
+def builtup_lossfunction(builtupscore, building_segmentation, lam):
+    """
+    BCELoss
+    """
+    loss = builtupscore - building_segmentation
+    loss = loss**2
+
+    #r2_score = r2(builtupscore, building_segmentation)
+
+    return loss.sum() * lam

@@ -268,6 +268,9 @@ class POMELO_module(nn.Module):
         else:
             out = self.head(headin)[:,0]
 
+        # forward the builtup head TODO -> same as normal head
+        
+
         # Population map and total count
         if self.occupancymodel:
 

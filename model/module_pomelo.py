@@ -93,8 +93,8 @@ class POMELO_module(nn.Module):
         else:
             raise ValueError("feature_extractor {} not supported".format(feature_extractor))
 
-        if buildinginput:
-            head_input_dim += 1
+        # if buildinginput:
+        #     head_input_dim += 1
 
         if head=="v3":
             h = 64
@@ -201,9 +201,9 @@ class POMELO_module(nn.Module):
         # forward the parent model without gradient if exists
         middlefeatures = []
 
-        if self.buildinginput:
-            # append building counts to the middle features
-            middlefeatures.append(inputs["building_counts"])
+        # if self.buildinginput:
+        #     # append building counts to the middle features
+        #     middlefeatures.append(inputs["building_counts"])
 
         # Forward the main model
         if self.unetmodel is not None: 
@@ -269,15 +269,22 @@ class POMELO_module(nn.Module):
             out = self.head(headin)[:,0]
 
         # forward the builtup head TODO -> same as normal head
-        
+        if builtuploss:
+            if sparse:
+                out_bu = self.sparse_module_forward(headin, sparsity_mask, self.unetmodel.fusion_out_conv, out_channels=1)#[:,0]
+            else:
+                out_bu = self.unetmodel.fusion_out_conv(headin)#[:,0]        
 
         # Population map and total count
         if self.occupancymodel:
 
             # activation function for the population map is a ReLU to avoid negative values
             scale = nn.functional.relu(out)
+            # activation function for builtup score is sigmoid to get probability values
+            if builtuploss:
+                scale_bu = nn.functional.sigmoid(out_bu)
 
-            if "building_counts" in inputs.keys(): 
+            if "building_counts" in inputs.keys():
                 
                 # save the scale
                 if sparse and self.sparse_unet:
@@ -289,7 +296,10 @@ class POMELO_module(nn.Module):
                     aux["scale"] = scale
 
                 # Get the population density map
-                popdensemap = scale * inputs["building_counts"][:,0]
+                if builtuploss:
+                    popdensemap = scale * scale_bu[:,0]
+                else:
+                    popdensemap = scale * inputs["building_counts"][:,0]
             else: 
                 raise ValueError("building_counts not in inputs.keys(), but occupancy model is True")
         else:
@@ -313,7 +323,7 @@ class POMELO_module(nn.Module):
 
         #TODO: return builtup_count
         if builtuploss is True:
-            return {"popcount": popcount, "popdensemap": popdensemap, "builtup_count": inputs["building_counts"],
+            return {"popcount": popcount, "popdensemap": popdensemap, "builtup_count": inputs["building_counts"], "builtup_occ_ds": scale_bu,
                     **aux,
                     }
         else:  
@@ -415,7 +425,7 @@ class POMELO_module(nn.Module):
         """
 
         # initialize the neural network, load from checkpoint
-        self.building_extractor.eval() #TODO trainmode or delete (train is default?)
+        self.building_extractor.eval() #TODO trainmode or delete (train is default)
         self.unetmodel.freeze_bn_layers()
 
         """

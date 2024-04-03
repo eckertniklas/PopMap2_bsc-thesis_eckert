@@ -2628,7 +2628,7 @@
                 "--buildinginput",
                 "--segmentationinput",
                 "--lambda_builtuploss",
-                "10.0"
+                "1.0"
             ]
         }
     ]

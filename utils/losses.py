@@ -96,9 +96,10 @@ def get_loss(output, gt, scale=None,
     auxdict["optimization_loss"] =  optimization_loss
     auxdict = {key:value.detach().item() for key,value in auxdict.items()}
 
-    # call builtuploss function
+    # call builtup-loss function
     if builtuploss:
-        bu_loss = builtup_lossfunction(output["builtup_count"], gt["building_segmentation"], lam_bul)
+        bu_loss = builtup_lossfunction(output["builtup_occ_ds"], gt["building_segmentation"], lam_bul)
+        # add builtuploss to optimization_loss
         optimization_loss += bu_loss
 
     return optimization_loss, auxdict
@@ -145,7 +146,7 @@ def r2(pred, gt, eps=1e-8):
 
 def builtup_lossfunction(builtupscore, building_segmentation, lam):
     """
-    BCELoss
+    BCELoss - pytorch
     """
 
     lossfunction = torch.nn.BCELoss()

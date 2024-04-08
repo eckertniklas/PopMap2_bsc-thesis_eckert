@@ -133,7 +133,8 @@ class POMELO_module(nn.Module):
 
 # NEW FORWARD
     def forward(self, inputs, train=False, padding=True, return_features=True,
-                encoder_no_grad=False, unet_no_grad=False, sparse=False, builtuploss=False):
+                encoder_no_grad=False, unet_no_grad=False, sparse=False,
+                builtuploss=False, basicmethod=False, twoheadmethod=False):
         """
         Forward pass of the model
         Assumptions:
@@ -149,9 +150,13 @@ class POMELO_module(nn.Module):
 
         # create building score, if not available in the dataset, or overwrite it if sentinelbuildings or builtuploss is True
         if "building_counts" not in inputs.keys() or self.sentinelbuildings or builtuploss:
-            with torch.no_grad(): #TODO: if-clause(builtuploss): deactivate no_grad
-                inputs["building_counts"]  = self.create_building_score(inputs, builtuploss=builtuploss)
-            torch.cuda.empty_cache()
+            if builtuploss and basicmethod:
+                inputs["building_counts"]  = self.create_building_score(inputs, builtuploss=builtuploss, basicmethod=basicmethod)
+                torch.cuda.empty_cache()
+            else:
+                with torch.no_grad(): #HACK: does building score need to be calculated if twoheadmethod == True 
+                    inputs["building_counts"]  = self.create_building_score(inputs, builtuploss=builtuploss, basicmethod=basicmethod)
+                torch.cuda.empty_cache()
 
         if sparse:
             # create sparsity mask 
@@ -268,8 +273,8 @@ class POMELO_module(nn.Module):
         else:
             out = self.head(headin)[:,0]
 
-        # forward the builtup head TODO -> same as normal head
-        if builtuploss:
+        # forward the builtup head for the twoheadmethod
+        if builtuploss and twoheadmethod:
             if sparse:
                 out_bu = self.sparse_module_forward(headin, sparsity_mask, self.unetmodel.fusion_out_conv, out_channels=1)#[:,0]
             else:
@@ -281,7 +286,9 @@ class POMELO_module(nn.Module):
             # activation function for the population map is a ReLU to avoid negative values
             scale = nn.functional.relu(out)
             # activation function for builtup score is sigmoid to get probability values
-            if builtuploss:
+            if builtuploss and twoheadmethod:
+                # subtract_val = 0.5
+                # out_bu = torch.subtract(out_bu, subtract_val)
                 scale_bu = nn.functional.sigmoid(out_bu)
 
             if "building_counts" in inputs.keys():
@@ -296,7 +303,7 @@ class POMELO_module(nn.Module):
                     aux["scale"] = scale
 
                 # Get the population density map
-                if builtuploss:
+                if builtuploss and twoheadmethod:
                     popdensemap = scale * scale_bu[:,0]
                 else:
                     popdensemap = scale * inputs["building_counts"][:,0]
@@ -321,9 +328,13 @@ class POMELO_module(nn.Module):
             popcount = popdensemap.sum((1,2))
 
 
-        #TODO: return builtup_count
-        if builtuploss is True:
-            return {"popcount": popcount, "popdensemap": popdensemap, "builtup_count": inputs["building_counts"], "builtup_occ_ds": scale_bu,
+        
+        if builtuploss and basicmethod:
+            return {"popcount": popcount, "popdensemap": popdensemap, "builtup_score": inputs["building_counts"],
+                    **aux,
+                    }
+        if builtuploss and twoheadmethod:
+            return {"popcount": popcount, "popdensemap": popdensemap, "builtup_score": inputs["building_counts"], "twohead_builtup_score": scale_bu,
                     **aux,
                     }
         else:  
@@ -416,7 +427,7 @@ class POMELO_module(nn.Module):
         return data
 
 
-    def create_building_score(self, inputs: dict, builtuploss=False) -> torch.Tensor:
+    def create_building_score(self, inputs: dict, builtuploss=False, basicmethod=False) -> torch.Tensor:
         """
         input:
             - inputs: dictionary with the input data
@@ -425,7 +436,8 @@ class POMELO_module(nn.Module):
         """
 
         # initialize the neural network, load from checkpoint
-        self.building_extractor.eval() #TODO trainmode or delete (train is default)
+        if basicmethod is False:
+            self.building_extractor.eval()
         self.unetmodel.freeze_bn_layers()
 
         """

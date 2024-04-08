@@ -47,7 +47,7 @@ class Trainer:
 
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
-
+        
         # set up experiment folder
         self.experiment_folder, self.args.expN, self.args.randN = new_log(os.path.join(args.save_dir, "So2Sat"), args)
         self.args.experiment_folder = self.experiment_folder
@@ -76,6 +76,7 @@ class Trainer:
 
         # wandb config
         wandb.init(project=args.wandb_project, dir=self.experiment_folder)
+        # wandb.init(project=args.wandb_project, dir=self.experiment_folder, mode="disabled")
         wandb.config.update(self.args)
         wandb.watch(self.model, log='all')  
         
@@ -209,22 +210,23 @@ class Trainer:
                 encoder_no_grad, unet_no_grad = False, False 
                 if num_pix > self.args.limit1:
                     encoder_no_grad, unet_no_grad = True, False
-                    # print("Feezing encoder")
+                    # print("Freezing encoder")
                     if num_pix > self.args.limit2:
                         encoder_no_grad, unet_no_grad = True, True 
-                        # print("Feezing decoder")
+                        # print("Freezing decoder")
                         if num_pix > self.args.limit3:
                             # print("Input to large for encoder and unet. No forward pass.")
                             continue
                 
                 # perform forward pass
                 output_weak = self.model(sample_weak, train=True, return_features=False, padding=False,
-                                            encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, sparse=True, builtuploss=self.args.builtuploss)
+                                            encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, sparse=True,
+                                            builtuploss=self.args.builtuploss, basicmethod=self.args.basicmethod, twoheadmethod=self.args.twoheadmethod)
 
                 # compute loss
                 loss_weak, loss_dict_weak = get_loss(
                     output_weak, sample_weak, scale=output_weak["scale"], loss=args.loss, lam=args.lam,
-                    builtuploss=self.args.builtuploss, lam_bul = self.args.lambda_builtuploss,
+                    builtuploss=self.args.builtuploss, lam_bul = self.args.lambda_builtuploss, basicmethod=self.args.basicmethod, twoheadmethod=self.args.twoheadmethod,
                     scale_regularization=args.scale_regularization, tag="weak")
                 
                 # Detach tensors

@@ -2593,7 +2593,7 @@
             ]
         },
         {
-            "name": "train, Stage 1, rwa2022 finetune, neckert, limit_1.2, builtuploss",
+            "name": "train, Stage 1, rwa2022 finetune, neckert, limit, builtuploss, basic",
             "type": "python",
             "request": "launch",
             "program": "run_train.py",
@@ -2628,7 +2628,48 @@
                 "--buildinginput",
                 "--segmentationinput",
                 "--lambda_builtuploss",
-                "1.0"
+                "1.0",
+                "--basicmethod"
+            ]
+        },
+        {
+            "name": "train, Stage 1, rwa2022 finetune, neckert, limit, builtuploss, twohead",
+            "type": "python",
+            "request": "launch",
+            "program": "run_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "-S2",
+                "-NIR",
+                "-S1",
+                "-treg",
+                "rwa",
+                "-tregtrain",
+                "rwa2022",
+                "--seed",
+                "1600",
+                "-occmodel",
+                "-wd",
+                "0.0000001",
+                "-senbuilds",
+                "-pret",
+                "--biasinit",
+                "0.9407",
+                "--limit1",
+                "5000000",
+                "--limit2",
+                "6000000",
+                "--limit3",
+                "13000000",
+                "--save-dir",
+                "/scratch2/results",
+                "--builtuploss",
+                "--buildinginput",
+                "--segmentationinput",
+                "--lambda_builtuploss",
+                "1.0",
+                "--twoheadmethod"
             ]
         }
     ]

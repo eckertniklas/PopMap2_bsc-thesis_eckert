@@ -7,7 +7,7 @@ from collections import defaultdict
 
 def get_loss(output, gt, scale=None,
              loss=["l1_loss"], lam=[1.0],
-             builtuploss=False, lam_bul = [1.0],
+             builtuploss=False, lam_bul = [1.0], basicmethod=False, twoheadmethod=False,
              tag="",
              scale_regularization=0.0,
              ):
@@ -41,7 +41,7 @@ def get_loss(output, gt, scale=None,
             output["scale"] = output["scale"].float()
 
     if builtuploss == True:
-        if output["builtup_count"].dtype != torch.float32:
+        if output["builtup_score"].dtype != torch.float32:
             output["builtup_count"] = output["builtup_count"].float()
     
     # prepare vars1.0
@@ -65,6 +65,7 @@ def get_loss(output, gt, scale=None,
         "predmean": y_pred.mean(),
         "predstd": y_pred.std(),
         "mCorrelation": torch.corrcoef(torch.stack([y_pred, y_gt]))[0,1] if len(y_pred)>1 else torch.tensor(0.0),
+        "builtuploss": builtup_lossfunction(output["twohead_builtup_score"], gt["building_segmentation"]),
     }
 
     # define optimization loss as a weighted sum of the losses
@@ -97,11 +98,16 @@ def get_loss(output, gt, scale=None,
     auxdict = {key:value.detach().item() for key,value in auxdict.items()}
 
     # call builtup-loss function
-    if builtuploss:
-        bu_loss = builtup_lossfunction(output["builtup_occ_ds"], gt["building_segmentation"], lam_bul)
+    if builtuploss and basicmethod:
+        bu_loss = builtup_lossfunction(output["builtup_score"], gt["building_segmentation"], lam_bul)
         # add builtuploss to optimization_loss
         optimization_loss += bu_loss
 
+    if builtuploss and twoheadmethod:
+        bu_loss = builtup_lossfunction(output["twohead_builtup_score"], gt["building_segmentation"], lam_bul)
+        # add builtuploss to optimization_loss
+        optimization_loss += bu_loss
+    
     return optimization_loss, auxdict
 
 
@@ -144,7 +150,7 @@ def r2(pred, gt, eps=1e-8):
     return r2
 
 
-def builtup_lossfunction(builtupscore, building_segmentation, lam):
+def builtup_lossfunction(builtupscore, building_segmentation, lam=1.0):
     """
     BCELoss - pytorch
     """

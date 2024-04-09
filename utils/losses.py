@@ -65,8 +65,12 @@ def get_loss(output, gt, scale=None,
         "predmean": y_pred.mean(),
         "predstd": y_pred.std(),
         "mCorrelation": torch.corrcoef(torch.stack([y_pred, y_gt]))[0,1] if len(y_pred)>1 else torch.tensor(0.0),
-        "builtuploss": builtup_lossfunction(output["twohead_builtup_score"], gt["building_segmentation"]),
     }
+
+    if twoheadmethod:
+        metricdict["builtuploss"] = builtup_lossfunction(output["twohead_builtup_score"], gt["building_segmentation"])
+    if basicmethod:
+        metricdict["builtuploss"] = builtup_lossfunction(output["builtup_score"], gt["building_segmentation"], lam_bul)
 
     # define optimization loss as a weighted sum of the losses
     optimization_loss = torch.tensor(0, device=y_pred.device, dtype=y_pred.dtype)

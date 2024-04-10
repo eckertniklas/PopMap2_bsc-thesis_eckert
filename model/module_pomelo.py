@@ -282,7 +282,7 @@ class POMELO_module(nn.Module):
             if sparse:
                 out_bu = self.sparse_module_forward(headin, sparsity_mask, self.unetmodel.fusion_out_conv, out_channels=1)#[:,0]
             else:
-                out_bu = self.unetmodel.fusion_out_conv(headin)#[:,0]        
+                out_bu = self.unetmodel.fusion_out_conv(headin)#[:,0]
 
         # Population map and total count
         if self.occupancymodel:
@@ -293,7 +293,7 @@ class POMELO_module(nn.Module):
             if builtuploss and twoheadmethod:
                 # subtract_val = 0.5
                 # out_bu = torch.subtract(out_bu, subtract_val)
-                scale_bu = nn.functional.sigmoid(out_bu)
+                score_bu = nn.functional.sigmoid(out_bu)
 
             if "building_counts" in inputs.keys():
                 
@@ -308,7 +308,7 @@ class POMELO_module(nn.Module):
 
                 # Get the population density map
                 if builtuploss and twoheadmethod:
-                    popdensemap = scale * scale_bu[:,0]
+                    popdensemap = scale * score_bu[:,0]
                 else:
                     popdensemap = scale * inputs["building_counts"][:,0]
             else: 
@@ -338,7 +338,7 @@ class POMELO_module(nn.Module):
                     **aux,
                     }
         if builtuploss and twoheadmethod:
-            return {"popcount": popcount, "popdensemap": popdensemap, "builtup_score": inputs["building_counts"], "twohead_builtup_score": scale_bu,
+            return {"popcount": popcount, "popdensemap": popdensemap, "builtup_score": inputs["building_counts"], "twohead_builtup_score": score_bu,
                     **aux,
                     }
         else:  

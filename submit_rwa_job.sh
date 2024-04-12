@@ -1,12 +1,12 @@
 #!/bin/bash
 
-#SBATCH --time=23:59:00
-#SBATCH --ntasks=8
-#SBATCH --output euleroutputs/outfile_%J.%I.txt
+SBATCH --time=23:59:00
+SBATCH --ntasks=8
+SBATCH --output euleroutputs/outfile_%J.%I.txt
 # ## #### SBATCH --mem-per-cpu=8000
-#SBATCH --mem-per-cpu=3000
-#SBATCH --gpus=1
-#SBATCH --gres=gpumem:10g
+SBATCH --mem-per-cpu=3000
+SBATCH --gpus=1
+SBATCH --gres=gpumem:24g
 #### ## #SBATCH --mail-type=END,FAIL
 
 #SBATCH -J GB # The job name
@@ -65,10 +65,12 @@ module load eth_proxy gdal/3.4.3
 #     --seed 1612 -gc 0.01 --supmode weaksup --lam_weak 100 --nomain --val_every_n_epochs 1 --weak_batch_size 1 --occupancymodel --buildinginput --useposembedding --weightdecay_pos 0.0 --sentinelbuildings --pretrained --gradientaccumulation \
 #     --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults
 
-python run_train.py -o -s -e 100 -b 16 -lr 1e-3 --model POMELO_module --head v3 -l log_l1_loss -la 1.0 --scale_regularization 0.0 --scale_regularizationL2 10.0 -dw 1 -S2 -NIR -S1 -f 8 -rse -treg rwa -tregtrain rwa -exZH -val 1 --lr_step 5 --lr_gamma 0.75 --full_aug --num_workers 6 \
-    --seed 1612 -gc 0.01 --supmode weaksup --lam_weak 100 --nomain --val_every_n_epochs 1 --weak_batch_size 1 --occupancymodel --buildinginput --useposembedding --weightdecay_pos 0.0 --sentinelbuildings --pretrained --gradientaccumulation \
-    --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults
+# python run_train.py -o -s -e 100 -b 16 -lr 1e-3 --model POMELO_module --head v3 -l log_l1_loss -la 1.0 --scale_regularization 0.0 --scale_regularizationL2 10.0 -dw 1 -S2 -NIR -S1 -f 8 -rse -treg rwa -tregtrain rwa -exZH -val 1 --lr_step 5 --lr_gamma 0.75 --full_aug --num_workers 6 \
+#     --seed 1612 -gc 0.01 --supmode weaksup --lam_weak 100 --nomain --val_every_n_epochs 1 --weak_batch_size 1 --occupancymodel --buildinginput --useposembedding --weightdecay_pos 0.0 --sentinelbuildings --pretrained --gradientaccumulation \
+#     --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults
 
 # python run_train.py -o -s -e 100 -b 16 -lr 1e-3 --model POMELO_module --head v3 -l log_l1_loss -la 1.0 --scale_regularization 10.0 -dw 1 -S2 -NIR -S1 -f 8 -rse -treg rwa -tregtrain rwa -exZH -val 1 --lr_step 5 --lr_gamma 0.75 --full_aug --num_workers 6 \
 #     --seed 1612 -gc 0.01 --supmode weaksup --lam_weak 100 --nomain --val_every_n_epochs 1 --weak_batch_size 1 --occupancymodel --buildinginput --useposembedding --weightdecay_pos 0.0 --sentinelbuildings -r77 --pretrained --gradientaccumulation \
 #     --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults
+
+python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 -occmodel -wd 0.0000001 -senbuilds -pret --biasinit 0.9407 --save-dir /scratch2/results --builtuploss --buildinginput --segmentationinput --lambda_builtuploss 1.0 --twoheadmethod

@@ -125,7 +125,7 @@ class Trainer:
 
                     # Evaluate each model in the ensemble
                     for i, model in enumerate(self.model):
-                        this_output = model(sample, padding=False)
+                        this_output = model(sample, padding=False, twoheadmethod=self.args.twoheadmethod)
                         popdense[i] = this_output["popdensemap"][0].cuda()
                         popdense_squared[i] = this_output["popdensemap"][0].to(torch.float32).cuda()**2
                         if "scale" in this_output.keys():

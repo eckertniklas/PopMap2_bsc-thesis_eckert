@@ -278,7 +278,7 @@ class POMELO_module(nn.Module):
             out = self.head(headin)[:,0]
 
         # forward the builtup head for the twoheadmethod
-        if builtuploss and twoheadmethod:
+        if twoheadmethod:
             if sparse:
                 out_bu = self.sparse_module_forward(headin, sparsity_mask, self.unetmodel.fusion_out_conv, out_channels=1)#[:,0]
             else:
@@ -290,7 +290,7 @@ class POMELO_module(nn.Module):
             # activation function for the population map is a ReLU to avoid negative values
             scale = nn.functional.relu(out)
             # activation function for builtup score is sigmoid to get probability values
-            if builtuploss and twoheadmethod:
+            if twoheadmethod:
                 # subtract_val = 0.5
                 # out_bu = torch.subtract(out_bu, subtract_val)
                 score_bu = nn.functional.sigmoid(out_bu)

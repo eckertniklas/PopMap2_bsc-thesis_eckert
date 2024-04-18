@@ -2528,6 +2528,29 @@
             ]
         },
         {
+            "name": "eval, rwa2022, ensemble, neckert2, twoheadmethod",
+            "type": "python",
+            "request": "launch",
+            "program": "run_eval.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "-occmodel",
+                "-senbuilds",
+                "-S2",
+                "-NIR",
+                "-S1",
+                "-treg",
+                "rwa2022",
+                "--fourseasons",
+                "--resume",
+                "/scratch2/results/So2Sat/experiment_170_310/last_model.pth",
+                "/scratch2/results/So2Sat/experiment_170_310/last_head.pth",
+                "/scratch2/results/So2Sat/experiment_170_310/last_unetmodel.pth",
+                "--twoheadmethod"
+            ]
+        },
+        {
             "name": "train, Stage 1, pri finetune, neckert, limit_1.2",
             "type": "python",
             "request": "launch",

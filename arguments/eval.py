@@ -29,4 +29,7 @@ parser.add_argument("-wp", "--wandb_project", help='', type=str, default="POMELO
 parser.add_argument("--seed", help='', type=int, default=1610)
 parser.add_argument("--in_memory", action='store_true', help='')
 
+#building loss add-on:
+parser.add_argument("-thm", "--twoheadmethod", help='', action='store_true')
+
 args = parser.parse_args()

@@ -74,4 +74,4 @@ module load eth_proxy #gdal/3.4.3
 #     --seed 1612 -gc 0.01 --supmode weaksup --lam_weak 100 --nomain --val_every_n_epochs 1 --weak_batch_size 1 --occupancymodel --buildinginput --useposembedding --weightdecay_pos 0.0 --sentinelbuildings -r77 --pretrained --gradientaccumulation \
 #     --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults
 
-python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 -occmodel -wd 0.0000001 -senbuilds -pret --biasinit 0.9407 --save-dir /scratch2/results --builtuploss --buildinginput --segmentationinput --lambda_builtuploss 1.0 --twoheadmethod
+python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 -occmodel -wd 0.0000001 -senbuilds -pret --biasinit 0.9407 --save-dir /cluster/work/igp_psr/neckert/results --builtuploss --buildinginput --segmentationinput --lambda_builtuploss 1.0 --twoheadmethod

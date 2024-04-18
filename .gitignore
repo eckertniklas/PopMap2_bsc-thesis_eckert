@@ -7,4 +7,6 @@ vis
 *__pycache__
 euleroutputs/
 wandb/
+submit_rwa_job.sh
+utils/constants.py
 # model/DDA_model/checkpoints/

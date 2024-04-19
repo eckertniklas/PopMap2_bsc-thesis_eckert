@@ -76,6 +76,6 @@ module load eth_proxy #gdal/3.4.3
 
 # python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 -occmodel -wd 0.0000001 -senbuilds -pret --biasinit 0.9407 --save-dir /cluster/work/igp_psr/neckert/results --builtuploss --buildinginput --segmentationinput --lambda_builtuploss 1.0 --basicmethod
 
-# python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 -occmodel -wd 0.0000001 -senbuilds -pret --biasinit 0.9407 --save-dir /cluster/work/igp_psr/neckert/results
+python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 -occmodel -wd 0.0000001 -senbuilds -pret --biasinit 0.9407 --save-dir /cluster/work/igp_psr/neckert/results
 
-python run_train.py -S2 -NIR -S1 -treg pricp2 -tregtrain pricp2 --seed 1600 -occmodel -wd 0.0000005 -senbuilds -pret --biasinit 0.4119 --save-dir /scratch2/results
+# python run_train.py -S2 -NIR -S1 -treg pricp2 -tregtrain pricp2 --seed 1600 -occmodel -wd 0.0000005 -senbuilds -pret --biasinit 0.4119 --save-dir /cluster/work/igp_psr/neckert/results

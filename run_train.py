@@ -175,17 +175,17 @@ class Trainer:
         self.optimizer.zero_grad()
 
         num_buildings, num_people = 0, 0
-
         with tqdm(dataloader, leave=False, total=len(dataloader)) as inner_tnr:
             inner_tnr.set_postfix(training_loss=np.nan)
 
             # iterate over samples of one epoch
-            for i, sample in enumerate(inner_tnr):
+            for i, sample in enumerate(inner_tnr): #FIXME: breakpoint
                 # self.optimizer.zero_grad()
+
                 optim_loss = 0.0
                 loss_dict_weak = {}
                 loss_dict_raw = {}
-                                
+               
                 # calculate global disaggregation factor
                 calculate_disaggregation_factor = False
                 if calculate_disaggregation_factor:

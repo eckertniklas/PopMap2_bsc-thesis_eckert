@@ -13,6 +13,8 @@ from utils.plot import plot_2dmatrix, plot_and_save
 # from utils.utils import Namespace
 from utils.constants import dda_cfg, stage1feats, stage2feats
 
+import pdb
+
 class POMELO_module(nn.Module):
     '''
     PomeloUNet
@@ -149,7 +151,6 @@ class POMELO_module(nn.Module):
         """
             - builtuploss = True: activates builtup-loss add-on
         """
-
         X = inputs["input"]
 
         # create building score, if not available in the dataset, or overwrite it if sentinelbuildings or builtuploss is True

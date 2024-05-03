@@ -1,3 +1,7 @@
+
+import pdb
+# pdb.set_trace()
+
 import os
 import argparse
 from collections import defaultdict
@@ -175,12 +179,17 @@ class Trainer:
         self.optimizer.zero_grad()
 
         num_buildings, num_people = 0, 0
+        print("train sample___")
+        
         with tqdm(dataloader, leave=False, total=len(dataloader)) as inner_tnr:
             inner_tnr.set_postfix(training_loss=np.nan)
 
             # iterate over samples of one epoch
             for i, sample in enumerate(inner_tnr): #FIXME: breakpoint
                 # self.optimizer.zero_grad()
+                
+
+                
 
                 optim_loss = 0.0
                 loss_dict_weak = {}
@@ -219,6 +228,8 @@ class Trainer:
                             continue
                 
                 # perform forward pass
+                print("train sample")
+                print("-"*50)
                 output_weak = self.model(sample_weak, train=True, return_features=False, padding=False,
                                             encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, sparse=True,
                                             builtuploss=self.args.builtuploss, basicmethod=self.args.basicmethod, twoheadmethod=self.args.twoheadmethod)
@@ -465,7 +476,7 @@ class Trainer:
             self.accumulation_steps = args.weak_batch_size
         else:
             weak_loader_batchsize = args.weak_batch_size
-            self.accumulation_steps = 1
+            self.accumulation_steps = 1  
             
         weak_datasets = []
         # for reg in args.target_regions_train:

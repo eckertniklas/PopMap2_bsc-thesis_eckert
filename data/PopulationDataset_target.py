@@ -19,6 +19,7 @@ from utils.constants import pop_map_root, pop_map_covariates, pop_gbuildings_pat
 from utils.constants import datalocations
 from utils.plot import plot_2dmatrix
 
+import pdb
 
 # from osgeo import gdal
 
@@ -423,7 +424,7 @@ class Population_Dataset_target(Dataset):
 
         # get the data
         indata, auxdata, w = self.generate_raw_data(xmin, ymin, self.inv_season_dict[season], patchsize=(xmax-xmin, ymax-ymin), overlap=0, admin_overlap=ad_over, descending=descending)
-
+        
         if "S2" in indata:
             if np.any(np.isnan(indata["S2"])): 
                 # interpolate the NaN values in the input array using bicubic interpolation, extrapolating if necessary using nearest neighbor if there are not too many NaNs

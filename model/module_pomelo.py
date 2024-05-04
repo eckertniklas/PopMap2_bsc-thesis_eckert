@@ -13,6 +13,8 @@ from utils.plot import plot_2dmatrix, plot_and_save
 # from utils.utils import Namespace
 from utils.constants import dda_cfg, stage1feats, stage2feats
 
+import pdb
+
 class POMELO_module(nn.Module):
     '''
     PomeloUNet
@@ -147,6 +149,10 @@ class POMELO_module(nn.Module):
         Assumptions:
             - inputs["input"] is the input image (Concatenation of Sentinel-1 and/or Sentinel-2)
             - inputs["input"].shape = [batch_size, input_channels, height, width]
+        """
+
+        """
+            - builtuploss = True: activates builtup-loss add-on
         """
 
         X = inputs["input"]

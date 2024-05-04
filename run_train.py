@@ -228,8 +228,6 @@ class Trainer:
                             continue
                 
                 # perform forward pass
-                print("train sample")
-                print("-"*50)
                 output_weak = self.model(sample_weak, train=True, return_features=False, padding=False,
                                             encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, sparse=True,
                                             builtuploss=self.args.builtuploss, basicmethod=self.args.basicmethod, twoheadmethod=self.args.twoheadmethod)

@@ -296,8 +296,6 @@ class POMELO_module(nn.Module):
             scale = nn.functional.relu(out)
             # activation function for builtup score is sigmoid to get probability values
             if self.twoheadmethod:
-                # subtract_val = 0.5
-                # out_bu = torch.subtract(out_bu, subtract_val)
                 score_bu = nn.functional.sigmoid(out_bu)
 
             if "building_counts" in inputs.keys():

@@ -68,9 +68,9 @@ def get_loss(output, gt, scale=None,
     }
 
     if twoheadmethod:
-        metricdict["builtuploss"] = builtup_lossfunction(output["twohead_builtup_score"], gt["building_segmentation"])
+        metricdict["builtuploss"] = builtup_lossfunction(output["twohead_builtup_score"], gt["building_counts"])
     if basicmethod:
-        metricdict["builtuploss"] = builtup_lossfunction(output["builtup_score"], gt["building_segmentation"], lam_bul)
+        metricdict["builtuploss"] = builtup_lossfunction(output["builtup_score"], gt["building_counts"], lam_bul)
 
     # define optimization loss as a weighted sum of the losses
     optimization_loss = torch.tensor(0, device=y_pred.device, dtype=y_pred.dtype)
@@ -103,12 +103,12 @@ def get_loss(output, gt, scale=None,
 
     # call builtup-loss function
     if builtuploss and basicmethod:
-        bu_loss = builtup_lossfunction(output["builtup_score"], gt["building_segmentation"], lam_bul)
+        bu_loss = builtup_lossfunction(output["builtup_score"], gt["building_counts"], lam_bul)
         # add builtuploss to optimization_loss
         optimization_loss += bu_loss
 
     if builtuploss and twoheadmethod:
-        bu_loss = builtup_lossfunction(output["twohead_builtup_score"], gt["building_segmentation"], lam_bul)
+        bu_loss = builtup_lossfunction(output["twohead_builtup_score"], gt["building_counts"], lam_bul)
         # add builtuploss to optimization_loss
         optimization_loss += bu_loss
     

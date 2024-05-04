@@ -23,7 +23,8 @@ class POMELO_module(nn.Module):
     def __init__(self, input_channels, feature_extractor="DDA", down=5,
                 occupancymodel=False, pretrained=False, head="v3",
                 sparse_unet=False, buildinginput=True, biasinit=0.75,
-                sentinelbuildings=True):
+                sentinelbuildings=True,
+                builtuploss=False, basicmethod=False, twoheadmethod=False):
         super(POMELO_module, self).__init__()
         """
         Args:
@@ -43,6 +44,9 @@ class POMELO_module(nn.Module):
         self.feature_extractor = feature_extractor
         self.sparse_unet = sparse_unet
         self.sentinelbuildings = sentinelbuildings
+        self.builtuploss = builtuploss
+        self.basicmethod = basicmethod
+        self.twoheadmethod = twoheadmethod
 
         self.head_name = head 
         head_input_dim = 0
@@ -137,8 +141,7 @@ class POMELO_module(nn.Module):
 
 # NEW FORWARD
     def forward(self, inputs, train=False, padding=True, return_features=True,
-                encoder_no_grad=False, unet_no_grad=False, sparse=False,
-                builtuploss=False, basicmethod=False, twoheadmethod=False):
+                encoder_no_grad=False, unet_no_grad=False, sparse=False):
         """
         Forward pass of the model
         Assumptions:
@@ -146,20 +149,16 @@ class POMELO_module(nn.Module):
             - inputs["input"].shape = [batch_size, input_channels, height, width]
         """
 
-        """
-            - builtuploss = True: activates builtup-loss add-on
-        """
-
         X = inputs["input"]
 
         # create building score, if not available in the dataset, or overwrite it if sentinelbuildings or builtuploss is True
-        if "building_counts" not in inputs.keys() or self.sentinelbuildings or builtuploss:
-            if builtuploss and basicmethod:
-                inputs["building_counts"]  = self.create_building_score(inputs, builtuploss=builtuploss, basicmethod=basicmethod)
+        if "building_counts" not in inputs.keys() or self.sentinelbuildings or self.builtuploss:
+            if self.builtuploss and self.basicmethod:
+                inputs["building_counts"]  = self.create_building_score(inputs, builtuploss=self.builtuploss, basicmethod=self.basicmethod)
                 torch.cuda.empty_cache()
             else:
                 with torch.no_grad():
-                    inputs["building_counts"]  = self.create_building_score(inputs, builtuploss=builtuploss, basicmethod=basicmethod)
+                    inputs["building_counts"]  = self.create_building_score(inputs, builtuploss=self.builtuploss, basicmethod=self.basicmethod)
                 torch.cuda.empty_cache()
 
         if sparse:
@@ -278,7 +277,7 @@ class POMELO_module(nn.Module):
             out = self.head(headin)[:,0]
 
         # forward the builtup head for the twoheadmethod
-        if twoheadmethod:
+        if self.twoheadmethod:
             if sparse:
                 out_bu = self.sparse_module_forward(headin, sparsity_mask, self.unetmodel.fusion_out_conv, out_channels=1)#[:,0]
             else:
@@ -290,7 +289,7 @@ class POMELO_module(nn.Module):
             # activation function for the population map is a ReLU to avoid negative values
             scale = nn.functional.relu(out)
             # activation function for builtup score is sigmoid to get probability values
-            if twoheadmethod:
+            if self.twoheadmethod:
                 # subtract_val = 0.5
                 # out_bu = torch.subtract(out_bu, subtract_val)
                 score_bu = nn.functional.sigmoid(out_bu)
@@ -307,7 +306,7 @@ class POMELO_module(nn.Module):
                     aux["scale"] = scale
 
                 # Get the population density map
-                if builtuploss and twoheadmethod:
+                if self.twoheadmethod:
                     popdensemap = scale * score_bu[:,0]
                 else:
                     popdensemap = scale * inputs["building_counts"][:,0]
@@ -333,11 +332,11 @@ class POMELO_module(nn.Module):
 
 
         
-        if builtuploss and basicmethod:
+        if self.builtuploss and self.basicmethod:
             return {"popcount": popcount, "popdensemap": popdensemap, "builtup_score": inputs["building_counts"],
                     **aux,
                     }
-        if builtuploss and twoheadmethod:
+        if self.builtuploss and self.twoheadmethod:
             return {"popcount": popcount, "popdensemap": popdensemap, "builtup_score": inputs["building_counts"], "twohead_builtup_score": score_bu,
                     **aux,
                     }

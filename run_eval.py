@@ -92,7 +92,7 @@ class Trainer:
             self.model[j].eval()
         self.test_stats = defaultdict(float)
 
-        with torch.no_grad(): 
+        with torch.no_grad():
             self.target_test_stats = defaultdict(float)
             for testdataloader in self.dataloaders["test_target"]: 
 
@@ -125,7 +125,7 @@ class Trainer:
 
                     # Evaluate each model in the ensemble
                     for i, model in enumerate(self.model):
-                        this_output = model(sample, padding=False, twoheadmethod=self.args.twoheadmethod)
+                        this_output = model(sample, padding=False)
                         popdense[i] = this_output["popdensemap"][0].cuda()
                         popdense_squared[i] = this_output["popdensemap"][0].to(torch.float32).cuda()**2
                         if "scale" in this_output.keys():

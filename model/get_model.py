@@ -24,4 +24,7 @@ def get_model_kwargs(args, model_name):
     kwargs['buildinginput']  = args.buildinginput
     kwargs['biasinit'] = args.biasinit
     kwargs['sentinelbuildings'] = args.sentinelbuildings
+    kwargs['builtuploss'] = args.builtuploss
+    kwargs['basicmethod'] = args.basicmethod
+    kwargs['twoheadmethod'] = args.twoheadmethod
     return kwargs

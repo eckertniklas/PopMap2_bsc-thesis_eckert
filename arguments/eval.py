@@ -30,6 +30,8 @@ parser.add_argument("--seed", help='', type=int, default=1610)
 parser.add_argument("--in_memory", action='store_true', help='')
 
 #building loss add-on:
+parser.add_argument("-bul", "--builtuploss", help='', action='store_true')
+parser.add_argument("-bm", "--basicmethod", help='', action='store_true')
 parser.add_argument("-thm", "--twoheadmethod", help='', action='store_true')
 
 args = parser.parse_args()

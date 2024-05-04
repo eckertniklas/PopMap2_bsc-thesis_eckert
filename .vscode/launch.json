@@ -2528,7 +2528,7 @@
             ]
         },
         {
-            "name": "eval, rwa2022, ensemble, neckert2, twoheadmethod",
+            "name": "eval, rwa, ensemble, neckert2, twoheadmethod",
             "type": "python",
             "request": "launch",
             "program": "run_eval.py",
@@ -2541,12 +2541,10 @@
                 "-NIR",
                 "-S1",
                 "-treg",
-                "rwa2022",
+                "rwa",
                 "--fourseasons",
                 "--resume",
                 "/scratch2/results/So2Sat/experiment_170_310/last_model.pth",
-                "/scratch2/results/So2Sat/experiment_170_310/last_head.pth",
-                "/scratch2/results/So2Sat/experiment_170_310/last_unetmodel.pth",
                 "--twoheadmethod"
             ]
         },
@@ -2616,7 +2614,7 @@
             ]
         },
         {
-            "name": "train, Stage 1, rwa2022 finetune, neckert, limit, builtuploss, basic",
+            "name": "train, Stage 1, rwa finetune, neckert, limit, builtuploss, basic",
             "type": "python",
             "request": "launch",
             "program": "run_train.py",
@@ -2629,7 +2627,7 @@
                 "-treg",
                 "rwa",
                 "-tregtrain",
-                "rwa2022",
+                "rwa",
                 "--seed",
                 "1600",
                 "-occmodel",
@@ -2656,7 +2654,7 @@
             ]
         },
         {
-            "name": "train, Stage 1, rwa2022 finetune, neckert, limit, builtuploss, twohead",
+            "name": "train, Stage 1, rwa finetune, neckert, limit, builtuploss, twohead",
             "type": "python",
             "request": "launch",
             "program": "run_train.py",
@@ -2669,7 +2667,7 @@
                 "-treg",
                 "rwa",
                 "-tregtrain",
-                "rwa2022",
+                "rwa",
                 "--seed",
                 "1600",
                 "-occmodel",
@@ -2696,7 +2694,7 @@
             ]
         },
         {
-            "name": "train, Stage 1, rwa2022 finetune, neckert, euler, builtuploss, basic",
+            "name": "train, Stage 1, rwa finetune, neckert, euler, builtuploss, basic",
             "type": "python",
             "request": "launch",
             "program": "run_train.py",
@@ -2709,7 +2707,7 @@
                 "-treg",
                 "rwa",
                 "-tregtrain",
-                "rwa2022",
+                "rwa",
                 "--seed",
                 "1600",
                 "-occmodel",
@@ -2730,7 +2728,7 @@
             ]
         },
         {
-            "name": "train, Stage 1, rwa2022 finetune, neckert, euler, builtuploss, twohead",
+            "name": "train, Stage 1, rwa finetune, neckert, euler, builtuploss, twohead",
             "type": "python",
             "request": "launch",
             "program": "run_train.py",
@@ -2743,7 +2741,7 @@
                 "-treg",
                 "rwa",
                 "-tregtrain",
-                "rwa2022",
+                "rwa",
                 "--seed",
                 "1600",
                 "-occmodel",

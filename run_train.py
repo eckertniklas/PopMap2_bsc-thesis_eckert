@@ -220,8 +220,7 @@ class Trainer:
                 
                 # perform forward pass
                 output_weak = self.model(sample_weak, train=True, return_features=False, padding=False,
-                                            encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, sparse=True,
-                                            builtuploss=self.args.builtuploss, basicmethod=self.args.basicmethod, twoheadmethod=self.args.twoheadmethod)
+                                            encoder_no_grad=encoder_no_grad, unet_no_grad=unet_no_grad, sparse=True)
 
                 # compute loss
                 loss_weak, loss_dict_weak = get_loss(

@@ -97,10 +97,6 @@ def get_loss(output, gt, scale=None,
     else:
         auxdict = {**auxdict, **{"Population_"+tag+"/"+key: value for key,value in metricdict.items()}}
 
-    # prepare for logging
-    auxdict["optimization_loss"] =  optimization_loss
-    auxdict = {key:value.detach().item() for key,value in auxdict.items()}
-
     # call builtup-loss function
     if builtuploss and basicmethod:
         bu_loss = builtup_lossfunction(output["builtup_score"], gt["building_counts"], lam_bul)
@@ -111,6 +107,12 @@ def get_loss(output, gt, scale=None,
         bu_loss = builtup_lossfunction(output["twohead_builtup_score"], gt["building_counts"], lam_bul)
         # add builtuploss to optimization_loss
         optimization_loss += bu_loss
+
+    # prepare for logging
+    auxdict["optimization_loss"] =  optimization_loss
+    auxdict = {key:value.detach().item() for key,value in auxdict.items()}       
+
+
     
     return optimization_loss, auxdict
 

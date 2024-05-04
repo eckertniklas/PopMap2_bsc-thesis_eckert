@@ -309,6 +309,15 @@ class POMELO_module(nn.Module):
                 else:
                     aux["scale"] = scale
 
+                if sparse and self.sparse_unet and self.twoheadmethod:
+                    aux["score_bu"] = torch.cat( [(score_bu* ratio.view(ratio.shape[0],1,1))[subsample_mask_empty] ,
+                                                   score_bu[building_sparsity_mask] ]  , dim=0)
+                elif sparse and self.twoheadmethod:
+                    score_bu_rs = score_bu[:,0]
+                    aux["score_bu"] = score_bu_rs[sparsity_mask]
+                elif self.twoheadmethod:
+                    aux["score_bu"] = score_bu
+
                 # Get the population density map
                 if self.twoheadmethod:
                     popdensemap = scale * score_bu[:,0]

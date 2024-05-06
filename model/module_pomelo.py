@@ -296,8 +296,6 @@ class POMELO_module(nn.Module):
             scale = nn.functional.relu(out)
             # activation function for builtup score is sigmoid to get probability values
             if self.twoheadmethod:
-                # subtract_val = 0.5
-                # out_bu = torch.subtract(out_bu, subtract_val)
                 score_bu = nn.functional.sigmoid(out_bu)
 
             if "building_counts" in inputs.keys():
@@ -310,6 +308,15 @@ class POMELO_module(nn.Module):
                     aux["scale"] = scale[sparsity_mask]
                 else:
                     aux["scale"] = scale
+
+                if sparse and self.sparse_unet and self.twoheadmethod:
+                    aux["score_bu"] = torch.cat( [(score_bu* ratio.view(ratio.shape[0],1,1))[subsample_mask_empty] ,
+                                                   score_bu[building_sparsity_mask] ]  , dim=0)
+                elif sparse and self.twoheadmethod:
+                    score_bu_rs = score_bu[:,0]
+                    aux["score_bu"] = score_bu_rs[sparsity_mask]
+                elif self.twoheadmethod:
+                    aux["score_bu"] = score_bu
 
                 # Get the population density map
                 if self.twoheadmethod:

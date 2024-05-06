@@ -42,7 +42,7 @@ def get_loss(output, gt, scale=None,
 
     if builtuploss == True:
         if output["builtup_score"].dtype != torch.float32:
-            output["builtup_count"] = output["builtup_count"].float()
+            output["builtup_score"] = output["builtup_score"].float()
     
     # prepare vars1.0
     y_pred = output["popcount"]
@@ -68,9 +68,9 @@ def get_loss(output, gt, scale=None,
     }
 
     if twoheadmethod:
-        metricdict["builtuploss"] = builtup_lossfunction(output["twohead_builtup_score"], gt["building_counts"])
+        metricdict["builtuploss"] = builtup_lossfunction(output["twohead_builtup_score"], gt["building_segmentation"])
     if basicmethod:
-        metricdict["builtuploss"] = builtup_lossfunction(output["builtup_score"], gt["building_counts"], lam_bul)
+        metricdict["builtuploss"] = builtup_lossfunction(output["builtup_score"], gt["building_segmentation"], lam_bul)
 
     # define optimization loss as a weighted sum of the losses
     optimization_loss = torch.tensor(0, device=y_pred.device, dtype=y_pred.dtype)
@@ -97,20 +97,22 @@ def get_loss(output, gt, scale=None,
     else:
         auxdict = {**auxdict, **{"Population_"+tag+"/"+key: value for key,value in metricdict.items()}}
 
-    # prepare for logging
-    auxdict["optimization_loss"] =  optimization_loss
-    auxdict = {key:value.detach().item() for key,value in auxdict.items()}
-
     # call builtup-loss function
     if builtuploss and basicmethod:
-        bu_loss = builtup_lossfunction(output["builtup_score"], gt["building_counts"], lam_bul)
+        bu_loss = builtup_lossfunction(output["builtup_score"], gt["building_segmentation"], lam_bul)
         # add builtuploss to optimization_loss
         optimization_loss += bu_loss
 
     if builtuploss and twoheadmethod:
-        bu_loss = builtup_lossfunction(output["twohead_builtup_score"], gt["building_counts"], lam_bul)
+        bu_loss = builtup_lossfunction(output["twohead_builtup_score"], gt["building_segmentation"], lam_bul)
         # add builtuploss to optimization_loss
         optimization_loss += bu_loss
+
+    # prepare for logging
+    auxdict["optimization_loss"] =  optimization_loss
+    auxdict = {key:value.detach().item() for key,value in auxdict.items()}       
+
+
     
     return optimization_loss, auxdict
 

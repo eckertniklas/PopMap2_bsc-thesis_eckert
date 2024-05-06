@@ -78,9 +78,9 @@ module load eth_proxy #gdal/3.4.3
 #     --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults
 #     --save-dir /cluster/work/igp_psr/metzgern/HAC/code/PopMapResults
 
-# python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa --seed 1600 -occmodel -wd 0.0000001 -senbuilds -pret --biasinit 0.9407 --save-dir /cluster/work/igp_psr/neckert/results --builtuploss --buildinginput --segmentationinput --lambda_builtuploss 1.0 --twoheadmethod
+python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa --seed 1600 -occmodel -wd 0.0000001 -senbuilds -pret --biasinit 0.9407 --save-dir /cluster/work/igp_psr/neckert/results --builtuploss --buildinginput --segmentationinput --lambda_builtuploss 1.0 --twoheadmethod
 
-python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa --seed 1600 -occmodel -wd 0.0000001 -senbuilds -pret --biasinit 0.9407 --save-dir /cluster/work/igp_psr/neckert/results --builtuploss --buildinginput --segmentationinput --lambda_builtuploss 1.0 --basicmethod
+# python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa --seed 1600 -occmodel -wd 0.0000001 -senbuilds -pret --biasinit 0.9407 --save-dir /cluster/work/igp_psr/neckert/results --builtuploss --buildinginput --segmentationinput --lambda_builtuploss 1.0 --basicmethod
 
 # python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa --seed 1600 -occmodel -wd 0.0000001 -senbuilds -pret --biasinit 0.9407 --save-dir /cluster/work/igp_psr/neckert/results
 

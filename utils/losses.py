@@ -97,6 +97,10 @@ def get_loss(output, gt, scale=None,
     else:
         auxdict = {**auxdict, **{"Population_"+tag+"/"+key: value for key,value in metricdict.items()}}
 
+    #log optimloss without builtup for debugging
+    if builtuploss:
+        auxdict["optimization_loss_basic"] =  optimization_loss
+
     # call builtup-loss function
     if builtuploss and basicmethod:
         bu_loss = builtup_lossfunction(output["builtup_score"], gt["building_segmentation"], lam_bul)

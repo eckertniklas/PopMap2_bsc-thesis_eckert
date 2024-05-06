@@ -185,7 +185,7 @@ class Trainer:
             inner_tnr.set_postfix(training_loss=np.nan)
 
             # iterate over samples of one epoch
-            for i, sample in enumerate(inner_tnr): #FIXME: breakpoint
+            for i, sample in enumerate(inner_tnr):
                 # self.optimizer.zero_grad()
                 
 

@@ -79,7 +79,7 @@ class Trainer:
         print("Model", args.model, "; #Effective Params:", args.num_effective_param)
 
         # wandb config
-        wandb.init(project=args.wandb_project, dir=self.experiment_folder) #wandb activated
+        wandb.init(project=args.wandb_project, dir=self.experiment_folder, settings=wandb.Settings(_service_wait=300)) #wandb activated
         # wandb.init(project=args.wandb_project, dir=self.experiment_folder, mode="disabled") #wandb disabled
         wandb.config.update(self.args)
         wandb.watch(self.model, log='all')  

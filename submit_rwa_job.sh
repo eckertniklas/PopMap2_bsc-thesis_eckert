@@ -4,7 +4,7 @@
 #SBATCH --ntasks=12
 #SBATCH --output euleroutputs/outfile_%J.%I.txt
 #### ## #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=31000
+#SBATCH --mem-per-cpu=15000
 #SBATCH --gpus=1
 #SBATCH --gres=gpumem:23g
 #### ## #SBATCH --mail-type=END,FAIL

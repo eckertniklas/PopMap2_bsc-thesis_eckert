@@ -2,7 +2,6 @@
 
 
 # contains all the constants used in the project
-# testtest
 
 import os
 import numpy as np

@@ -70,7 +70,7 @@ def get_loss(output, gt, scale=None,
     if twoheadmethod:
         metricdict["builtuploss"] = builtup_lossfunction(output["twohead_builtup_score"], gt["building_segmentation"])
     if basicmethod:
-        metricdict["builtuploss"] = builtup_lossfunction(output["builtup_score"], gt["building_segmentation"], lam_bul)
+        metricdict["builtuploss"] = builtup_lossfunction(output["builtup_score"], gt["building_segmentation"])
 
     # define optimization loss as a weighted sum of the losses
     optimization_loss = torch.tensor(0, device=y_pred.device, dtype=y_pred.dtype)
@@ -97,7 +97,8 @@ def get_loss(output, gt, scale=None,
     else:
         auxdict = {**auxdict, **{"Population_"+tag+"/"+key: value for key,value in metricdict.items()}}
 
-    #log optimloss without builtup for debugging
+    # log optimloss without builtup for debugging
+    #FIXME: logging problems
     if builtuploss:
         auxdict["optimization_loss_basic"] =  optimization_loss
 

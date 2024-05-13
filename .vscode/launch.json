@@ -2528,6 +2528,31 @@
             ]
         },
         {
+            "name": "eval, rwa, ensemble, neckert2, basicmethod",
+            "type": "python",
+            "request": "launch",
+            "program": "run_eval.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "-occmodel",
+                "-senbuilds",
+                "-S2",
+                "-NIR",
+                "-S1",
+                "-treg",
+                "rwa",
+                "--fourseasons",
+                "--basicmethod",
+                "--resume",
+                "/scratch2/results/euler/So2Sat/basic-1600/last_model.pth",
+                "/scratch2/results/euler/So2Sat/basic-1601/last_model.pth",
+                "/scratch2/results/euler/So2Sat/basic-1602/last_model.pth",
+                "/scratch2/results/euler/So2Sat/basic-1603/last_model.pth",
+                "/scratch2/results/euler/So2Sat/basic-1604/last_model.pth",
+            ]
+        },
+        {
             "name": "eval, rwa, ensemble, neckert2, twoheadmethod",
             "type": "python",
             "request": "launch",

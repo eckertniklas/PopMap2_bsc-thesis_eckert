@@ -165,8 +165,8 @@ def builtup_lossfunction(builtupscore, building_segmentation, lam=1.0):
     BCELoss - pytorch
     """
 
-    lossfunction = torch.nn.BCELoss()
+    lossfunction = torch.nn.BCELoss(weight=lam)
 
     loss = lossfunction(builtupscore, building_segmentation)
 
-    return loss * lam
+    return loss

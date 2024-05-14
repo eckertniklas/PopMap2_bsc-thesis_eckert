@@ -28,8 +28,8 @@ if os.name == "nt":  # locally
 # current_dir_path = "/scratch2/metzgern/HAC/code/So2SatPOP/data"
 # So2Sat data folder
 current_dir_paths = [
-    # "/cluster/scratch/neckert/data"
-    "/scratch2/neckert/data"
+    "/cluster/scratch/neckert/data"
+    # "/scratch2/neckert/data"
     # "/scratch/metzgern/HAC/data",
     # "/cluster/work/igp_psr/metzgern/HAC/data",
     # "/cluster/scratch/metzgern/HAC/data/",
@@ -56,8 +56,8 @@ all_patches_mixed_test_part2 = os.path.join(all_patches_mixed_part2, 'test')   #
 
 # Sat2Pop data folder
 large_file_paths = [
-        # "/cluster/scratch/neckert/data"
-        "/scratch2/neckert/data"
+        "/cluster/scratch/neckert/data"
+        # "/scratch2/neckert/data"
         #"/scratch2/neckert/PopMapData",
         #"/scratch/metzgern/HAC/data",
         #"/cluster/work/igp_psr/metzgern/HAC/data",
@@ -69,15 +69,15 @@ for name in large_file_paths:
 if large_file_path is None:
     raise Exception("No data folder found")
 pop_map_root = os.path.join(large_file_path, os.path.join("PopMapData", "processed"))
-pop_map_root_large = os.path.join("/scratch2/neckert/data", os.path.join("PopMapData", "processed"))
+pop_map_root_large = os.path.join("//cluster/scratch/neckert/data", os.path.join("PopMapData", "processed"))
 pop_map_covariates = os.path.join(large_file_path, os.path.join("PopMapData", os.path.join("merged", "EE")))
-pop_map_covariates_large = os.path.join("/scratch2/neckert/data", os.path.join("PopMapData", os.path.join("merged", "EE")))
+pop_map_covariates_large = os.path.join("/cluster/scratch/neckert/data", os.path.join("PopMapData", os.path.join("merged", "EE")))
 print("pop_map_root", pop_map_root)
 
 # raw data folder
 raw_file_paths = [
-        # "/cluster/scratch/neckert/data"
-        "/scratch2/neckert/data",
+        "/cluster/scratch/neckert/data"
+        # "/scratch2/neckert/data",
         #"/scratch/metzgern/HAC/data",
         #"/cluster/work/igp_psr/metzgern/HAC/data",
         #"/cluster/scratch/metzgern"
@@ -94,8 +94,8 @@ print("rawEE_map_root", rawEE_map_root)
 
 # google buildings data folder
 data_paths_aux = [
-        # "/cluster/scratch/neckert/data"
-        "/scratch2/neckert/data",
+        "/cluster/scratch/neckert/data"
+        # "/scratch2/neckert/data",
         #"/scratch2/metzgern/HAC/data",
         #"/cluster/work/igp_psr/metzgern/HAC/data",
         # "/cluster/scratch/metzgern"

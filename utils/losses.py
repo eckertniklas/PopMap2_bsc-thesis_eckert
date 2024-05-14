@@ -148,7 +148,7 @@ def r2(pred, gt, eps=1e-8):
     r2 : tensor
         The R2 score.
 
-    Forumula
+    Formula
     --------
     R2 = 1 - SS_res / SS_tot
     SS_res = sum((gt - pred) ** 2)
@@ -166,7 +166,7 @@ def builtup_lossfunction(builtupscore, building_segmentation, lam=1.0):
     BCELoss - pytorch
     """
 
-    lossfunction = torch.nn.BCELoss(weight=lam)
+    lossfunction = torch.nn.BCELoss(weight=torch.tensor(lam, device="cuda"))
 
     loss = lossfunction(builtupscore, building_segmentation)
 

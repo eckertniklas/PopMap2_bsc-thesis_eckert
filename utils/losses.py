@@ -7,7 +7,7 @@ from collections import defaultdict
 
 def get_loss(output, gt, scale=None,
              loss=["l1_loss"], lam=[1.0],
-             builtuploss=False, lam_bul = [1.0], basicmethod=False, twoheadmethod=False,
+             builtuploss=False, lam_bul = [0.5], basicmethod=False, twoheadmethod=False,
              tag="",
              scale_regularization=0.0,
              ):
@@ -68,9 +68,9 @@ def get_loss(output, gt, scale=None,
     }
 
     if twoheadmethod:
-        metricdict["builtuploss"] = builtup_lossfunction(output["twohead_builtup_score"], gt["building_segmentation"])
+        metricdict["builtuploss"] = torch.nn.functional.binary_cross_entropy(input=output["twohead_builtup_score"], target=gt["building_segmentation"])
     if basicmethod:
-        metricdict["builtuploss"] = builtup_lossfunction(output["builtup_score"], gt["building_segmentation"])
+        metricdict["builtuploss"] = torch.nn.functional.binary_cross_entropy(input=output["builtup_score"], target=gt["building_segmentation"])
 
     # define optimization loss as a weighted sum of the losses
     optimization_loss = torch.tensor(0, device=y_pred.device, dtype=y_pred.dtype)
@@ -104,14 +104,16 @@ def get_loss(output, gt, scale=None,
 
     # call builtup-loss function
     if builtuploss and basicmethod:
-        bu_loss = builtup_lossfunction(output["builtup_score"], gt["building_segmentation"], lam_bul)
+        bu_loss = torch.nn.functional.binary_cross_entropy(input=output["builtup_score"], target=gt["building_segmentation"])
+        # bu_loss = builtup_lossfunction(output["builtup_score"], gt["building_segmentation"], lam_bul)
         # add builtuploss to optimization_loss
-        optimization_loss += bu_loss
+        optimization_loss = (1-lam_bul)*optimization_loss + lam_bul*bu_loss
 
     if builtuploss and twoheadmethod:
-        bu_loss = builtup_lossfunction(output["twohead_builtup_score"], gt["building_segmentation"], lam_bul)
+        bu_loss = torch.nn.functional.binary_cross_entropy(input=output["twohead_builtup_score"], target=gt["building_segmentation"])
+        # bu_loss = builtup_lossfunction(output["twohead_builtup_score"], gt["building_segmentation"], lam_bul)
         # add builtuploss to optimization_loss
-        optimization_loss += bu_loss
+        optimization_loss = (1-lam_bul)*optimization_loss + lam_bul*bu_loss
 
     # prepare for logging
     auxdict["optimization_loss"] =  optimization_loss

@@ -73,7 +73,7 @@ class POMELO_module(nn.Module):
             self.unetmodel = None
             unet_out = 0
         elif feature_extractor=="DDA":
-
+            
             ## load weights from checkpoint
             self.unetmodel, _, _ = load_checkpoint(epoch=30, cfg=dda_cfg, device="cuda", no_disc=True)
 
@@ -85,6 +85,12 @@ class POMELO_module(nn.Module):
                     elif isinstance(m, nn.BatchNorm2d):
                         nn.init.constant_(m.weight, 1)
                         nn.init.constant_(m.bias, 0)
+
+            # set building extractor head with random params
+            if twoheadmethod:
+                nn.init.kaiming_normal_(self.unetmodel.fusion_out_conv.conv.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.constant_(self.unetmodel.fusion_out_conv.conv.bias, 0)
+
                         
             # unet_out = 8*2
             unet_out = self.S1*stage1feats + self.S2*stage1feats
@@ -130,10 +136,6 @@ class POMELO_module(nn.Module):
         print("Head: ",sum(p.numel() for p in self.head.parameters() if p.requires_grad))
         self.num_params += sum(p.numel() for p in self.head.parameters() if p.requires_grad)
         self.num_params += self.unetmodel.num_params if self.unetmodel is not None else 0
-
-        #HACK: change bias for unetmodel.fusion_out_conv
-        # buildinghead_bias = torch.tensor([-3.0])
-        # self.unetmodel.fusion_out_conv.conv.bias = torch.nn.parameter.Parameter(data=buildinghead_bias, requires_grad=True)
 
         # define urban extractor, which is again a dual stream unet
         print("Loading urban extractor")

@@ -2714,7 +2714,7 @@
                 "--buildinginput",
                 "--segmentationinput",
                 "--lambda_builtuploss",
-                "1.0",
+                "0.5",
                 "--twoheadmethod"
             ]
         },
@@ -2748,7 +2748,7 @@
                 "--buildinginput",
                 "--segmentationinput",
                 "--lambda_builtuploss",
-                "1.0",
+                "0.5",
                 "--basicmethod"
             ]
         },

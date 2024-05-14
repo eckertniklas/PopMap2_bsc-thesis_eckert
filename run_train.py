@@ -52,6 +52,11 @@ class Trainer:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
         
+        # change lamda builtuploss to torch tensor
+        if not 0.0 <= self.args.lambda_builtuploss <= 1.0:
+            raise ValueError("--<lambda_builtuploss> argument needs to be between 0.0-1.0")
+        self.args.lambda_builtuploss = torch.tensor(self.args.lambda_builtuploss, device="cuda")
+
         # set up experiment folder
         self.experiment_folder, self.args.expN, self.args.randN = new_log(os.path.join(args.save_dir, "So2Sat"), args)
         self.args.experiment_folder = self.experiment_folder
@@ -79,8 +84,8 @@ class Trainer:
         print("Model", args.model, "; #Effective Params:", args.num_effective_param)
 
         # wandb config
-        wandb.init(project=args.wandb_project, dir=self.experiment_folder, settings=wandb.Settings(_service_wait=300)) #wandb activated
-        # wandb.init(project=args.wandb_project, dir=self.experiment_folder, mode="disabled") #wandb disabled
+        # wandb.init(project=args.wandb_project, dir=self.experiment_folder, settings=wandb.Settings(_service_wait=300)) #wandb activated
+        wandb.init(project=args.wandb_project, dir=self.experiment_folder, mode="disabled") #wandb disabled
         wandb.config.update(self.args)
         wandb.watch(self.model, log='all')  
         

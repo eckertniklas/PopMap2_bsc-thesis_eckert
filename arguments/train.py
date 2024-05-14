@@ -61,7 +61,7 @@ parser.add_argument('-tlevel', '--train_level', nargs='+', default=["coarse"] )
 
 #building-loss add-on
 parser.add_argument("-bul", "--builtuploss", help='', action='store_true')
-parser.add_argument("-lam_bul", "--lambda_builtuploss", type=float, default=1.0, help="")
+parser.add_argument("-lam_bul", "--lambda_builtuploss", type=float, default=0.5, help="")
 parser.add_argument("-thm", "--twoheadmethod", help='', action='store_true')
 parser.add_argument("-bm", "--basicmethod", help='', action='store_true')
 

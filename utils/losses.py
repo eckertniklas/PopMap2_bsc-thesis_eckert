@@ -98,9 +98,9 @@ def get_loss(output, gt, scale=None,
         auxdict = {**auxdict, **{"Population_"+tag+"/"+key: value for key,value in metricdict.items()}}
 
     # log optimloss without builtup for debugging
-    #FIXME: logging problems
     if builtuploss:
-        auxdict["optimization_loss_basic"] =  optimization_loss
+        optimization_loss_basic = torch.clone(optimization_loss)
+        auxdict["optimization_loss_basic"] =  optimization_loss_basic
 
     # call builtup-loss function
     if builtuploss and basicmethod:

@@ -87,9 +87,9 @@ class POMELO_module(nn.Module):
                         nn.init.constant_(m.bias, 0)
 
             # set building extractor head with random params
-            if twoheadmethod:
-                nn.init.kaiming_normal_(self.unetmodel.fusion_out_conv.conv.weight, mode='fan_out', nonlinearity='relu')
-                nn.init.constant_(self.unetmodel.fusion_out_conv.conv.bias, 0)
+            # if twoheadmethod:
+            #     nn.init.kaiming_normal_(self.unetmodel.fusion_out_conv.conv.weight, mode='fan_out', nonlinearity='relu')
+            #     nn.init.constant_(self.unetmodel.fusion_out_conv.conv.bias, 0)
 
                         
             # unet_out = 8*2

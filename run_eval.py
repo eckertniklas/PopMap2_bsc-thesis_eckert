@@ -17,7 +17,7 @@ from shutil import copyfile
 # from arguments import eval_parser
 from arguments.eval import parser as eval_parser
 from data.PopulationDataset_target import Population_Dataset_target
-from utils.metrics import get_test_metrics
+from utils.metrics import get_test_metrics, get_builtup_test_metrics
 from utils.utils import to_cuda_inplace, seed_all
 from model.get_model import get_model_kwargs, model_dict
 from utils.utils import load_json, apply_transformations_and_normalize
@@ -64,6 +64,7 @@ class Trainer:
         
         # wandb config
         wandb.init(project=args.wandb_project, dir=self.args.experiment_folder)
+        # wandb.init(project=args.wandb_project, dir=self.args.experiment_folder, mode="disabled")
         wandb.config.update(self.args)
 
         # seed after initialization
@@ -100,6 +101,8 @@ class Trainer:
                 h, w = testdataloader.dataset.shape()
                 output_map = torch.zeros((h, w), dtype=torch.float32)
                 output_scale_map = torch.zeros((h, w), dtype=torch.float32)
+                output_builtup_map = torch.zeros((h, w), dtype=torch.float32)
+                output_gb_seg_map = torch.zeros((h, w), dtype=torch.float32)
                 output_map_count = torch.zeros((h, w), dtype=torch.int16)
 
                 # if len(self.model) > 1:
@@ -122,6 +125,10 @@ class Trainer:
                     scale = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
                     popdense_squared = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
                     scale_squared = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
+                    #save builtup score for map
+                    built_up_score = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
+                    #save google buildings to evaluete the builtup score
+                    gb_segmentation = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
 
                     # Evaluate each model in the ensemble
                     for i, model in enumerate(self.model):
@@ -132,7 +139,13 @@ class Trainer:
                             if this_output["scale"] is not None:
                                 scale[i] = this_output["scale"][0].cuda()
                                 scale_squared[i] = this_output["scale"][0].to(torch.float32).cuda()**2
-                    
+                        if "builtup_score" in this_output.keys():
+                            if this_output["builtup_score"] is not None:
+                                built_up_score[i] = this_output["builtup_score"][0].cuda()
+                        if "building_segmentation" in sample.keys():
+                            if sample["building_segmentation"] is not None:
+                                gb_segmentation[i] = sample["building_segmentation"][0].cuda()
+
                     output = {
                         "popdensemap": popdense.sum(dim=0, keepdim=True),
                         "popdensemap_squared": popdense_squared.sum(dim=0, keepdim=True)
@@ -141,7 +154,13 @@ class Trainer:
                         if this_output["scale"] is not None:
                             output["scale"] = scale.cuda().sum(dim=0, keepdim=True)
                             output["scale_squared"] = scale_squared.cuda().sum(dim=0, keepdim=True)
-                    
+                    if "builtup_score" in this_output.keys():
+                        if this_output["builtup_score"] is not None:
+                            output["builtup_score"] = built_up_score.cuda().sum(dim=0, keepdim=True)
+                    if "building_segmentation" in this_output.keys():
+                        if this_output["building_segmentation"] is not None:
+                            sample["building_segmentation"] = built_up_score.cuda().sum(dim=0, keepdim=True)
+                                                
                     # save predictions to large map
                     output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu().to(torch.float32)
                     output_map_squared[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap_squared"][0][mask].cpu().to(torch.float32)
@@ -150,6 +169,9 @@ class Trainer:
                         if output["scale"] is not None:
                             output_scale_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale"][0][mask].cpu().to(torch.float32)
                             output_scale_map_squared[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["scale_squared"][0][mask].cpu().to(torch.float32)
+                    if "builtup_score" in output.keys():
+                        if output["builtup_score"] is not None:
+                            output_builtup_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["builtup_score"][0][mask].cpu().to(torch.float32)
 
                     output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += len(self.model)
 
@@ -165,13 +187,17 @@ class Trainer:
                 # calculate the standard deviation from the sum of squares and the mean as "std_dev = math.sqrt((sum_of_squares - n * mean ** 2) / (n - 1))"
                 output_map_squared[div_mask] = torch.sqrt((output_map_squared[div_mask] - (output_map[div_mask] ** 2) * output_map_count[div_mask]) / (output_map_count[div_mask] - 1))
 
-                # mask out values that are not visited of visited exactly once
+                # mask out values that are not visited or visited exactly once
                 if "scale" in output.keys():
                     if output["scale"] is not None:
                         output_scale_map[div_mask] = output_scale_map[div_mask] / output_map_count[div_mask]
 
                         # calculate the standard deviation from the sum of squares and the mean as "std_dev = math.sqrt((sum_of_squares - n * mean ** 2) / (n - 1))"
                         output_scale_map_squared[div_mask] = torch.sqrt((output_scale_map_squared[div_mask] - (output_scale_map[div_mask] ** 2) * output_map_count[div_mask]) / (output_map_count[div_mask] - 1))
+
+                if "builtup_score" in output.keys():
+                    if output["builtup_score"] is not None:
+                        output_builtup_map[div_mask] = output_builtup_map[div_mask] / output_map_count[div_mask]
 
                 # save maps
                 print("saving maps")
@@ -184,7 +210,11 @@ class Trainer:
                         if output["scale"] is not None:
                             testdataloader.dataset.save(output_scale_map, self.experiment_folder, tag="SCALE_{}".format(testdataloader.dataset.region))
                             testdataloader.dataset.save(output_scale_map_squared, self.experiment_folder, tag="SCALE_STD") 
-                
+
+                    if "builtup_score" in output.keys():
+                        if output["builtup_score"] is not None:
+                            testdataloader.dataset.save(output_builtup_map, self.experiment_folder, tag="BUILTUP_{}".format(testdataloader.dataset.region))
+
                 # convert populationmap to census
                 gpu_mode = True
                 for level in testlevels_eval[testdataloader.dataset.region]:
@@ -195,6 +225,9 @@ class Trainer:
                     census_pred, census_gt = testdataloader.dataset.convert_popmap_to_census(output_map, gpu_mode=gpu_mode, level=level, details_to=details_path)
                     this_metrics = get_test_metrics(census_pred, census_gt.float().cuda(), tag="MainCensus_{}_{}".format(testdataloader.dataset.region, level))
                     print(this_metrics)
+                    if self.args.builtuploss:
+                        building_metrics = get_builtup_test_metrics(output_builtup_map, sample['building_segmentation'], tag="MainCensus_{}_{}".format(testdataloader.dataset.region, level))
+                        print(building_metrics)
                     self.target_test_stats = {**self.target_test_stats, **this_metrics}
 
                     # get the metrics for the clearly built up areas
@@ -407,7 +440,7 @@ class Trainer:
         need_asc = ["uga"]
         datasets = {
             "test_target": [ Population_Dataset_target(reg, patchsize=ips, overlap=overlap, sentinelbuildings=args.sentinelbuildings, ascfill=reg in need_asc,
-                                                       fourseasons=self.args.fourseasons, train_level=lvl, **input_defs)
+                                                       fourseasons=self.args.fourseasons, train_level=lvl, **input_defs, builtuploss=args.builtuploss)
                                 for reg,lvl in zip(args.target_regions, args.train_level) ]
         }
         

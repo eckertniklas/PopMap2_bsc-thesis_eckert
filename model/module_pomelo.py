@@ -138,6 +138,7 @@ class POMELO_module(nn.Module):
         self.num_params += self.unetmodel.num_params if self.unetmodel is not None else 0
 
         # define urban extractor, which is again a dual stream unet
+        
         print("Loading urban extractor")
         self.building_extractor, _, _ = load_checkpoint(epoch=30, cfg=dda_cfg, device="cuda", no_disc=True)
         self.building_extractor = self.building_extractor.cuda()
@@ -156,6 +157,7 @@ class POMELO_module(nn.Module):
         """
             - builtuploss = True: activates builtup-loss add-on
         """
+
 
         X = inputs["input"]
 

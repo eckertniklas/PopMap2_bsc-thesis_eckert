@@ -1,7 +1,7 @@
 
 
 import torch
-import torchmetrics
+from torchmetrics.classification import BinaryAccuracy, BinaryPrecision, BinaryRecall, BinaryF1Score
 
 from utils.losses import r2, mape_func
 import torch.nn.functional as F
@@ -27,13 +27,13 @@ def get_test_metrics(pred, y, tag=""):
 # accuracy, precision, recal, f1
 def get_builtup_test_metrics(pred, gt, tag=""):
 
-    binary_pred = torch.where(pred >= 0.5, torch.tensor(1, device=pred.device), torch.tensor(0, device=pred.device))
+    binary_pred = torch.where(pred >= 0.5, torch.tensor(1.0, device=pred.device), torch.tensor(0.0, device=pred.device))
 
     # Initialize metric objects
-    accuracy = torchmetrics.Accuracy().to('cuda')
-    precision = torchmetrics.Precision().to('cuda')
-    recall = torchmetrics.Recall().to('cuda')
-    f1 = torchmetrics.F1().to('cuda')
+    accuracy = BinaryAccuracy().to('cuda')
+    precision = BinaryPrecision().to('cuda')
+    recall = BinaryRecall().to('cuda')
+    f1 = BinaryF1Score().to('cuda')
 
     # Compute metrics
     accuracy_score = accuracy(binary_pred, gt)
@@ -48,3 +48,6 @@ def get_builtup_test_metrics(pred, gt, tag=""):
         'builtup_recall': recall_score.item(),
         'builtup_f1': f1_score.item()
     }
+    metrics = {"Population_" + tag + "/"+key: value for key,value in metrics.items()}
+
+    return metrics

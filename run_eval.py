@@ -128,7 +128,7 @@ class Trainer:
                     #save builtup score for map
                     built_up_score = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
                     #save google buildings to evaluete the builtup score
-                    gb_segmentation = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
+                    # gb_segmentation = torch.zeros((len(self.model), ips, ips), dtype=torch.float32, device="cuda")
 
                     # Evaluate each model in the ensemble
                     for i, model in enumerate(self.model):
@@ -141,10 +141,14 @@ class Trainer:
                                 scale_squared[i] = this_output["scale"][0].to(torch.float32).cuda()**2
                         if "builtup_score" in this_output.keys():
                             if this_output["builtup_score"] is not None:
-                                built_up_score[i] = this_output["builtup_score"][0].cuda()
+                                if self.args.twoheadmethod:
+                                    built_up_score[i] = this_output["twohead_builtup_score"][0].cuda()
+                                else:
+                                    built_up_score[i] = this_output["builtup_score"][0].cuda()
                         if "building_segmentation" in sample.keys():
                             if sample["building_segmentation"] is not None:
-                                gb_segmentation[i] = sample["building_segmentation"][0].cuda()
+                                # gb_segmentation[i] = sample["building_segmentation"][0].cuda()
+                                gb_seg = sample["building_segmentation"][0].cuda()
 
                     output = {
                         "popdensemap": popdense.sum(dim=0, keepdim=True),
@@ -157,9 +161,8 @@ class Trainer:
                     if "builtup_score" in this_output.keys():
                         if this_output["builtup_score"] is not None:
                             output["builtup_score"] = built_up_score.cuda().sum(dim=0, keepdim=True)
-                    if "building_segmentation" in this_output.keys():
-                        if this_output["building_segmentation"] is not None:
-                            sample["building_segmentation"] = built_up_score.cuda().sum(dim=0, keepdim=True)
+                    if "building_segmentation" in sample.keys():
+                        output["building_segmentation"] = gb_seg.cuda()
                                                 
                     # save predictions to large map
                     output_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["popdensemap"][0][mask].cpu().to(torch.float32)
@@ -172,6 +175,12 @@ class Trainer:
                     if "builtup_score" in output.keys():
                         if output["builtup_score"] is not None:
                             output_builtup_map[xl:xl+ips, yl:yl+ips][mask.cpu()] += output["builtup_score"][0][mask].cpu().to(torch.float32)
+                    if "building_segmentation" in output.keys():
+                        if output["building_segmentation"] is not None:
+                            if output["building_segmentation"][0].max() > 1.0:
+                                print("non binary value detected")
+                            else:
+                                output_gb_seg_map[xl:xl+ips, yl:yl+ips][mask.cpu()] = output["building_segmentation"][0][mask].cpu().to(torch.float32) #change += to =
 
                     output_map_count[xl:xl+ips, yl:yl+ips][mask.cpu()] += len(self.model)
 
@@ -226,7 +235,7 @@ class Trainer:
                     this_metrics = get_test_metrics(census_pred, census_gt.float().cuda(), tag="MainCensus_{}_{}".format(testdataloader.dataset.region, level))
                     print(this_metrics)
                     if self.args.builtuploss:
-                        building_metrics = get_builtup_test_metrics(output_builtup_map, sample['building_segmentation'], tag="MainCensus_{}_{}".format(testdataloader.dataset.region, level))
+                        building_metrics = get_builtup_test_metrics(output_builtup_map, output_gb_seg_map, tag="MainCensus_{}_{}".format(testdataloader.dataset.region, level))
                         print(building_metrics)
                     self.target_test_stats = {**self.target_test_stats, **this_metrics}
 

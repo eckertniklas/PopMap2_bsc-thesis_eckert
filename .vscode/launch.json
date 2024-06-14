@@ -2553,10 +2553,11 @@
                 "--basicmethod",
                 "--resume",
                 // "/scratch2/results/euler/basic/basic-adduploss/basic-1600/last_model.pth",
-                "/scratch2/results/euler/basic/basic-adduploss/basic-1601/last_model.pth",
+                // "/scratch2/results/euler/basic/basic-adduploss/basic-1601/last_model.pth",
                 // "/scratch2/results/euler/basic/basic-adduploss/basic-1602/last_model.pth",
                 // "/scratch2/results/euler/basic/basic-adduploss/basic-1603/last_model.pth",
                 // "/scratch2/results/euler/basic/basic-adduploss/basic-1604/last_model.pth",
+                "/scratch2/results/euler/basic/basic-10/last_model.pth",
             ]
         },
         {
@@ -2580,7 +2581,7 @@
                 "--segmentationinput",
                 "--twoheadmethod",
                 "--resume",
-                "/scratch2/results/euler/twohead/untrained-head/untrained-10/last_model.pth",
+                "/scratch2/results/euler/twohead/untrained-head/lambda_bu_05/1e-8/last_model.pth",
             ]
         },        
         {

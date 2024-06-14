@@ -31,6 +31,15 @@
 > #### 💡 **TL;DR**
 > **POPCORN** is a lightweight population mapping method using free satellite images and minimal data, surpassing existing accuracy and providing interpretable maps for tracking population changes in data-scarce regions.
 
+### 🎓 **Scaling Up Population Mapping Methods by using Building Footprints as Proxy Learned Variables**
+<div style="border: 1px solid #ddd; padding: 10px; margin-top: 10px; border-radius: 5px;">
+  <strong>BuiltUp Loss Add-On</strong>
+
+  This **Bachelor Thesis** focuses on training the BuiltUp extractor with a location specific building dataset in order to fine-tune the network to local architectural styles and materials.
+
+  This README has been addapted from the original codebase. It is still possible to use the original codebase by itself, just ignore the outlined boxes. If you want to use the BuiltUp loss add-on just factor in these boxes.
+</div>
+
 ### Abstract 🔍 
 Detailed population maps play an important role in diverse fields ranging from humanitarian action to urban planning. 
 Generating such maps in a timely and scalable manner presents a challenge, especially in data-scarce regions.
@@ -69,6 +78,22 @@ The core of our method is a neural network model, termed POPCORN. That model has
 The model operates at the full Sentinel-1/-2 resolution, i.e., its output has a nominal spatial resolution of 10m. However, for the final product and evaluation, we recommend aggregating the raw output to a 1ha (100x100m) grid, as done for the evaluation of the paper.
 
 ![Graphical Abstract](imgs/graphical_abstract_v17.jpg)
+
+<div style="border: 1px solid #ddd; padding: 10px; margin-top: 10px; border-radius: 5px;">
+  <strong>BuiltUp Loss Add-On</strong>
+
+  If you activate on of the add-on feature the model architecture will change to the following:
+  <ul>
+  <strong>Basic-Architecture</strong>
+
+  ![Graphical Abstract](imgs/basicmethod.png)
+
+  <strong>TwoHeadMethod</strong>
+  ![Graphical Abstract](imgs/twoheadmethod.png)
+
+  </ul>
+  For more detailed information on how the architectures were chosen and implemented please consult the Bachelor-Thesis-Paper.
+</div>
 
 ## Setup 🔧💾
 
@@ -135,11 +160,35 @@ PopMapData/
             └── ...
 ```
 
+<div style="border: 1px solid #ddd; padding: 10px; margin-top: 10px; border-radius: 5px;">
+  <strong>BuiltUp Loss Add-On</strong>
+
+  The preprocessed OpenBuildings used for the loss function can be downloaded [here](https://drive.google.com/drive/folders/17VW-WlLIt1VZSr-DhOswW-WbFV0-4QwB?usp=sharing).
+</div>
+
 ## Testing 🧪🗺️
 
 ### Checkpoints 💾
 
 Checkpoints can be downloaded from [here](https://drive.google.com/drive/folders/1rOHSZmAQLzM1HwTv3PooqApggTq_rCr0?usp=sharing).
+
+<div style="border: 1px solid #ddd; padding: 10px; margin-top: 10px; border-radius: 5px;">
+  <strong>BuiltUp Loss Add-On</strong>
+
+  BuiltUpLoss checkpoints can be downloaded from [here](https://drive.google.com/drive/folders/1BSh-Tp6vX8hTHSPWL1XWeS1diRS6Fs1H?usp=sharing).
+```
+BuiltUpLoss_checkpoint/
+├── basic/
+│   ├── basic-[λ_bu] -> 04 <-> λ_bu = 0.4 (40%)
+└── twohead/
+    ├── pretrained-head
+    │   └──pretrained-[λ_bu]
+    ├── untrained-head
+        ├──untrained-[λ_bu]
+        └──lambda_bu_05
+            └── [wd] -> test of different weightdecays
+```
+</div>
 
 ### Inference 🚀📊⚖️ 
 
@@ -151,8 +200,36 @@ python run_eval.py -occmodel -senbuilds -S2 -NIR -S1 -treg <inference dataset na
     /path/to/model2/last_model.pth \
     ....
 ```
-
 ...
+
+<div style="border: 1px solid #ddd; padding: 10px; margin-top: 10px; border-radius: 5px;">
+  <strong>BuiltUp Loss Add-On</strong>
+  <ul>
+  <strong>Basic-Architecture</strong>
+  
+  ```
+  python run_eval.py -occmodel -senbuilds -S2 -NIR -S1 -treg <inference dataset name> --fourseasons --builtuploss --buildinginput --segmentationinput --basicmethod\
+  --resume \
+    /path/to/model1/last_model.pth \
+    /path/to/model2/last_model.pth \
+    ....
+```
+
+
+  <strong>TwoHead-Architecture</strong>
+
+  ```
+  python run_eval.py -occmodel -senbuilds -S2 -NIR -S1 -treg <inference dataset name> --fourseasons --builtuploss --buildinginput --segmentationinput --twoheadmethod\
+  --resume \
+    /path/to/model1/last_model.pth \
+    /path/to/model2/last_model.pth \
+    ....
+  ```
+  </ul>
+  
+</div>
+
+
 
 ## Training 🏋️‍♂️ 
 
@@ -175,6 +252,24 @@ Train Rwanda 2022 real census:
 ```
 python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 -occmodel -wd 0.00001 -senbuilds -pret --biasinit 0.9407  --save-dir <your/save/dir>
 ```
+
+<div style="border: 1px solid #ddd; padding: 10px; margin-top: 10px; border-radius: 5px;">
+  <strong>BuiltUp Loss Add-On</strong>
+  <ul>
+  <strong>Basic-Architecture</strong>
+  
+  ```
+  python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa --seed 1600 -occmodel -wd 0.0000001 -senbuilds -pret --biasinit 0.9407  --save-dir <your/save/dir> --builtuploss --buildinginput --segmentationinput --basicmethod --lambda_builtuploss 0.5
+  ```
+
+
+  <strong>TwoHead-Architecture</strong>
+  ```
+  python run_train.py -S2 -NIR -S1 -treg rwa -tregtrain rwa2022 --seed 1600 -occmodel -wd 0.0000001 -senbuilds -pret --biasinit 0.9407  --save-dir <your/save/dir> --builtuploss --buildinginput --segmentationinput --twoheadmethod --lambda_builtuploss 0.5
+  ```
+  </ul>
+  
+</div>
 
 ## Recompute the dataset
 
